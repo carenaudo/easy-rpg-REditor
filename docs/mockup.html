@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyRPG RFEditor</title>
+<style>
+:root {
+  --chrome-0: #16202a;
+  --chrome-1: #1c2833;
+  --chrome-2: #22303d;
+  --line: #2d3d4c;
+  --text: #e2eaf1;
+  --muted: #93a5b5;
+  --accent: #e8770f;
+  --ok: #45b04f;
+  --map-green: #3fa845;
+  --water: #1d5fbe;
+  --event: #3b8a6e;
+  --event-alt: #5a9fd4;
+  --radius: 4px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--chrome-0);
+  color: var(--text);
+  font: 13px/1.35 "Segoe UI", Inter, system-ui, sans-serif;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 1. Header / Window Bar */
+.titlebar {
+  height: 32px;
+  background: var(--chrome-0);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.titlebar .doc { color: var(--muted); }
+.titlebar .doc b { color: var(--text); }
+.titlebar .dirty { color: var(--accent); margin-left: 4px; }
+.win-btns { margin-left: auto; display: flex; height: 100%; }
+.win-btns button { width: 36px; color: var(--muted); }
+.win-btns button:hover { background: var(--chrome-2); color: var(--text); }
+.win-btns button.close:hover { background: #c0392b; color: #fff; }
+
+/* 2. Global Menu & Mode Bar */
+.menubar {
+  height: 36px;
+  background: var(--chrome-1);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  flex: 0 0 auto;
+}
+.mitem { padding: 4px 8px; border-radius: var(--radius); color: var(--text); }
+.mitem:hover { background: var(--chrome-2); }
+.sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+
+.modes {
+  display: flex;
+  background: var(--chrome-0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px;
+  gap: 2px;
+}
+.modes button { padding: 3px 10px; border-radius: 3px; color: var(--muted); font-size: 12px; }
+.modes button:hover { color: var(--text); }
+.modes button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+
+.play {
+  margin-left: 6px; padding: 4px 10px; border-radius: var(--radius);
+  background: var(--ok); color: #0d2010; font-weight: 600; font-size: 12px;
+}
+.play:hover { filter: brightness(1.08); }
+.right-prefs { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.icon-btn { width: 28px; height: 26px; border-radius: var(--radius); color: var(--muted); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--chrome-2); color: var(--text); }
+
+/* 3. Map Editing Toolbar */
+.toolbar {
+  height: 38px;
+  background: var(--chrome-1);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  flex: 0 0 auto;
+}
+.group { display: flex; align-items: center; gap: 2px; }
+.group.boxed { background: var(--chrome-0); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px; }
+.glabel { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 0 4px; }
+.seg-btn {
+  padding: 4px 8px; border-radius: 3px; color: var(--muted); font-size: 12px;
+}
+.seg-btn:hover { color: var(--text); background: var(--chrome-2); }
+.seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+
+.tool { width: 28px; height: 26px; border-radius: 3px; display: grid; place-items: center; color: var(--text); }
+.tool:hover { background: var(--chrome-2); }
+.tool[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.toggle { padding: 4px 8px; border-radius: 3px; color: var(--muted); display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.toggle:hover { background: var(--chrome-2); color: var(--text); }
+.toggle[aria-pressed="true"] { color: var(--text); }
+.toggle .dot { width: 7px; height: 7px; border-radius: 2px; border: 1px solid var(--muted); }
+.toggle[aria-pressed="true"] .dot { background: var(--ok); border-color: var(--ok); }
+
+.save-btn {
+  margin-left: auto; padding: 4px 10px; border-radius: var(--radius);
+  border: 1px solid var(--accent); color: var(--accent); font-weight: 600; font-size: 12px;
+}
+.save-btn:hover { background: var(--accent); color: #fff; }
+
+/* 4. Body Layout */
+.body-container {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+/* Left Resizable Dock */
+.dock-left {
+  width: 260px;
+  min-width: 180px;
+  max-width: 450px;
+  background: var(--chrome-1);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+.pane { display: flex; flex-direction: column; min-height: 0; }
+.pane-head {
+  height: 28px; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 0 8px;
+  background: var(--chrome-1); border-bottom: 1px solid var(--line);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+.pane-head .count { color: var(--muted); opacity: .8; }
+.pane-head .acts { margin-left: auto; display: flex; gap: 2px; }
+.pane-head .acts button { width: 20px; height: 18px; border-radius: 3px; color: var(--muted); display: grid; place-items: center; }
+.pane-head .acts button:hover { background: var(--chrome-2); color: var(--text); }
+
+.search { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.search input {
+  width: 100%; background: var(--chrome-0); color: var(--text); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 3px 6px; font: inherit; font-size: 12px;
+}
+.tree { padding: 4px; overflow-y: auto; flex: 1 1 auto; }
+.node { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: var(--radius); color: var(--text); width: 100%; text-align: left; font-size: 12px; }
+.node:hover { background: var(--chrome-2); }
+.node[aria-selected="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+.node .id { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.node[aria-selected="true"] .id { color: #ffd9b8; }
+.node .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d1 { padding-left: 14px; } .d2 { padding-left: 26px; }
+
+.v-splitter {
+  height: 5px; flex: 0 0 auto; background: var(--chrome-1);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  cursor: row-resize; display: grid; place-items: center;
+}
+.v-splitter::after { content: ""; width: 24px; height: 2px; background: var(--line); border-radius: 1px; }
+.v-splitter:hover::after { background: var(--accent); }
+
+.chipset-row { padding: 4px 6px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; align-items: center; }
+select {
+  flex: 1; background: var(--chrome-0); color: var(--text); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 3px 6px; font: inherit; font-size: 12px;
+}
+.palette-wrap { overflow-y: auto; flex: 1 1 auto; padding: 6px; }
+.palette-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+.palette-grid i { aspect-ratio: 1; border-radius: 1px; display: block; }
+.palette-grid i.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Central Map Viewport */
+.canvas-wrap {
+  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--chrome-0);
+  position: relative;
+}
+.canvas-pad { padding: 16px; display: inline-block; min-width: 100%; }
+.map {
+  position: relative; width: 1200px; height: 600px;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 1px, transparent 1px 32px),
+    linear-gradient(90deg, var(--map-green) 0 66.5%, var(--water) 66.5% 100%);
+  box-shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(0,0,0,.45);
+}
+.ev {
+  position: absolute; height: 30px; min-width: 30px; padding: 0 4px; border-radius: 3px;
+  background: var(--event); border: 1px solid rgba(255,255,255,.55);
+  color: #fff; font-size: 11px; display: grid; place-items: center; font-weight: 600;
+}
+.ev.b { background: var(--event-alt); }
+.ev.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 5. Status Bar with Zoom and Info */
+.status {
+  height: 26px;
+  background: var(--chrome-1);
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+.status span { padding: 0 10px; border-right: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.status span:first-child { padding-left: 0; }
+.status span:last-child { border-right: 0; }
+.status b { color: var(--text); font-weight: 600; }
+.status-zoom { margin-left: auto; display: flex; align-items: center; gap: 6px; padding-left: 10px; }
+.status-zoom input[type=range] { width: 80px; accent-color: var(--accent); }
+.status-zoom output { min-width: 40px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+  <!-- Top Title Bar -->
+  <header class="titlebar">
+    <span>⚙</span>
+    <span class="doc" style="margin-left: 8px;">EasyRPG RFEditor — <b>Proyecto Demo</b> · 0004: Generate Dungeon<span class="dirty" title="Cambios sin guardar">●</span></span>
+    <div class="win-btns">
+      <button>—</button><button>▢</button><button class="close">✕</button>
+    </div>
+  </header>
+
+  <!-- Global Project Navigation -->
+  <nav class="menubar">
+    <button class="mitem">Proyecto ▾</button>
+    <button class="mitem">Editar ▾</button>
+    <button class="mitem">Recursos ▾</button>
+    <button class="mitem">Herramientas ▾</button>
+    <button class="mitem">Ayuda ▾</button>
+    <span class="sep"></span>
+
+    <div class="modes" role="group" aria-label="Modo de edición">
+      <button aria-pressed="true">Mapas</button>
+      <button aria-pressed="false">Base de datos</button>
+      <button aria-pressed="false">Partidas</button>
+    </div>
+
+    <button class="play">▶ Probar juego <span style="opacity:.7">F9</span></button>
+
+    <div class="right-prefs">
+      <button class="icon-btn" title="Idioma: Español">🌐</button>
+      <button class="icon-btn" title="Tema: Orange">🎨</button>
+      <button class="icon-btn" title="RTP: Light">📦</button>
+      <button class="icon-btn" title="Preferencias">⚙</button>
+    </div>
+  </nav>
+
+  <!-- Map Edit Action Bar -->
+  <div class="toolbar" role="toolbar" aria-label="Herramientas de mapa">
+    <!-- Layer Selectors (F5/F6/F7) -->
+    <span class="glabel">Capa</span>
+    <div class="group boxed" id="layer-group">
+      <button class="seg-btn" aria-pressed="true" data-layer="Inferior">Inferior (F5)</button>
+      <button class="seg-btn" aria-pressed="false" data-layer="Superior">Superior (F6)</button>
+      <button class="seg-btn" aria-pressed="false" data-layer="Eventos">Eventos (F7)</button>
+    </div>
+
+    <span class="sep"></span>
+
+    <!-- Drawing Tools -->
+    <span class="glabel">Herramienta</span>
+    <div class="group boxed" id="tool-group">
+      <button class="tool" aria-pressed="true" title="Lápiz (B)">
+        <svg viewBox="0 0 24 24"><path d="M4 20l4-1 10-10-3-3L5 16z"/><path d="M14 6l3 3"/></svg>
+      </button>
+      <button class="tool" aria-pressed="false" title="Rectángulo (R)">
+        <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg>
+      </button>
+      <button class="tool" aria-pressed="false" title="Círculo (C)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>
+      </button>
+      <button class="tool" aria-pressed="false" title="Relleno (F)">
+        <svg viewBox="0 0 24 24"><path d="M5 12l7-7 7 7-7 7z"/><path d="M19 15c1.2 1.6 1.2 3-.3 3s-1.5-1.4-.3-3"/></svg>
+      </button>
+      <button class="tool" aria-pressed="false" title="Cuentagotas (I)">
+        <svg viewBox="0 0 24 24"><path d="M15 4l5 5-9 9-5 1 1-5z"/><path d="M13 6l5 5"/></svg>
+      </button>
+    </div>
+
+    <span class="sep"></span>
+
+    <!-- View Layer Toggles -->
+    <div class="group" id="views">
+      <button class="toggle" aria-pressed="true"><span class="dot"></span>Cuadrícula</button>
+      <button class="toggle" aria-pressed="false"><span class="dot"></span>Pasabilidad</button>
+      <button class="toggle" aria-pressed="false"><span class="dot"></span>Atenuar capas</button>
+    </div>
+
+    <span class="sep"></span>
+
+    <!-- History -->
+    <div class="group">
+      <button class="tool" title="Deshacer (Ctrl+Z)">↶</button>
+      <button class="tool" title="Rehacer (Ctrl+Y)" style="opacity:.4">↷</button>
+    </div>
+
+    <button class="save-btn">Guardar mapa <span style="opacity:.7;font-weight:400">Ctrl+S</span></button>
+  </div>
+
+  <!-- Central Work Area -->
+  <div class="body-container">
+    <!-- Left Workspace: Map Tree Top, Tileset Palette Bottom (RM2k style) -->
+    <aside class="dock-left">
+      <!-- 1. Map Tree Pane -->
+      <section class="pane" style="height: 40%; min-height: 120px;" id="tree-pane">
+        <div class="pane-head">
+          Mapas <span class="count">22</span>
+          <div class="acts">
+            <button title="Nuevo mapa">＋</button>
+            <button title="Nueva carpeta">🗀</button>
+          </div>
+        </div>
+        <div class="search"><input placeholder="Buscar mapa…"></div>
+        <div class="tree">
+          <button class="node"><span class="id">0000</span><span class="nm">RPG Maker 2003 Test suite</span></button>
+          <button class="node d1"><span class="id">0001</span><span class="nm">Map events</span></button>
+          <button class="node d1"><span class="id">0002</span><span class="nm">Picture events</span></button>
+          <button class="node d1"><span class="id">0003</span><span class="nm">Dungeon Road</span></button>
+          <button class="node d2" aria-selected="true"><span class="id">0004</span><span class="nm">Generate Dungeon</span></button>
+          <button class="node d1"><span class="id">0005</span><span class="nm">Battle Test</span></button>
+          <button class="node d1"><span class="id">0006</span><span class="nm">Dungeon Room</span></button>
+          <button class="node d1"><span class="id">0007</span><span class="nm">Dungeon Maze</span></button>
+        </div>
+      </section>
+
+      <!-- Draggable Splitter -->
+      <div class="v-splitter" title="Arrastrar para ajustar altura"></div>
+
+      <!-- 2. Tileset Palette Pane -->
+      <section class="pane" style="flex: 1 1 auto;" id="palette-pane">
+        <div class="pane-head">
+          Paleta (Chipset)
+          <div class="acts"><button title="Ajustar escala">⤢</button></div>
+        </div>
+        <div class="chipset-row">
+          <select aria-label="Chipset">
+            <option>0001: World Map</option>
+            <option>0002: Dungeon</option>
+            <option>0003: Interior</option>
+          </select>
+        </div>
+        <div class="palette-wrap">
+          <div class="palette-grid" id="pal"></div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Canvas (Full viewport width) -->
+    <main class="canvas-wrap" id="viewport">
+      <div class="canvas-pad">
+        <div class="map" id="map">
+          <div class="ev" style="left:64px;top:96px">E22</div>
+          <div class="ev b" style="left:96px;top:96px">E16</div>
+          <div class="ev b" style="left:128px;top:96px">E17</div>
+          <div class="ev b" style="left:160px;top:96px">E18</div>
+          <div class="ev b" style="left:192px;top:96px">E19</div>
+          <div class="ev b" style="left:224px;top:96px">E20</div>
+          <div class="ev b" style="left:256px;top:96px">E21</div>
+          <div class="ev" style="left:384px;top:96px">E28</div>
+          <div class="ev sel" style="left:576px;top:96px">E23</div>
+          <div class="ev" style="left:64px;top:176px">E2</div>
+          <div class="ev b" style="left:608px;top:224px">E25</div>
+          <div class="ev" style="left:640px;top:224px">E27</div>
+          <div class="ev b" style="left:672px;top:224px">E24</div>
+          <div class="ev b" style="left:704px;top:224px">E26</div>
+          <div class="ev" style="left:416px;top:256px">E29</div>
+          <div class="ev b" style="left:176px;top:336px">E4</div>
+          <div class="ev b" style="left:208px;top:336px">E8</div>
+          <div class="ev b" style="left:576px;top:416px">E5</div>
+          <div class="ev" style="left:608px;top:416px">E6</div>
+          <div class="ev b" style="left:640px;top:416px">E7</div>
+          <div class="ev" style="left:416px;top:528px">E9</div>
+          <div class="ev b" style="left:448px;top:528px">E10</div>
+          <div class="ev b" style="left:480px;top:528px">E11</div>
+          <div class="ev b" style="left:512px;top:528px">E12</div>
+          <div class="ev b" style="left:544px;top:528px">E13</div>
+          <div class="ev b" style="left:576px;top:528px">E14</div>
+          <div class="ev b" style="left:608px;top:528px">E15</div>
+          <div class="ev" style="left:16px;top:560px">E1</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Status Bar -->
+  <footer class="status">
+    <span>Cursor <b id="cur">—</b></span>
+    <span>Mapa <b>40 × 30</b></span>
+    <span>Capa <b id="scap">Inferior</b></span>
+    <span>Herramienta <b id="stool">Lápiz</b></span>
+    <span>Tile <b id="stile">#5000</b></span>
+    <span>Eventos <b>28 / 999</b></span>
+    <div class="status-zoom">
+      <button class="tool" id="zout" style="width:20px;height:20px;">−</button>
+      <input type="range" id="zoom" min="50" max="400" step="25" value="200" aria-label="Zoom">
+      <button class="tool" id="zin" style="width:20px;height:20px;">+</button>
+      <output id="zval">200%</output>
+    </div>
+  </footer>
+
+  <script>
+    // Mock Swatches for Tile Palette
+    const swatches = ["#8a5a2b","#7a4c22","#6b6f74","#565b60","#a03c3c","#7d2f2f","#2f7d78","#276a66",
+                      "#4a6b8a","#3c5a75","#6d8a4a","#5a7540","#8a7a4a","#75663c","#5c5c5c","#474747"];
+    const pal = document.getElementById('pal');
+    for (let i = 0; i < 96; i++) {
+      const s = document.createElement('i');
+      s.style.background = swatches[(i * 7 + Math.floor(i / 6)) % swatches.length];
+      if (i === 14) s.className = 'sel';
+      s.onclick = () => {
+        document.querySelectorAll('.palette-grid i').forEach(x => x.classList.remove('sel'));
+        s.classList.add('sel');
+        document.getElementById('stile').textContent = '#' + (5000 + i);
+      };
+      pal.appendChild(s);
+    }
+
+    // Layer Switcher (F5 / F6 / F7)
+    document.querySelectorAll('#layer-group .seg-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('#layer-group .seg-btn').forEach(x => x.setAttribute('aria-pressed', 'false'));
+        btn.setAttribute('aria-pressed', 'true');
+        document.getElementById('scap').textContent = btn.getAttribute('data-layer');
+      };
+    });
+
+    // Tool Switcher
+    const toolNames = ["Lápiz", "Rectángulo", "Círculo", "Relleno", "Cuentagotas"];
+    document.querySelectorAll('#tool-group .tool').forEach((btn, i) => {
+      btn.onclick = () => {
+        document.querySelectorAll('#tool-group .tool').forEach(x => x.setAttribute('aria-pressed', 'false'));
+        btn.setAttribute('aria-pressed', 'true');
+        document.getElementById('stool').textContent = toolNames[i];
+      };
+    });
+
+    // View Toggles
+    document.querySelectorAll('#views .toggle').forEach(btn => {
+      btn.onclick = () => {
+        const active = btn.getAttribute('aria-pressed') === 'true';
+        btn.setAttribute('aria-pressed', !active);
+      };
+    });
+
+    // Tree Selection
+    document.querySelectorAll('.tree .node').forEach(node => {
+      node.onclick = () => {
+        document.querySelectorAll('.tree .node').forEach(x => x.setAttribute('aria-selected', 'false'));
+        node.setAttribute('aria-selected', 'true');
+      };
+    });
+
+    // Cursor tracking
+    document.getElementById('map').addEventListener('mousemove', e => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const zoomRatio = (+document.getElementById('zoom').value) / 100;
+      const x = Math.floor((e.clientX - r.left) / (32 * (zoomRatio / 2)));
+      const y = Math.floor((e.clientY - r.top) / (32 * (zoomRatio / 2)));
+      document.getElementById('cur').textContent = `${x}, ${y}`;
+    });
+    document.getElementById('map').addEventListener('mouseleave', () => {
+      document.getElementById('cur').textContent = '—';
+    });
+
+    // Zoom Handling
+    const z = document.getElementById('zoom');
+    const zv = document.getElementById('zval');
+    const setZoom = v => {
+      z.value = v;
+      zv.textContent = v + '%';
+      document.getElementById('map').style.transform = `scale(${v / 200})`;
+      document.getElementById('map').style.transformOrigin = '0 0';
+    };
+    z.oninput = () => setZoom(+z.value);
+    document.getElementById('zin').onclick = () => setZoom(Math.min(400, +z.value + 25));
+    document.getElementById('zout').onclick = () => setZoom(Math.max(50, +z.value - 25));
+  </script>
+</body>
+</html>

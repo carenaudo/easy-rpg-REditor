@@ -1,0 +1,15 @@
+pub mod actors;
+pub mod classes;
+pub mod items;
+pub mod skills;
+pub mod attributes;
+pub mod enemies;
+pub mod troops;
+pub mod common_events;
+pub mod switches_vars;
+pub mod system;
+pub mod terms;
+pub mod chipsets;
+pub mod states;
+pub mod terrains;
+pub mod animations;

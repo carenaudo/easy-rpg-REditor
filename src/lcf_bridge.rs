@@ -679,7 +679,7 @@ pub struct TermsInfo {
     pub battle_start: String,
     pub miss: String,
 
-    // Shop & Inn
+    // Shop 1
     pub shop_greeting1: String,
     pub shop_regreeting1: String,
     pub shop_buy1: String,
@@ -691,9 +691,76 @@ pub struct TermsInfo {
     pub shop_sell_select1: String,
     pub shop_sell_number1: String,
     pub shop_sold1: String,
+
+    // Shop 2
+    pub shop_greeting2: String,
+    pub shop_regreeting2: String,
+    pub shop_buy2: String,
+    pub shop_sell2: String,
+    pub shop_leave2: String,
+    pub shop_buy_select2: String,
+    pub shop_buy_number2: String,
+    pub shop_purchased2: String,
+    pub shop_sell_select2: String,
+    pub shop_sell_number2: String,
+    pub shop_sold2: String,
+
+    // Shop 3
+    pub shop_greeting3: String,
+    pub shop_regreeting3: String,
+    pub shop_buy3: String,
+    pub shop_sell3: String,
+    pub shop_leave3: String,
+    pub shop_buy_select3: String,
+    pub shop_buy_number3: String,
+    pub shop_purchased3: String,
+    pub shop_sell_select3: String,
+    pub shop_sell_number3: String,
+    pub shop_sold3: String,
+
+    // Inn A
     pub inn_a_greeting_1: String,
+    pub inn_a_greeting_2: String,
+    pub inn_a_greeting_3: String,
     pub inn_a_accept: String,
     pub inn_a_cancel: String,
+
+    // Inn B
+    pub inn_b_greeting_1: String,
+    pub inn_b_greeting_2: String,
+    pub inn_b_greeting_3: String,
+    pub inn_b_accept: String,
+    pub inn_b_cancel: String,
+
+    // Maniac Patch Terms
+    pub maniac_item_received_a: String,
+    pub maniac_level_up_a: String,
+    pub maniac_level_up_b: String,
+    pub maniac_level_up_c: String,
+    pub maniac_exp_received_a: String,
+    pub maniac_skill_learned_a: String,
+
+    // EasyRPG Extended Terms
+    pub easyrpg_item_number_separator: String,
+    pub easyrpg_skill_cost_separator: String,
+    pub easyrpg_equipment_arrow: String,
+    pub easyrpg_status_scene_name: String,
+    pub easyrpg_status_scene_class: String,
+    pub easyrpg_status_scene_title: String,
+    pub easyrpg_status_scene_condition: String,
+    pub easyrpg_status_scene_front: String,
+    pub easyrpg_status_scene_back: String,
+    pub easyrpg_order_scene_confirm: String,
+    pub easyrpg_order_scene_redo: String,
+    pub easyrpg_battle2k3_double_attack: String,
+    pub easyrpg_battle2k3_defend: String,
+    pub easyrpg_battle2k3_observe: String,
+    pub easyrpg_battle2k3_charge: String,
+    pub easyrpg_battle2k3_selfdestruct: String,
+    pub easyrpg_battle2k3_escape: String,
+    pub easyrpg_battle2k3_special_combat_back: String,
+    pub easyrpg_battle2k3_skill: String,
+    pub easyrpg_battle2k3_item: String,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -2133,6 +2200,8 @@ pub fn get_terms(path: &str) -> Option<TermsInfo> {
         skill_learned: t.skill_learned.0.clone(),
         battle_start: t.battle_start.0.clone(),
         miss: t.miss.0.clone(),
+
+        // Shop 1
         shop_greeting1: t.shop_greeting1.0.clone(),
         shop_regreeting1: t.shop_regreeting1.0.clone(),
         shop_buy1: t.shop_buy1.0.clone(),
@@ -2144,9 +2213,76 @@ pub fn get_terms(path: &str) -> Option<TermsInfo> {
         shop_sell_select1: t.shop_sell_select1.0.clone(),
         shop_sell_number1: t.shop_sell_number1.0.clone(),
         shop_sold1: t.shop_sold1.0.clone(),
+
+        // Shop 2
+        shop_greeting2: t.shop_greeting2.0.clone(),
+        shop_regreeting2: t.shop_regreeting2.0.clone(),
+        shop_buy2: t.shop_buy2.0.clone(),
+        shop_sell2: t.shop_sell2.0.clone(),
+        shop_leave2: t.shop_leave2.0.clone(),
+        shop_buy_select2: t.shop_buy_select2.0.clone(),
+        shop_buy_number2: t.shop_buy_number2.0.clone(),
+        shop_purchased2: t.shop_purchased2.0.clone(),
+        shop_sell_select2: t.shop_sell_select2.0.clone(),
+        shop_sell_number2: t.shop_sell_number2.0.clone(),
+        shop_sold2: t.shop_sold2.0.clone(),
+
+        // Shop 3
+        shop_greeting3: t.shop_greeting3.0.clone(),
+        shop_regreeting3: t.shop_regreeting3.0.clone(),
+        shop_buy3: t.shop_buy3.0.clone(),
+        shop_sell3: t.shop_sell3.0.clone(),
+        shop_leave3: t.shop_leave3.0.clone(),
+        shop_buy_select3: t.shop_buy_select3.0.clone(),
+        shop_buy_number3: t.shop_buy_number3.0.clone(),
+        shop_purchased3: t.shop_purchased3.0.clone(),
+        shop_sell_select3: t.shop_sell_select3.0.clone(),
+        shop_sell_number3: t.shop_sell_number3.0.clone(),
+        shop_sold3: t.shop_sold3.0.clone(),
+
+        // Inn A
         inn_a_greeting_1: t.inn_a_greeting_1.0.clone(),
+        inn_a_greeting_2: t.inn_a_greeting_2.0.clone(),
+        inn_a_greeting_3: t.inn_a_greeting_3.0.clone(),
         inn_a_accept: t.inn_a_accept.0.clone(),
         inn_a_cancel: t.inn_a_cancel.0.clone(),
+
+        // Inn B
+        inn_b_greeting_1: t.inn_b_greeting_1.0.clone(),
+        inn_b_greeting_2: t.inn_b_greeting_2.0.clone(),
+        inn_b_greeting_3: t.inn_b_greeting_3.0.clone(),
+        inn_b_accept: t.inn_b_accept.0.clone(),
+        inn_b_cancel: t.inn_b_cancel.0.clone(),
+
+        // Maniac Patch Terms
+        maniac_item_received_a: t.maniac_item_received_a.0.clone(),
+        maniac_level_up_a: t.maniac_level_up_a.0.clone(),
+        maniac_level_up_b: t.maniac_level_up_b.0.clone(),
+        maniac_level_up_c: t.maniac_level_up_c.0.clone(),
+        maniac_exp_received_a: t.maniac_exp_received_a.0.clone(),
+        maniac_skill_learned_a: t.maniac_skill_learned_a.0.clone(),
+
+        // EasyRPG Extended Terms
+        easyrpg_item_number_separator: t.easyrpg_item_number_separator.0.clone(),
+        easyrpg_skill_cost_separator: t.easyrpg_skill_cost_separator.0.clone(),
+        easyrpg_equipment_arrow: t.easyrpg_equipment_arrow.0.clone(),
+        easyrpg_status_scene_name: t.easyrpg_status_scene_name.0.clone(),
+        easyrpg_status_scene_class: t.easyrpg_status_scene_class.0.clone(),
+        easyrpg_status_scene_title: t.easyrpg_status_scene_title.0.clone(),
+        easyrpg_status_scene_condition: t.easyrpg_status_scene_condition.0.clone(),
+        easyrpg_status_scene_front: t.easyrpg_status_scene_front.0.clone(),
+        easyrpg_status_scene_back: t.easyrpg_status_scene_back.0.clone(),
+        easyrpg_order_scene_confirm: t.easyrpg_order_scene_confirm.0.clone(),
+        easyrpg_order_scene_redo: t.easyrpg_order_scene_redo.0.clone(),
+        easyrpg_battle2k3_double_attack: t.easyrpg_battle2k3_double_attack.0.clone(),
+        easyrpg_battle2k3_defend: t.easyrpg_battle2k3_defend.0.clone(),
+        easyrpg_battle2k3_observe: t.easyrpg_battle2k3_observe.0.clone(),
+        easyrpg_battle2k3_charge: t.easyrpg_battle2k3_charge.0.clone(),
+        easyrpg_battle2k3_selfdestruct: t.easyrpg_battle2k3_selfdestruct.0.clone(),
+        easyrpg_battle2k3_escape: t.easyrpg_battle2k3_escape.0.clone(),
+        easyrpg_battle2k3_special_combat_back: t.easyrpg_battle2k3_special_combat_back.0.clone(),
+        easyrpg_battle2k3_skill: t.easyrpg_battle2k3_skill.0.clone(),
+        easyrpg_battle2k3_item: t.easyrpg_battle2k3_item.0.clone(),
     })
 }
 
@@ -2240,6 +2376,8 @@ pub fn save_terms(path: &str, terms: &TermsInfo) -> Result<(), String> {
     t.skill_learned = terms.skill_learned.clone().into();
     t.battle_start = terms.battle_start.clone().into();
     t.miss = terms.miss.clone().into();
+
+    // Shop 1
     t.shop_greeting1 = terms.shop_greeting1.clone().into();
     t.shop_regreeting1 = terms.shop_regreeting1.clone().into();
     t.shop_buy1 = terms.shop_buy1.clone().into();
@@ -2251,9 +2389,76 @@ pub fn save_terms(path: &str, terms: &TermsInfo) -> Result<(), String> {
     t.shop_sell_select1 = terms.shop_sell_select1.clone().into();
     t.shop_sell_number1 = terms.shop_sell_number1.clone().into();
     t.shop_sold1 = terms.shop_sold1.clone().into();
+
+    // Shop 2
+    t.shop_greeting2 = terms.shop_greeting2.clone().into();
+    t.shop_regreeting2 = terms.shop_regreeting2.clone().into();
+    t.shop_buy2 = terms.shop_buy2.clone().into();
+    t.shop_sell2 = terms.shop_sell2.clone().into();
+    t.shop_leave2 = terms.shop_leave2.clone().into();
+    t.shop_buy_select2 = terms.shop_buy_select2.clone().into();
+    t.shop_buy_number2 = terms.shop_buy_number2.clone().into();
+    t.shop_purchased2 = terms.shop_purchased2.clone().into();
+    t.shop_sell_select2 = terms.shop_sell_select2.clone().into();
+    t.shop_sell_number2 = terms.shop_sell_number2.clone().into();
+    t.shop_sold2 = terms.shop_sold2.clone().into();
+
+    // Shop 3
+    t.shop_greeting3 = terms.shop_greeting3.clone().into();
+    t.shop_regreeting3 = terms.shop_regreeting3.clone().into();
+    t.shop_buy3 = terms.shop_buy3.clone().into();
+    t.shop_sell3 = terms.shop_sell3.clone().into();
+    t.shop_leave3 = terms.shop_leave3.clone().into();
+    t.shop_buy_select3 = terms.shop_buy_select3.clone().into();
+    t.shop_buy_number3 = terms.shop_buy_number3.clone().into();
+    t.shop_purchased3 = terms.shop_purchased3.clone().into();
+    t.shop_sell_select3 = terms.shop_sell_select3.clone().into();
+    t.shop_sell_number3 = terms.shop_sell_number3.clone().into();
+    t.shop_sold3 = terms.shop_sold3.clone().into();
+
+    // Inn A
     t.inn_a_greeting_1 = terms.inn_a_greeting_1.clone().into();
+    t.inn_a_greeting_2 = terms.inn_a_greeting_2.clone().into();
+    t.inn_a_greeting_3 = terms.inn_a_greeting_3.clone().into();
     t.inn_a_accept = terms.inn_a_accept.clone().into();
     t.inn_a_cancel = terms.inn_a_cancel.clone().into();
+
+    // Inn B
+    t.inn_b_greeting_1 = terms.inn_b_greeting_1.clone().into();
+    t.inn_b_greeting_2 = terms.inn_b_greeting_2.clone().into();
+    t.inn_b_greeting_3 = terms.inn_b_greeting_3.clone().into();
+    t.inn_b_accept = terms.inn_b_accept.clone().into();
+    t.inn_b_cancel = terms.inn_b_cancel.clone().into();
+
+    // Maniac Patch Terms
+    t.maniac_item_received_a = terms.maniac_item_received_a.clone().into();
+    t.maniac_level_up_a = terms.maniac_level_up_a.clone().into();
+    t.maniac_level_up_b = terms.maniac_level_up_b.clone().into();
+    t.maniac_level_up_c = terms.maniac_level_up_c.clone().into();
+    t.maniac_exp_received_a = terms.maniac_exp_received_a.clone().into();
+    t.maniac_skill_learned_a = terms.maniac_skill_learned_a.clone().into();
+
+    // EasyRPG Extended Terms
+    t.easyrpg_item_number_separator = terms.easyrpg_item_number_separator.clone().into();
+    t.easyrpg_skill_cost_separator = terms.easyrpg_skill_cost_separator.clone().into();
+    t.easyrpg_equipment_arrow = terms.easyrpg_equipment_arrow.clone().into();
+    t.easyrpg_status_scene_name = terms.easyrpg_status_scene_name.clone().into();
+    t.easyrpg_status_scene_class = terms.easyrpg_status_scene_class.clone().into();
+    t.easyrpg_status_scene_title = terms.easyrpg_status_scene_title.clone().into();
+    t.easyrpg_status_scene_condition = terms.easyrpg_status_scene_condition.clone().into();
+    t.easyrpg_status_scene_front = terms.easyrpg_status_scene_front.clone().into();
+    t.easyrpg_status_scene_back = terms.easyrpg_status_scene_back.clone().into();
+    t.easyrpg_order_scene_confirm = terms.easyrpg_order_scene_confirm.clone().into();
+    t.easyrpg_order_scene_redo = terms.easyrpg_order_scene_redo.clone().into();
+    t.easyrpg_battle2k3_double_attack = terms.easyrpg_battle2k3_double_attack.clone().into();
+    t.easyrpg_battle2k3_defend = terms.easyrpg_battle2k3_defend.clone().into();
+    t.easyrpg_battle2k3_observe = terms.easyrpg_battle2k3_observe.clone().into();
+    t.easyrpg_battle2k3_charge = terms.easyrpg_battle2k3_charge.clone().into();
+    t.easyrpg_battle2k3_selfdestruct = terms.easyrpg_battle2k3_selfdestruct.clone().into();
+    t.easyrpg_battle2k3_escape = terms.easyrpg_battle2k3_escape.clone().into();
+    t.easyrpg_battle2k3_special_combat_back = terms.easyrpg_battle2k3_special_combat_back.clone().into();
+    t.easyrpg_battle2k3_skill = terms.easyrpg_battle2k3_skill.clone().into();
+    t.easyrpg_battle2k3_item = terms.easyrpg_battle2k3_item.clone().into();
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;

@@ -19,7 +19,7 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 
 - **Maps**: tile painting (pen, rectangle, ellipse, flood fill, eyedropper), a live   tileset palette, passability/grid overlays, undo/redo, a searchable map tree with create/duplicate/delete/properties, and a "Shift Map" tool for repositioning an entire   map's contents.
 - **Events**: create, edit, delete, cut/copy/paste, and drag-to-reposition directly on   the canvas; a categorized event-command editor (messages, switches/variables, character & stats, movement, audio/screen, flow control, scenes & system); multi-page events; and one-click templates for common patterns (door, treasure chest, inn, map transfer, save point, recovery spring).
-- **Database**: Actors, Classes, Items, Skills, Attributes, Enemies, Troops, Common Events, Switches, Variables, Chipsets, States, Terrains, Animations, System settings, and Terms/Vocabulary (a curated subset of the ~150 real fields — see Limitations).
+- **Database**: Actors, Classes, Items, Skills, Attributes, Enemies, Troops, Common Events, Switches, Variables, Chipsets, States, Terrains, Animations, System settings, and Terms/Vocabulary (full 153-field coverage of menu commands, battle messages, shop 1/2/3 dialogues, inn A/B dialogues, Maniac Patch terms, and EasyRPG engine extensions).
 - **Save files** (`.lsd`): edit hero name/level/gold/map position and party member stats.
 - **Resource Manager**: browse, import, export, and delete project assets, with image previews and in-app audio preview (WAV/MP3/OGG-Vorbis, plus MIDI via the Windows system synth — see Limitations).
 - **XML export** of the database, map tree, an individual map, or a save file, for inspecting the raw structure (import is not implemented).
@@ -29,7 +29,6 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 ## Limitations
 
 - **This has not been tested anywhere near as broadly as EasyRPG's own tools.** It has been exercised against a handful of real and synthetic test projects during development, not the enormous variety of real-world RPG Maker games that exist. Bugs  that corrupt data on write are a real, live risk category for a project at this stage.
-- **Terms/Vocabulary** exposes roughly 35 of the format's ~150 real string fields — the core UI vocabulary (menu commands, stat labels), not the full set of battle-message and shop-dialogue variants.
 - **XML is export-only.** There is no way to import an XML file back into a project.
 - **MIDI playback is currently Windows-only**, via the Microsoft GS Wavetable Synth (the same device the original RPG Maker 2000/2003 games were authored against). There is no bundled cross-platform synthesizer yet, and no tempo/pitch control for MIDI tracks specifically (only volume). It is still very buggy at the moment. A likely future path is an open synthesizer backend that can be enabled when the user provides a compatible `.sf2` soundfont file.
 - **This editor is Windows-only in practice** — it hasn't been built, run, or tested on Linux or macOS, even though most of its dependencies are cross-platform.

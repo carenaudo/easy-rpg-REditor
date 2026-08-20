@@ -879,4 +879,39 @@ mod tests {
         let final_pos = if blocked { (orig_x, orig_y) } else { (drop_x, drop_y) };
         assert_eq!(final_pos, (5, 5));
     }
+
+    #[test]
+    fn test_crossplatform_midi_and_soundfont_dialog() {
+        use easy_editor::audio::{AudioPlayer, SoundFontManager, ERR_SOUNDFONT_MISSING};
+        use easy_editor::dialogs::soundfont_dialog::SoundFontDialog;
+        use std::path::Path;
+
+        // 1. MIDI file extension detection
+        assert!(AudioPlayer::is_midi(Path::new("BGM/Field1.mid")));
+        assert!(AudioPlayer::is_midi(Path::new("BGM/Battle1.midi")));
+        assert!(AudioPlayer::is_midi(Path::new("ME/Fanfare.MID")));
+        assert!(!AudioPlayer::is_midi(Path::new("Sound/Decision.wav")));
+        assert!(!AudioPlayer::is_midi(Path::new("BGM/Town.ogg")));
+        assert!(!AudioPlayer::is_midi(Path::new("BGM/Theme.mp3")));
+
+        // 2. SoundFont Manager State
+        let sf_mgr = SoundFontManager::new();
+        assert!(!sf_mgr.is_loaded());
+        assert_eq!(sf_mgr.get_soundfont().is_none(), true);
+        assert_eq!(sf_mgr.get_path().is_none(), true);
+
+        // System search paths are non-empty
+        let system_paths = SoundFontManager::system_search_paths();
+        assert!(!system_paths.is_empty(), "System search paths should have candidate locations");
+
+        // 3. SoundFont Dialog State
+        let mut dialog = SoundFontDialog::default();
+        assert!(!dialog.is_open);
+        dialog.open();
+        assert!(dialog.is_open);
+        assert!(dialog.status_message.is_none());
+
+        // Error code check
+        assert_eq!(ERR_SOUNDFONT_MISSING, "NO_SOUNDFONT");
+    }
 }

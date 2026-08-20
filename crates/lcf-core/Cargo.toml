@@ -1,7 +1,7 @@
 [package]
 name = "lcf-core"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Pure Rust parser, serializer, and data model for RPG Maker 2000/2003 LCF formats"
 
 [dependencies]

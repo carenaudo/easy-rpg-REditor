@@ -113,19 +113,9 @@ impl SoundTestDialog {
         self.tracks = set.into_iter().collect();
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, project_path: Option<&str>, audio: Option<&AudioPlayer>) {
+    pub fn show(&mut self, ctx: &egui::Context, project_path: Option<&str>, audio: Option<&AudioPlayer>, open_soundfont_dialog: &mut bool) {
         if !self.is_open {
             return;
-        }
-
-        // MIDI playback runs on a background worker and can't report
-        // failure synchronously from the Play button click - pick up
-        // whatever it reported since we last checked.
-        if let Some(a) = audio {
-            if let Some(err) = a.take_midi_error() {
-                self.is_playing = false;
-                self.status_message = Some(Err(err));
-            }
         }
 
         let mut is_open = self.is_open;
@@ -213,15 +203,10 @@ impl SoundTestDialog {
                                     ui.end_row();
 
                                     ui.label("Pitch / Tempo:");
-                                    ui.add_enabled_ui(!is_midi_track, |ui| {
-                                        let resp = ui.add(egui::Slider::new(&mut self.pitch, 50..=150).suffix("%"));
-                                        if resp.changed() {
-                                            if let Some(a) = audio { a.set_speed(self.pitch as f32 / 100.0); }
-                                        }
-                                        if is_midi_track {
-                                            resp.on_disabled_hover_text("Tempo control isn't available for MIDI playback.");
-                                        }
-                                    });
+                                    let resp = ui.add(egui::Slider::new(&mut self.pitch, 50..=150).suffix("%"));
+                                    if resp.changed() {
+                                        if let Some(a) = audio { a.set_speed(self.pitch as f32 / 100.0); }
+                                    }
                                     ui.end_row();
 
                                     ui.label("Pan (Balance):");
@@ -240,9 +225,11 @@ impl SoundTestDialog {
                                                 Ok(()) => {
                                                     self.is_playing = true;
                                                     a.set_volume(self.volume as f32 / 100.0);
-                                                    if !is_midi_track {
-                                                        a.set_speed(self.pitch as f32 / 100.0);
-                                                    }
+                                                    a.set_speed(self.pitch as f32 / 100.0);
+                                                }
+                                                Err(e) if e == crate::audio::ERR_SOUNDFONT_MISSING => {
+                                                    self.is_playing = false;
+                                                    self.status_message = Some(Err("No SoundFont loaded. MIDI synthesis requires an .sf2 sound bank.".to_string()));
                                                 }
                                                 Err(e) => {
                                                     self.is_playing = false;
@@ -267,14 +254,26 @@ impl SoundTestDialog {
                             });
 
                             let is_dark = ui.visuals().dark_mode;
+                            let mut show_setup_button = false;
                             match &self.status_message {
                                 Some(Ok(msg)) => { ui.colored_label(crate::theme::colors::success(is_dark), msg); }
-                                Some(Err(msg)) => { ui.colored_label(crate::theme::colors::danger(is_dark), msg); }
+                                Some(Err(msg)) => {
+                                    ui.colored_label(crate::theme::colors::danger(is_dark), msg);
+                                    if msg.contains("SoundFont") {
+                                        show_setup_button = true;
+                                    }
+                                }
                                 None if self.is_playing => {
                                     ui.colored_label(crate::theme::colors::success(is_dark), "▶ Playing track...");
                                 }
                                 None => {
                                     ui.colored_label(crate::theme::colors::muted(is_dark), "⏹ Stopped");
+                                }
+                            }
+
+                            if show_setup_button {
+                                if ui.button("🎵 Configure SoundFont...").clicked() {
+                                    *open_soundfont_dialog = true;
                                 }
                             }
                         } else {

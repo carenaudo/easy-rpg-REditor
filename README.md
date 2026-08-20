@@ -17,14 +17,15 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 
 ## Features
 
-- **Maps**: tile painting (pen, rectangle, ellipse, flood fill, eyedropper), a live   tileset palette, passability/grid overlays, undo/redo, a searchable map tree with create/duplicate/delete/properties, and a "Shift Map" tool for repositioning an entire   map's contents.
-- **Events**: create, edit, delete, cut/copy/paste, and drag-to-reposition directly on   the canvas; a categorized event-command editor (messages, switches/variables, character & stats, movement, audio/screen, flow control, scenes & system); multi-page events; and one-click templates for common patterns (door, treasure chest, inn, map transfer, save point, recovery spring).
-- **Database**: Actors, Classes, Items, Skills, Attributes, Enemies, Troops, Common Events, Switches, Variables, Chipsets, States, Terrains, Animations, System settings, and Terms/Vocabulary (full 153-field coverage of menu commands, battle messages, shop 1/2/3 dialogues, inn A/B dialogues, Maniac Patch terms, and EasyRPG engine extensions).
-- **Save files** (`.lsd`): edit hero name/level/gold/map position and party member stats.
-- **Resource Manager**: browse, import, export, and delete project assets, with image previews and in-app audio preview (WAV/MP3/OGG-Vorbis, plus MIDI via the Windows system synth — see Limitations).
-- **XML export** of the database, map tree, an individual map, or a save file, for inspecting the raw structure (import is not implemented).
-- A basic project health analyzer, project-wide search, a sound test/jukebox, RTP path auto-detection, recent-projects/last-project restore, 8 UI languages, and a dozen color themes across light/dark/system modes.
-- Everything that writes to disk tracks its own unsaved-changes state independently, and the editor will not silently discard your work — switching maps, opening a different project, or closing the window with unsaved changes prompts you to save,  discard, or cancel.
+- **Maps**: Tile painting (pen, rectangle, ellipse, flood fill, eyedropper `Alt+Click`), live tileset palette, passability/grid overlays, undo/redo (`Ctrl+Z`/`Ctrl+Y`), searchable map tree with create/duplicate/delete/properties, and a "Shift Map" tool for repositioning an entire map's contents. Supports PNG, BMP, and XYZ graphic formats.
+- **Events & Canvas Interactions**: Events mode (`F7`), canvas right-click context menu (New Event, Quick Templates, Party/Boat Starting Positions, Cut/Copy/Paste), drag-and-drop event repositioning with automatic anti-collision snap-back protection, categorized event-command dialog, multi-page events, and one-click quick event templates (doors, treasure chests, inns, transitions, save points, recovery springs).
+- **Database & Engine Compatibility**: Full support for Actors, Classes, Items, Skills, Attributes, Enemies, Troops, Common Events, Switches, Variables, Chipsets, States, Terrains, Animations, System settings, and Terms/Vocabulary (153-field coverage). Includes **Adaptive Engine Modes** that automatically tailor the UI to RPG Maker 2000 vs RPG Maker 2003 projects.
+- **Save files** (`.lsd`): Edit hero name/level/gold/map position and party member stats.
+- **Resource Manager**: Browse, import, export, and delete project assets across all standard folders with live checkerboard image previews and in-app audio playback.
+- **Audio & MIDI**: In-app sound test/jukebox and audio preview (WAV, MP3, OGG Vorbis, and MIDI via Windows GS synth).
+- **XML export** of the database, map tree, individual maps, or save files for inspecting raw structures.
+- Project health analyzer, project-wide search (`Ctrl+F`), RTP path auto-detection, recent-projects restore, 8 UI languages, and 12 light/dark color themes.
+- Comprehensive unsaved-changes tracking across all views with prompt safeguards.
 
 ## Limitations
 

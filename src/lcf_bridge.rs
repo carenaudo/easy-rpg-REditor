@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use eframe::egui;
 use lcf_core::ldb::LdbReader;
 use lcf_core::lmt::LmtReader;
 use lcf_core::lmu::LmuReader;

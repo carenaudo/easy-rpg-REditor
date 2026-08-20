@@ -9,3 +9,4 @@ pub mod resource_manager_dialog;
 pub mod new_project_dialog;
 pub mod sound_test_dialog;
 pub mod project_analyzer_dialog;
+pub mod soundfont_dialog;

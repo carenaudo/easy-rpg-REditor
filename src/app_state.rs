@@ -68,6 +68,8 @@ pub struct AppPersistentData {
     pub recent_projects: Vec<String>,
     pub last_project: Option<String>,
     pub rtp_path: Option<String>,
+    #[serde(default)]
+    pub soundfont_path: Option<String>,
 }
 
 impl Default for AppPersistentData {
@@ -91,12 +93,17 @@ impl Default for AppPersistentData {
             "en"
         };
 
+        let rtp = Self::detect_standard_rtp_path().map(|p| p.to_string_lossy().to_string());
+        let sf = crate::audio::SoundFontManager::detect_soundfont(None, rtp.as_deref(), None)
+            .map(|p| p.to_string_lossy().to_string());
+
         Self {
             theme: AppTheme::default(),
             locale: lang.to_string(),
             recent_projects: Vec::new(),
             last_project: None,
-            rtp_path: Self::detect_standard_rtp_path().map(|p| p.to_string_lossy().to_string()),
+            rtp_path: rtp,
+            soundfont_path: sf,
         }
     }
 }

@@ -75,27 +75,11 @@ impl ResourceManagerDialogState {
         project_path: Option<&str>,
         asset_cache: &mut AssetPreviewCache,
         audio: Option<&AudioPlayer>,
+        open_soundfont_dialog: &mut bool,
     ) {
         if !self.is_open {
             return;
         }
-
-        // MIDI playback runs on a background worker and can't report
-        // failure synchronously from the Play button click - pick up
-        // whatever it reported since we last checked.
-        if let Some(a) = audio {
-            if let Some(err) = a.take_midi_error() {
-                self.status_message = Some(Err(err));
-            }
-        }
-
-        let proj = match project_path {
-            Some(p) => p,
-            None => {
-                self.is_open = false;
-                return;
-            }
-        };
 
         let mut is_open = self.is_open;
 
@@ -105,24 +89,38 @@ impl ResourceManagerDialogState {
             .resizable(true)
             .default_size([720.0, 520.0])
             .show(ctx, |ui| {
+                let proj = match project_path {
+                    Some(p) => p,
+                    None => {
+                        ui.label("Open a project to manage resources.");
+                        return;
+                    }
+                };
+
+                let cat = RESOURCE_CATEGORIES[self.active_category_idx];
+                let files = self.list_category_files(proj);
+
                 ui.columns(2, |cols| {
                     // Left Column: Category Tabs & File List
-                    cols[0].group(|ui| {
+                    cols[0].vertical(|ui| {
                         ui.label(rust_i18n::t!("res_mgr.asset_type"));
-                        egui::ComboBox::from_id_salt("res_mgr_cat_combo")
-                            .selected_text(RESOURCE_CATEGORIES[self.active_category_idx])
-                            .show_ui(ui, |ui| {
-                                for (idx, &cat) in RESOURCE_CATEGORIES.iter().enumerate() {
-                                    if ui.selectable_value(&mut self.active_category_idx, idx, cat).clicked() {
-                                        self.selected_file = None;
-                                        if let Some(a) = audio { a.stop(); }
+                        egui::ScrollArea::horizontal()
+                            .id_salt("res_mgr_cat_scroll")
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    for (i, &c) in RESOURCE_CATEGORIES.iter().enumerate() {
+                                        let selected = self.active_category_idx == i;
+                                        if ui.selectable_label(selected, c).clicked() {
+                                            self.active_category_idx = i;
+                                            self.selected_file = None;
+                                            self.status_message = None;
+                                            if let Some(a) = audio { a.stop(); }
+                                        }
                                     }
-                                }
+                                });
                             });
 
                         ui.separator();
-
-                        let files = self.list_category_files(proj);
                         ui.label(rust_i18n::t!("res_mgr.files", count = files.len()));
 
                         egui::ScrollArea::vertical()
@@ -130,21 +128,22 @@ impl ResourceManagerDialogState {
                             .max_height(340.0)
                             .show(ui, |ui| {
                                 for f in &files {
-                                    let is_sel = self.selected_file.as_deref() == Some(f.as_str());
-                                    if ui.selectable_label(is_sel, f).clicked() {
+                                    let selected = self.selected_file.as_deref() == Some(f.as_str());
+                                    if ui.selectable_label(selected, f).clicked() {
                                         self.selected_file = Some(f.clone());
+                                        self.status_message = None;
                                         if let Some(a) = audio { a.stop(); }
                                     }
                                 }
                             });
                     });
 
-                    // Right Column: Preview & Action Buttons
-                    cols[1].group(|ui| {
+                    // Right Column: Preview & Actions
+                    cols[1].vertical(|ui| {
                         ui.heading(rust_i18n::t!("res_mgr.asset_details"));
+                        ui.separator();
 
                         if let Some(fname) = self.selected_file.clone() {
-                            let cat = RESOURCE_CATEGORIES[self.active_category_idx];
                             let file_path = Path::new(proj).join(cat).join(&fname);
                             let file_size = fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
                             let size_kb = (file_size as f64 / 1024.0).max(0.1);
@@ -164,10 +163,16 @@ impl ResourceManagerDialogState {
                                 ui.horizontal(|ui| {
                                     if ui.button("▶ Play").clicked() {
                                         if let Some(a) = audio {
-                                            if let Err(e) = a.play_file(&file_path) {
-                                                self.status_message = Some(Err(e));
-                                            } else {
-                                                self.status_message = None;
+                                            match a.play_file(&file_path) {
+                                                Ok(()) => {
+                                                    self.status_message = None;
+                                                }
+                                                Err(e) if e == crate::audio::ERR_SOUNDFONT_MISSING => {
+                                                    self.status_message = Some(Err("No SoundFont loaded. MIDI playback requires an .sf2 file.".to_string()));
+                                                }
+                                                Err(e) => {
+                                                    self.status_message = Some(Err(e));
+                                                }
                                             }
                                         } else {
                                             self.status_message = Some(Err("No audio output device available.".to_string()));
@@ -221,7 +226,6 @@ impl ResourceManagerDialogState {
                                 .pick_file()
                             {
                                 if let Some(file_name) = src_path.file_name() {
-                                    let cat = RESOURCE_CATEGORIES[self.active_category_idx];
                                     let dest_dir = Path::new(proj).join(cat);
                                     let _ = fs::create_dir_all(&dest_dir);
                                     let dest_file = dest_dir.join(file_name);
@@ -240,9 +244,20 @@ impl ResourceManagerDialogState {
 
                 if let Some(msg) = &self.status_message {
                     let is_dark = ui.visuals().dark_mode;
+                    let mut show_setup_button = false;
                     match msg {
                         Ok(t) => { ui.colored_label(crate::theme::colors::success(is_dark), t); }
-                        Err(e) => { ui.colored_label(crate::theme::colors::danger(is_dark), e); }
+                        Err(e) => {
+                            ui.colored_label(crate::theme::colors::danger(is_dark), e);
+                            if e.contains("SoundFont") {
+                                show_setup_button = true;
+                            }
+                        }
+                    }
+                    if show_setup_button {
+                        if ui.button("🎵 Configure SoundFont...").clicked() {
+                            *open_soundfont_dialog = true;
+                        }
                     }
                 }
             });

@@ -11,6 +11,7 @@ use easy_editor::dialogs::project_analyzer_dialog::ProjectAnalyzerDialog;
 use easy_editor::dialogs::project_search::{ProjectSearchDialog, SearchJumpTarget};
 use easy_editor::dialogs::resource_manager_dialog::ResourceManagerDialogState;
 use easy_editor::dialogs::sound_test_dialog::SoundTestDialog;
+use easy_editor::dialogs::soundfont_dialog::SoundFontDialog;
 use easy_editor::dialogs::xml_io_dialog::XmlIoDialogState;
 use easy_editor::lcf_bridge;
 use easy_editor::theme::{self, ThemeMode, ThemePalette};
@@ -36,6 +37,7 @@ struct EditorApp {
     search_dialog: ProjectSearchDialog,
     xml_dialog: XmlIoDialogState,
     sound_test_dialog: SoundTestDialog,
+    soundfont_dialog: SoundFontDialog,
     analyzer_dialog: ProjectAnalyzerDialog,
     asset_cache: AssetPreviewCache,
     cached_chipset: Option<RgbaImage>,
@@ -62,6 +64,19 @@ impl EditorApp {
         state.config.theme.apply(&cc.egui_ctx);
         rust_i18n::set_locale(&state.config.locale);
 
+        let sf_manager = easy_editor::audio::SoundFontManager::new();
+        if let Some(ref sf_path) = state.config.soundfont_path {
+            let _ = sf_manager.load(Path::new(sf_path));
+        } else if let Some(detected) = easy_editor::audio::SoundFontManager::detect_soundfont(
+            None,
+            state.config.rtp_path.as_deref(),
+            state.config.last_project.as_deref(),
+        ) {
+            let _ = sf_manager.load(&detected);
+        }
+
+        let audio = AudioPlayer::new(sf_manager);
+
         let mut app = Self {
             state,
             map_view: MapViewState::default(),
@@ -74,12 +89,13 @@ impl EditorApp {
             search_dialog: ProjectSearchDialog::default(),
             xml_dialog: XmlIoDialogState::default(),
             sound_test_dialog: SoundTestDialog::default(),
+            soundfont_dialog: SoundFontDialog::default(),
             analyzer_dialog: ProjectAnalyzerDialog::default(),
             asset_cache: AssetPreviewCache::default(),
             cached_chipset: None,
             passability: lcf_bridge::Passability::default(),
             open_blocked_message: None,
-            audio: AudioPlayer::new(),
+            audio,
             show_close_confirm: false,
             force_close: false,
         };
@@ -447,6 +463,10 @@ impl EditorApp {
                             self.state.config.rtp_path = Some(folder.to_string_lossy().to_string());
                             self.state.config.save();
                         }
+                        ui.close();
+                    }
+                    if ui.button("🎹 SoundFont (.sf2)...").clicked() {
+                        self.soundfont_dialog.open();
                         ui.close();
                     }
                 });
@@ -901,7 +921,13 @@ impl eframe::App for EditorApp {
             self.load_project(created_proj, ui.ctx());
         }
 
-        self.res_mgr_dialog.show(ui.ctx(), self.state.project_path.as_deref(), &mut self.asset_cache, self.audio.as_ref());
+        self.res_mgr_dialog.show(
+            ui.ctx(),
+            self.state.project_path.as_deref(),
+            &mut self.asset_cache,
+            self.audio.as_ref(),
+            &mut self.soundfont_dialog.is_open,
+        );
 
         if let Some(saved) = self.map_props_dialog.show(ui.ctx(), self.state.project_path.as_deref()) {
             if saved {
@@ -974,7 +1000,15 @@ impl eframe::App for EditorApp {
 
         let active_map_id = self.state.selected_map.and_then(|i| self.state.maps.get(i)).map(|m| m.0);
         self.xml_dialog.show(ui.ctx(), self.state.project_path.as_deref(), active_map_id);
-        self.sound_test_dialog.show(ui.ctx(), self.state.project_path.as_deref(), self.audio.as_ref());
+        self.sound_test_dialog.show(
+            ui.ctx(),
+            self.state.project_path.as_deref(),
+            self.audio.as_ref(),
+            &mut self.soundfont_dialog.is_open,
+        );
+        if let Some(audio_player) = &self.audio {
+            self.soundfont_dialog.show(ui.ctx(), &mut self.state, audio_player.soundfont_manager());
+        }
         self.analyzer_dialog.show(ui.ctx(), &self.state);
 
         self.ui_context_strip(ui);

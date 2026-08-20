@@ -196,6 +196,7 @@ pub struct EditorAppState {
     pub view_mode: ViewMode,
     pub db_category: DbCategory,
     pub db_filter: String,
+    pub is_2003: bool,
 
     // Database Tables
     pub actors: Vec<ActorInfo>,
@@ -281,6 +282,7 @@ impl Default for EditorAppState {
             view_mode: ViewMode::Maps,
             db_category: DbCategory::Actors,
             db_filter: String::new(),
+            is_2003: false,
             actors: Vec::new(),
             actors_dirty: false,
             actors_save_message: None,
@@ -387,6 +389,7 @@ impl EditorAppState {
         let info = lcf_bridge::load_project(&path_str);
         if info.valid {
             self.project_error = None;
+            self.is_2003 = lcf_bridge::is_project_2003(&path_str);
             self.maps = info.maps.into_iter().map(|m| (m.id, m.name)).collect();
             self.map_tree = lcf_bridge::get_map_tree(&path_str);
             self.actors = lcf_bridge::get_actors(&path_str);

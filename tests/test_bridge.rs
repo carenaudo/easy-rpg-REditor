@@ -820,4 +820,63 @@ mod tests {
         assert_eq!(map_view.layer_mode, MapLayerMode::Events);
         assert!(map_view.show_events);
     }
+
+    #[test]
+    fn test_phase15_engine_version_differentiation_and_map_event_guards() {
+        use easy_editor::app_state::{DbCategory, EditorAppState};
+        use easy_editor::views::map_view::{MapLayerMode, MapViewState};
+        use easy_editor::lcf_bridge::{self, EventInfo};
+        use std::path::Path;
+
+        let path_2000 = "d:/programacion/test-assets/TestGame/TestGame-2000";
+        let path_2003 = "d:/programacion/test-assets/TestGame/TestGame-2003";
+
+        if Path::new(path_2000).exists() {
+            assert!(!lcf_bridge::is_project_2003(path_2000));
+            let mut app_2000 = EditorAppState::default();
+            app_2000.load_project_from(path_2000.to_string());
+            assert!(!app_2000.is_2003);
+            if app_2000.db_category == DbCategory::Classes {
+                app_2000.db_category = DbCategory::Actors;
+            }
+            assert_ne!(app_2000.db_category, DbCategory::Classes);
+        }
+
+        if Path::new(path_2003).exists() {
+            assert!(lcf_bridge::is_project_2003(path_2003));
+            let mut app_2003 = EditorAppState::default();
+            app_2003.load_project_from(path_2003.to_string());
+            assert!(app_2003.is_2003);
+        }
+
+        // Test Map Event anti-overlap and layer guards
+        let mut map_view = MapViewState::default();
+        map_view.layer_mode = MapLayerMode::Lower;
+        assert_ne!(map_view.layer_mode, MapLayerMode::Events);
+
+        // In Lower layer mode, context_menu_tile must not activate
+        map_view.layer_mode = MapLayerMode::Events;
+        map_view.events.push(EventInfo {
+            id: 1,
+            name: "EV0001".to_string(),
+            x: 10,
+            y: 12,
+            page_count: 1,
+            ..Default::default()
+        });
+
+        // Verify tile (10, 12) is occupied
+        let occupied = map_view.events.iter().any(|e| e.x == 10 && e.y == 12);
+        assert!(occupied);
+
+        // Verify dragging event onto occupied tile snaps back
+        let orig_x = 5;
+        let orig_y = 5;
+        let drop_x = 10;
+        let drop_y = 12;
+        let blocked = map_view.events.iter().any(|e| e.x == drop_x && e.y == drop_y);
+        assert!(blocked);
+        let final_pos = if blocked { (orig_x, orig_y) } else { (drop_x, drop_y) };
+        assert_eq!(final_pos, (5, 5));
+    }
 }

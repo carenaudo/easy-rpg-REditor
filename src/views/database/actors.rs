@@ -69,6 +69,7 @@ pub fn generate_growth_curve(v1: i32, vmax: i32, max_lvl: i32, preset: GrowthCur
 pub fn show_actor_form(
     ui: &mut egui::Ui,
     actor: &mut ActorInfo,
+    is_2003: bool,
     project_path: Option<&str>,
     items: &[ItemInfo],
     skills: &[SkillInfo],
@@ -86,17 +87,19 @@ pub fn show_actor_form(
         ui.separator();
         let lvl_col = crate::theme::colors::stat_sp(is_dark);
         ui.colored_label(lvl_col, format!("Level {} – {}", actor.initial_level, actor.final_level));
-        if actor.two_weapon {
-            let col = crate::theme::colors::stat_atk(is_dark);
-            ui.colored_label(col, "⚔ Dual Wield");
-        }
-        if actor.auto_battle {
-            let col = crate::theme::colors::info(is_dark);
-            ui.colored_label(col, "🤖 Auto Battle");
-        }
-        if actor.super_guard {
-            let col = crate::theme::colors::warning(is_dark);
-            ui.colored_label(col, "🛡 Super Guard");
+        if is_2003 {
+            if actor.two_weapon {
+                let col = crate::theme::colors::stat_atk(is_dark);
+                ui.colored_label(col, "⚔ Dual Wield");
+            }
+            if actor.auto_battle {
+                let col = crate::theme::colors::info(is_dark);
+                ui.colored_label(col, "🤖 Auto Battle");
+            }
+            if actor.super_guard {
+                let col = crate::theme::colors::warning(is_dark);
+                ui.colored_label(col, "🛡 Super Guard");
+            }
         }
     });
     ui.separator();
@@ -125,38 +128,44 @@ pub fn show_actor_form(
                             if title_edit.changed() { *dirty = true; }
                             ui.end_row();
 
-                            ui.label("Class (2003):");
-                            egui::ComboBox::from_id_salt("actor_class_combo")
-                                .selected_text(
-                                    if actor.class_id == 0 {
-                                        "(None)".to_string()
-                                    } else {
-                                        classes.iter().find(|c| c.id == actor.class_id).map(|c| format!("{:03}: {}", c.id, c.name)).unwrap_or_else(|| format!("Class {}", actor.class_id))
-                                    }
-                                )
-                                .show_ui(ui, |ui| {
-                                    if ui.selectable_value(&mut actor.class_id, 0, "(None)").clicked() { *dirty = true; }
-                                    for c in classes {
-                                        if ui.selectable_value(&mut actor.class_id, c.id, format!("{:03}: {}", c.id, c.name)).clicked() {
-                                            *dirty = true;
+                            if is_2003 {
+                                ui.label("Class (2003):");
+                                egui::ComboBox::from_id_salt("actor_class_combo")
+                                    .selected_text(
+                                        if actor.class_id == 0 {
+                                            "(None)".to_string()
+                                        } else {
+                                            classes.iter().find(|c| c.id == actor.class_id).map(|c| format!("{:03}: {}", c.id, c.name)).unwrap_or_else(|| format!("Class {}", actor.class_id))
                                         }
-                                    }
-                                });
-                            ui.end_row();
+                                    )
+                                    .show_ui(ui, |ui| {
+                                        if ui.selectable_value(&mut actor.class_id, 0, "(None)").clicked() { *dirty = true; }
+                                        for c in classes {
+                                            if ui.selectable_value(&mut actor.class_id, c.id, format!("{:03}: {}", c.id, c.name)).clicked() {
+                                                *dirty = true;
+                                            }
+                                        }
+                                    });
+                                ui.end_row();
+                            }
+
+                            let max_level_cap = if is_2003 { 99 } else { 50 };
 
                             ui.label("Initial Level:");
-                            let init_lvl = ui.add(egui::DragValue::new(&mut actor.initial_level).range(1..=99));
+                            let init_lvl = ui.add(egui::DragValue::new(&mut actor.initial_level).range(1..=max_level_cap));
                             if init_lvl.changed() { *dirty = true; }
                             ui.end_row();
 
                             ui.label("Final Level:");
-                            let fin_lvl = ui.add(egui::DragValue::new(&mut actor.final_level).range(1..=99));
+                            let fin_lvl = ui.add(egui::DragValue::new(&mut actor.final_level).range(1..=max_level_cap));
                             if fin_lvl.changed() { *dirty = true; }
                             ui.end_row();
 
-                            ui.label("Battler Animation ID:");
-                            if ui.add(egui::DragValue::new(&mut actor.battler_animation).range(0..=500)).on_hover_text("RPG2003 Battle Animation / Sprite layout").changed() { *dirty = true; }
-                            ui.end_row();
+                            if is_2003 {
+                                ui.label("Battler Animation ID:");
+                                if ui.add(egui::DragValue::new(&mut actor.battler_animation).range(0..=500)).on_hover_text("RPG2003 Battle Animation / Sprite layout").changed() { *dirty = true; }
+                                ui.end_row();
+                            }
                         });
 
                     ui.separator();
@@ -283,14 +292,16 @@ pub fn show_actor_form(
                             equip_slot(ui, "Accessory:", &mut actor.accessory_id, dirty);
                         });
 
-                    ui.separator();
-                    ui.heading("Special Combat Traits");
-                    ui.vertical(|ui| {
-                        if ui.checkbox(&mut actor.two_weapon, "Dual Wield (Two Weapons)").changed() { *dirty = true; }
-                        if ui.checkbox(&mut actor.lock_equipment, "Lock Equipment").changed() { *dirty = true; }
-                        if ui.checkbox(&mut actor.auto_battle, "Auto Battle (AI controlled)").changed() { *dirty = true; }
-                        if ui.checkbox(&mut actor.super_guard, "Super Guard (Quarter Damage)").changed() { *dirty = true; }
-                    });
+                    if is_2003 {
+                        ui.separator();
+                        ui.heading("Special Combat Traits");
+                        ui.vertical(|ui| {
+                            if ui.checkbox(&mut actor.two_weapon, "Dual Wield (Two Weapons)").changed() { *dirty = true; }
+                            if ui.checkbox(&mut actor.lock_equipment, "Lock Equipment").changed() { *dirty = true; }
+                            if ui.checkbox(&mut actor.auto_battle, "Auto Battle (AI controlled)").changed() { *dirty = true; }
+                            if ui.checkbox(&mut actor.super_guard, "Super Guard (Quarter Damage)").changed() { *dirty = true; }
+                        });
+                    }
                 });
 
                 // Column 2: Stat Growth Studio (Interactive Canvas)

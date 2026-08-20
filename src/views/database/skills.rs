@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::lcf_bridge::{skill_scope_label, skill_type_label, SkillInfo};
 
-pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, dirty: &mut bool) {
+pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, is_2003: bool, dirty: &mut bool) {
     let type_name = skill_type_label(skill.skill_type);
     let scope_name = skill_scope_label(skill.scope);
 
@@ -15,7 +15,7 @@ pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, dirty: &mut boo
         ui.separator();
         ui.colored_label(type_col, format!("🏷 {}", type_name));
         ui.colored_label(scope_col, format!("🎯 {}", scope_name));
-        let sp_str = if skill.sp_type == 1 {
+        let sp_str = if is_2003 && skill.sp_type == 1 {
             format!("🔮 SP Cost: {}%", skill.sp_percent)
         } else {
             format!("🔮 SP Cost: {}", skill.sp_cost)
@@ -66,17 +66,23 @@ pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, dirty: &mut boo
                                 });
                             ui.end_row();
 
-                            ui.label("SP Cost Mode:");
-                            ui.horizontal(|ui| {
-                                if ui.selectable_value(&mut skill.sp_type, 0, "Flat").clicked() { *dirty = true; }
-                                if ui.selectable_value(&mut skill.sp_type, 1, "% Max SP").clicked() { *dirty = true; }
-                            });
-                            ui.end_row();
-
-                            if skill.sp_type == 1 {
-                                ui.label("SP Percent (%):");
-                                if ui.add(egui::DragValue::new(&mut skill.sp_percent).range(0..=100)).changed() { *dirty = true; }
+                            if is_2003 {
+                                ui.label("SP Cost Mode:");
+                                ui.horizontal(|ui| {
+                                    if ui.selectable_value(&mut skill.sp_type, 0, "Flat").clicked() { *dirty = true; }
+                                    if ui.selectable_value(&mut skill.sp_type, 1, "% Max SP").clicked() { *dirty = true; }
+                                });
                                 ui.end_row();
+
+                                if skill.sp_type == 1 {
+                                    ui.label("SP Percent (%):");
+                                    if ui.add(egui::DragValue::new(&mut skill.sp_percent).range(0..=100)).changed() { *dirty = true; }
+                                    ui.end_row();
+                                } else {
+                                    ui.label("SP Cost:");
+                                    if ui.add(egui::DragValue::new(&mut skill.sp_cost).range(0..=9999)).changed() { *dirty = true; }
+                                    ui.end_row();
+                                }
                             } else {
                                 ui.label("SP Cost:");
                                 if ui.add(egui::DragValue::new(&mut skill.sp_cost).range(0..=9999)).changed() { *dirty = true; }

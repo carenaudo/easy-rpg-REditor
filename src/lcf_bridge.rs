@@ -1031,6 +1031,15 @@ pub fn load_project(path: &str) -> ProjectInfo {
     }
 }
 
+pub fn is_project_2003(path: &str) -> bool {
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    if let Ok(db) = LdbReader::load(&ldb_path, "auto") {
+        lcf_core::reader_util::ReaderUtil::get_engine_version(&db).is_2k3()
+    } else {
+        false
+    }
+}
+
 pub fn get_map_chipset(path: &str, map_id: i32) -> Vec<u8> {
     let map_path = Path::new(path).join(map_filename(map_id));
     let map = match LmuReader::load(&map_path, "auto") {

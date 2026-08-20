@@ -687,7 +687,11 @@ impl EditorApp {
                         let char_col = crate::theme::colors::category_characters(is_dark);
                         ui.colored_label(char_col, "👤 Characters");
                         ui.selectable_value(&mut self.state.db_category, DbCategory::Actors, format!("  Actors ({})", self.state.actors.len()));
-                        ui.selectable_value(&mut self.state.db_category, DbCategory::Classes, format!("  Classes ({})", self.state.classes.len()));
+                        if self.state.is_2003 {
+                            ui.selectable_value(&mut self.state.db_category, DbCategory::Classes, format!("  Classes ({})", self.state.classes.len()));
+                        } else if self.state.db_category == DbCategory::Classes {
+                            self.state.db_category = DbCategory::Actors;
+                        }
 
                         ui.add_space(4.0);
                         let combat_col = crate::theme::colors::category_combat(is_dark);

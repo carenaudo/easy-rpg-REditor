@@ -145,6 +145,10 @@ impl DatabaseViewState {
         };
 
         ui.horizontal(|ui| {
+            let engine_col = if app.is_2003 { egui::Color32::from_rgb(80, 180, 255) } else { egui::Color32::from_rgb(255, 180, 80) };
+            ui.colored_label(engine_col, if app.is_2003 { "🎮 RPG Maker 2003" } else { "🎮 RPG Maker 2000" });
+            ui.separator();
+
             ui.add_enabled_ui(is_dirty, |ui| {
                 if ui.button(format!("💾 {}", rust_i18n::t!("db.save_changes"))).clicked() {
                     app.save_current_db_category();
@@ -520,6 +524,7 @@ impl DatabaseViewState {
                                     actors::show_actor_form(
                                         ui,
                                         actor,
+                                        app.is_2003,
                                         proj.as_deref(),
                                         &app.items,
                                         &app.skills,
@@ -553,7 +558,7 @@ impl DatabaseViewState {
                             }
                             crate::app_state::DbCategory::Skills => {
                                 if let Some(skill) = app.skills.get_mut(self.selected_skill) {
-                                    skills::show_skill_form(ui, skill, &mut app.skills_dirty);
+                                    skills::show_skill_form(ui, skill, app.is_2003, &mut app.skills_dirty);
                                 }
                             }
                     crate::app_state::DbCategory::Attributes => {

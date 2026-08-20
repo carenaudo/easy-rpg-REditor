@@ -704,8 +704,8 @@ impl MapViewState {
                     }
                 });
 
-                // Capture tile on right-click for the context menu
-                if resp.secondary_clicked() {
+                // Capture tile on right-click for the context menu (Events layer mode only)
+                if self.layer_mode == MapLayerMode::Events && resp.secondary_clicked() {
                     if let Some(pos) = resp.interact_pointer_pos().or(resp.hover_pos()) {
                         let tx = ((pos.x - rect.min.x) / tile_px) as i32;
                         let ty = ((pos.y - rect.min.y) / tile_px) as i32;
@@ -974,16 +974,13 @@ impl MapViewState {
                     }
                 }
 
-                // Right-Click Context Menu on Canvas
-                if let Some((tile_x, tile_y)) = self.context_menu_tile {
-                    let cur_map_id = map_id.unwrap_or(1);
-                    let event_here_idx = if self.layer_mode == MapLayerMode::Events {
-                        self.events.iter().position(|e| e.x == tile_x && e.y == tile_y)
-                    } else {
-                        None
-                    };
+                // Right-Click Context Menu on Canvas (Events mode only)
+                if self.layer_mode == MapLayerMode::Events {
+                    if let Some((tile_x, tile_y)) = self.context_menu_tile {
+                        let cur_map_id = map_id.unwrap_or(1);
+                        let event_here_idx = self.events.iter().position(|e| e.x == tile_x && e.y == tile_y);
 
-                    resp.context_menu(|ui| {
+                        resp.context_menu(|ui| {
                         // One consistent menu: event-specific actions when
                         // the tile already holds an event, then the
                         // creation actions (New/Paste/Quick Events) - which
@@ -1115,6 +1112,7 @@ impl MapViewState {
                             }
                         }
                     });
+                    }
                 }
             }
         });

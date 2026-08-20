@@ -13,8 +13,45 @@
 use image::{Rgba, RgbaImage};
 
 /// Decodes any RPG Maker 2000/2003 graphic (Monster, CharSet, FaceSet, ChipSet, Picture):
-/// Handles classic 8-bit indexed PNGs (palette index 0 is transparent) and fallback magenta (#FF00FF) color-keying.
+/// Handles classic XYZ format, 8-bit indexed PNGs (palette index 0 is transparent), and fallback magenta (#FF00FF) color-keying.
 pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
+    if bytes.len() >= 8 && &bytes[0..4] == b"XYZ1" {
+        let width = u16::from_le_bytes([bytes[4], bytes[5]]) as u32;
+        let height = u16::from_le_bytes([bytes[6], bytes[7]]) as u32;
+        let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(&bytes[8..])
+            .map_err(|e| image::ImageError::Decoding(image::error::DecodingError::new(
+                image::error::ImageFormatHint::Unknown,
+                format!("Failed to decompress XYZ image: {:?}", e),
+            )))?;
+
+        let total_pixels = (width * height) as usize;
+        if decompressed.len() < 768 + total_pixels {
+            return Err(image::ImageError::Decoding(image::error::DecodingError::new(
+                image::error::ImageFormatHint::Unknown,
+                "XYZ image data too small",
+            )));
+        }
+
+        let palette = &decompressed[..768];
+        let pixels = &decompressed[768..768 + total_pixels];
+        let mut out = RgbaImage::new(width, height);
+
+        for (i, &palette_idx) in pixels.iter().enumerate() {
+            let x = (i as u32) % width;
+            let y = (i as u32) / width;
+            if palette_idx == 0 {
+                out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
+            } else {
+                let p_offset = (palette_idx as usize) * 3;
+                let r = palette[p_offset];
+                let g = palette[p_offset + 1];
+                let b = palette[p_offset + 2];
+                out.put_pixel(x, y, Rgba([r, g, b, 255]));
+            }
+        }
+        return Ok(out);
+    }
+
     let mut rgba = image::load_from_memory(bytes)?.to_rgba8();
     let debug = std::env::var("TILEMAP_DEBUG").is_ok();
     let mut keyed = false;

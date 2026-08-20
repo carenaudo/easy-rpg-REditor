@@ -186,14 +186,19 @@ pub fn show_actor_form(
                                         let dir_cycle = (ui.input(|i| (i.time * 4.0 / 4.0).floor() as usize)) % 4;
                                         let dir = match dir_cycle { 0 => 0, 1 => 1, 2 => 3, _ => 2 };
 
-                                        let char_idx = (actor.character_index.clamp(0, 7)) as usize;
-                                        let char_col = char_idx % 4;
-                                        let char_row = char_idx / 4;
+                                        let tex_size = tex.size_vec2();
+                                        let cols = (tex_size.x / 72.0).max(1.0).round() as usize;
+                                        let rows = (tex_size.y / 128.0).max(1.0).round() as usize;
+                                        let max_idx = (cols * rows).saturating_sub(1);
 
-                                        let u0 = (char_col as f32 * 72.0 + anim_frame as f32 * 24.0) / 288.0;
-                                        let u1 = u0 + (24.0 / 288.0);
-                                        let v0 = (char_row as f32 * 128.0 + dir as f32 * 32.0) / 256.0;
-                                        let v1 = v0 + (32.0 / 256.0);
+                                        let char_idx = (actor.character_index.max(0) as usize).min(max_idx);
+                                        let char_col = char_idx % cols;
+                                        let char_row = char_idx / cols;
+
+                                        let u0 = (char_col as f32 * 72.0 + anim_frame as f32 * 24.0) / tex_size.x;
+                                        let u1 = u0 + (24.0 / tex_size.x);
+                                        let v0 = (char_row as f32 * 128.0 + dir as f32 * 32.0) / tex_size.y;
+                                        let v1 = v0 + (32.0 / tex_size.y);
 
                                         painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(u0, v0), egui::pos2(u1, v1)), egui::Color32::WHITE);
                                         ui.ctx().request_repaint();
@@ -224,13 +229,18 @@ pub fn show_actor_form(
                             if let Some(proj) = project_path {
                                 if !actor.face_name.is_empty() {
                                     if let Some(tex) = cache.get_or_load(ui.ctx(), proj, "FaceSet", &actor.face_name) {
-                                        let face_idx = (actor.face_index.clamp(0, 15)) as usize;
-                                        let col = face_idx % 4;
-                                        let row = face_idx / 4;
-                                        let u0 = col as f32 / 4.0;
-                                        let u1 = (col + 1) as f32 / 4.0;
-                                        let v0 = row as f32 / 4.0;
-                                        let v1 = (row + 1) as f32 / 4.0;
+                                        let tex_size = tex.size_vec2();
+                                        let cols = (tex_size.x / 48.0).max(1.0).round() as usize;
+                                        let rows = (tex_size.y / 48.0).max(1.0).round() as usize;
+                                        let max_idx = (cols * rows).saturating_sub(1);
+
+                                        let face_idx = (actor.face_index.max(0) as usize).min(max_idx);
+                                        let col = face_idx % cols;
+                                        let row = face_idx / cols;
+                                        let u0 = (col as f32 * 48.0) / tex_size.x;
+                                        let u1 = ((col + 1) as f32 * 48.0) / tex_size.x;
+                                        let v0 = (row as f32 * 48.0) / tex_size.y;
+                                        let v1 = ((row + 1) as f32 * 48.0) / tex_size.y;
 
                                         painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(u0, v0), egui::pos2(u1, v1)), egui::Color32::WHITE);
                                     }

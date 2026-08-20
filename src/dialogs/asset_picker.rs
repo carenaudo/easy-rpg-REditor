@@ -129,85 +129,106 @@ impl AssetPickerState {
                             let sel_stroke_color = crate::theme::colors::info(is_dark);
 
                             if self.category == "FaceSet" {
-                                cols[1].label("💡 Click any face below to select it (4×4 grid):");
-                                let disp_size = egui::vec2(192.0, 192.0);
-                                let (rect, resp) = cols[1].allocate_exact_size(disp_size, egui::Sense::click());
-                                let painter = cols[1].painter_at(rect);
-                                draw_checkerboard(&painter, rect, 8.0, is_dark);
-                                painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                                let tex_size = tex.size_vec2();
+                                let grid_cols = (tex_size.x / 48.0).max(1.0).round() as i32;
+                                let grid_rows = (tex_size.y / 48.0).max(1.0).round() as i32;
+                                let max_idx = (grid_cols * grid_rows - 1).max(0);
 
-                                let cell_w = disp_size.x / 4.0;
-                                let cell_h = disp_size.y / 4.0;
+                                cols[1].label(format!("💡 Click any face below to select it ({}×{} grid):", grid_cols, grid_rows));
+                                egui::ScrollArea::both()
+                                    .id_salt("faceset_picker_scroll")
+                                    .max_height(280.0)
+                                    .show(&mut cols[1], |ui| {
+                                        let cell_w = 48.0;
+                                        let cell_h = 48.0;
+                                        let disp_size = egui::vec2(grid_cols as f32 * cell_w, grid_rows as f32 * cell_h);
+                                        let (rect, resp) = ui.allocate_exact_size(disp_size, egui::Sense::click());
+                                        let painter = ui.painter_at(rect);
+                                        draw_checkerboard(&painter, rect, 8.0, is_dark);
+                                        painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
 
-                                // Draw grid lines
-                                for i in 0..=4 {
-                                    let x = rect.min.x + i as f32 * cell_w;
-                                    painter.line_segment([egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)], egui::Stroke::new(1.0, grid_stroke_color));
-                                    let y = rect.min.y + i as f32 * cell_h;
-                                    painter.line_segment([egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)], egui::Stroke::new(1.0, grid_stroke_color));
-                                }
+                                        // Draw grid lines
+                                        for i in 0..=grid_cols {
+                                            let x = rect.min.x + i as f32 * cell_w;
+                                            painter.line_segment([egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)], egui::Stroke::new(1.0, grid_stroke_color));
+                                        }
+                                        for i in 0..=grid_rows {
+                                            let y = rect.min.y + i as f32 * cell_h;
+                                            painter.line_segment([egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)], egui::Stroke::new(1.0, grid_stroke_color));
+                                        }
 
-                                // Highlight selected face
-                                let sel_idx = self.selected_index.clamp(0, 15) as usize;
-                                let sel_c = sel_idx % 4;
-                                let sel_r = sel_idx / 4;
-                                let sel_rect = egui::Rect::from_min_size(
-                                    egui::pos2(rect.min.x + sel_c as f32 * cell_w, rect.min.y + sel_r as f32 * cell_h),
-                                    egui::vec2(cell_w, cell_h),
-                                );
-                                painter.rect_stroke(sel_rect, 0.0, egui::Stroke::new(3.0, sel_stroke_color), egui::StrokeKind::Inside);
+                                        // Highlight selected face
+                                        let sel_idx = (self.selected_index.clamp(0, max_idx)) as usize;
+                                        let sel_c = (sel_idx as i32) % grid_cols;
+                                        let sel_r = (sel_idx as i32) / grid_cols;
+                                        let sel_rect = egui::Rect::from_min_size(
+                                            egui::pos2(rect.min.x + sel_c as f32 * cell_w, rect.min.y + sel_r as f32 * cell_h),
+                                            egui::vec2(cell_w, cell_h),
+                                        );
+                                        painter.rect_stroke(sel_rect, 0.0, egui::Stroke::new(3.0, sel_stroke_color), egui::StrokeKind::Inside);
 
-                                // Click detection
-                                if resp.clicked() {
-                                    if let Some(pos) = resp.interact_pointer_pos() {
-                                        let rel_x = (pos.x - rect.min.x).clamp(0.0, disp_size.x - 1.0);
-                                        let rel_y = (pos.y - rect.min.y).clamp(0.0, disp_size.y - 1.0);
-                                        let col = (rel_x / cell_w) as i32;
-                                        let row = (rel_y / cell_h) as i32;
-                                        self.selected_index = row * 4 + col;
-                                    }
-                                }
+                                        // Click detection
+                                        if resp.clicked() {
+                                            if let Some(pos) = resp.interact_pointer_pos() {
+                                                let rel_x = (pos.x - rect.min.x).clamp(0.0, disp_size.x - 1.0);
+                                                let rel_y = (pos.y - rect.min.y).clamp(0.0, disp_size.y - 1.0);
+                                                let col = (rel_x / cell_w) as i32;
+                                                let row = (rel_y / cell_h) as i32;
+                                                self.selected_index = row * grid_cols + col;
+                                            }
+                                        }
+                                    });
                             } else if self.category == "CharSet" {
-                                cols[1].label("💡 Click any character below to select it (4×2 grid):");
-                                let disp_size = egui::vec2(216.0, 192.0); // 288x256 scaled down proportionally (3/4)
-                                let (rect, resp) = cols[1].allocate_exact_size(disp_size, egui::Sense::click());
-                                let painter = cols[1].painter_at(rect);
-                                draw_checkerboard(&painter, rect, 8.0, is_dark);
-                                painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                                let tex_size = tex.size_vec2();
+                                let grid_cols = (tex_size.x / 72.0).max(1.0).round() as i32;
+                                let grid_rows = (tex_size.y / 128.0).max(1.0).round() as i32;
+                                let max_idx = (grid_cols * grid_rows - 1).max(0);
+                                let scale = 0.75;
+                                let cell_w = 72.0 * scale;
+                                let cell_h = 128.0 * scale;
 
-                                let cell_w = disp_size.x / 4.0;
-                                let cell_h = disp_size.y / 2.0;
+                                cols[1].label(format!("💡 Click any character below to select it ({}×{} grid):", grid_cols, grid_rows));
+                                egui::ScrollArea::both()
+                                    .id_salt("charset_picker_scroll")
+                                    .max_height(280.0)
+                                    .show(&mut cols[1], |ui| {
+                                        let disp_size = egui::vec2(grid_cols as f32 * cell_w, grid_rows as f32 * cell_h);
+                                        let (rect, resp) = ui.allocate_exact_size(disp_size, egui::Sense::click());
+                                        let painter = ui.painter_at(rect);
+                                        draw_checkerboard(&painter, rect, 8.0, is_dark);
+                                        painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
 
-                                // Draw grid lines
-                                for i in 0..=4 {
-                                    let x = rect.min.x + i as f32 * cell_w;
-                                    painter.line_segment([egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)], egui::Stroke::new(1.0, grid_stroke_color));
-                                }
-                                for i in 0..=2 {
-                                    let y = rect.min.y + i as f32 * cell_h;
-                                    painter.line_segment([egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)], egui::Stroke::new(1.0, grid_stroke_color));
-                                }
+                                        // Draw grid lines
+                                        for i in 0..=grid_cols {
+                                            let x = rect.min.x + i as f32 * cell_w;
+                                            painter.line_segment([egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)], egui::Stroke::new(1.0, grid_stroke_color));
+                                        }
+                                        for i in 0..=grid_rows {
+                                            let y = rect.min.y + i as f32 * cell_h;
+                                            painter.line_segment([egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)], egui::Stroke::new(1.0, grid_stroke_color));
+                                        }
 
-                                // Highlight selected character
-                                let sel_idx = self.selected_index.clamp(0, 7) as usize;
-                                let sel_c = sel_idx % 4;
-                                let sel_r = sel_idx / 4;
-                                let sel_rect = egui::Rect::from_min_size(
-                                    egui::pos2(rect.min.x + sel_c as f32 * cell_w, rect.min.y + sel_r as f32 * cell_h),
-                                    egui::vec2(cell_w, cell_h),
-                                );
-                                painter.rect_stroke(sel_rect, 0.0, egui::Stroke::new(3.0, sel_stroke_color), egui::StrokeKind::Inside);
+                                        // Highlight selected character
+                                        let sel_idx = (self.selected_index.clamp(0, max_idx)) as usize;
+                                        let sel_c = (sel_idx as i32) % grid_cols;
+                                        let sel_r = (sel_idx as i32) / grid_cols;
+                                        let sel_rect = egui::Rect::from_min_size(
+                                            egui::pos2(rect.min.x + sel_c as f32 * cell_w, rect.min.y + sel_r as f32 * cell_h),
+                                            egui::vec2(cell_w, cell_h),
+                                        );
+                                        painter.rect_stroke(sel_rect, 0.0, egui::Stroke::new(3.0, sel_stroke_color), egui::StrokeKind::Inside);
 
-                                // Click detection
-                                if resp.clicked() {
-                                    if let Some(pos) = resp.interact_pointer_pos() {
-                                        let rel_x = (pos.x - rect.min.x).clamp(0.0, disp_size.x - 1.0);
-                                        let rel_y = (pos.y - rect.min.y).clamp(0.0, disp_size.y - 1.0);
-                                        let col = (rel_x / cell_w) as i32;
-                                        let row = (rel_y / cell_h) as i32;
-                                        self.selected_index = row * 4 + col;
-                                    }
-                                }
+                                        // Click detection
+                                        if resp.clicked() {
+                                            if let Some(pos) = resp.interact_pointer_pos() {
+                                                let rel_x = (pos.x - rect.min.x).clamp(0.0, disp_size.x - 1.0);
+                                                let rel_y = (pos.y - rect.min.y).clamp(0.0, disp_size.y - 1.0);
+                                                let col = (rel_x / cell_w) as i32;
+                                                let row = (rel_y / cell_h) as i32;
+                                                self.selected_index = row * grid_cols + col;
+                                            }
+                                        }
+                                    });
                             } else {
                                 let (rect, _) = cols[1].allocate_exact_size(egui::vec2(220.0, 180.0), egui::Sense::hover());
                                 let painter = cols[1].painter_at(rect);

@@ -707,4 +707,117 @@ mod tests {
         let resources = list_available_resources("Music", Some("non_existent_path_xyz_123"));
         assert!(resources.is_empty() || !resources.is_empty()); // Verifies no panic and valid type
     }
+
+    #[test]
+    fn test_phase13_dynamic_faceset_and_charset_dimensions() {
+        let path_2000 = "d:/programacion/test-assets/TestGame/TestGame-2000";
+        if std::path::Path::new(path_2000).exists() {
+            // 1. RPG 2000 non-standard 192x240 FaceSet (5 rows)
+            let face_bytes = std::fs::read(format!("{}/FaceSet/Chara1.png", path_2000)).unwrap();
+            let face_img = tilemap::decode_rpg_image(&face_bytes).unwrap();
+            assert_eq!(face_img.width(), 192);
+            assert_eq!(face_img.height(), 240);
+
+            let cols = (face_img.width() as f32 / 48.0).max(1.0).round() as usize;
+            let rows = (face_img.height() as f32 / 48.0).max(1.0).round() as usize;
+            assert_eq!(cols, 4);
+            assert_eq!(rows, 5);
+            let max_face_idx = (cols * rows).saturating_sub(1);
+            assert_eq!(max_face_idx, 19);
+
+            // UV calculation for face 16 (first face in 5th row)
+            let face_idx = 16.min(max_face_idx);
+            let c = face_idx % cols;
+            let r = face_idx / cols;
+            assert_eq!(c, 0);
+            assert_eq!(r, 4);
+            let v0 = (r as f32 * 48.0) / face_img.height() as f32;
+            let v1 = ((r + 1) as f32 * 48.0) / face_img.height() as f32;
+            assert_eq!(v0, 192.0 / 240.0);
+            assert_eq!(v1, 240.0 / 240.0);
+
+            // 2. RPG 2000 non-standard 288x384 CharSet (3 character rows)
+            let char_bytes = std::fs::read(format!("{}/CharSet/Chara1.png", path_2000)).unwrap();
+            let char_img = tilemap::decode_rpg_image(&char_bytes).unwrap();
+            assert_eq!(char_img.width(), 288);
+            assert_eq!(char_img.height(), 384);
+
+            let char_cols = (char_img.width() as f32 / 72.0).max(1.0).round() as usize;
+            let char_rows = (char_img.height() as f32 / 128.0).max(1.0).round() as usize;
+            assert_eq!(char_cols, 4);
+            assert_eq!(char_rows, 3);
+            let max_char_idx = (char_cols * char_rows).saturating_sub(1);
+            assert_eq!(max_char_idx, 11);
+
+            // UV calculation for char 8 (first char in 3rd block row)
+            let char_idx = 8.min(max_char_idx);
+            let cc = char_idx % char_cols;
+            let cr = char_idx / char_cols;
+            assert_eq!(cc, 0);
+            assert_eq!(cr, 2);
+            let cv0 = (cr as f32 * 128.0) / char_img.height() as f32;
+            let cv1 = cv0 + (32.0 / char_img.height() as f32);
+            assert_eq!(cv0, 256.0 / 384.0);
+            assert_eq!(cv1, (256.0 + 32.0) / 384.0);
+        }
+
+        let path_2003 = "d:/programacion/test-assets/TestGame/TestGame-2003";
+        if std::path::Path::new(path_2003).exists() {
+            // 3. RPG 2003 standard 192x192 FaceSet
+            let face_bytes = std::fs::read(format!("{}/FaceSet/Actor1.png", path_2003)).unwrap();
+            let face_img = tilemap::decode_rpg_image(&face_bytes).unwrap();
+            assert_eq!(face_img.width(), 192);
+            assert_eq!(face_img.height(), 192);
+            let cols = (face_img.width() as f32 / 48.0).max(1.0).round() as usize;
+            let rows = (face_img.height() as f32 / 48.0).max(1.0).round() as usize;
+            assert_eq!(cols, 4);
+            assert_eq!(rows, 4);
+
+            // 4. RPG 2003 standard 288x256 CharSet
+            let char_bytes = std::fs::read(format!("{}/CharSet/Actor1.png", path_2003)).unwrap();
+            let char_img = tilemap::decode_rpg_image(&char_bytes).unwrap();
+            assert_eq!(char_img.width(), 288);
+            assert_eq!(char_img.height(), 256);
+            let char_cols = (char_img.width() as f32 / 72.0).max(1.0).round() as usize;
+            let char_rows = (char_img.height() as f32 / 128.0).max(1.0).round() as usize;
+            assert_eq!(char_cols, 4);
+            assert_eq!(char_rows, 2);
+        }
+    }
+
+    #[test]
+    fn test_phase14_map_context_menu_and_event_insertion() {
+        use easy_editor::views::map_view::{MapLayerMode, MapViewState};
+        use easy_editor::lcf_bridge::EventInfo;
+
+        let mut map_view = MapViewState::default();
+        assert_eq!(map_view.context_menu_tile, None);
+
+        // Simulate right-click on tile (5, 7)
+        map_view.context_menu_tile = Some((5, 7));
+        assert_eq!(map_view.context_menu_tile, Some((5, 7)));
+
+        // Create new event at context_menu_tile
+        let (tx, ty) = map_view.context_menu_tile.unwrap();
+        let new_id = (map_view.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
+        let new_ev = EventInfo {
+            id: new_id,
+            name: format!("EV{:04}", new_id),
+            x: tx,
+            y: ty,
+            page_count: 1,
+            ..Default::default()
+        };
+        map_view.events.push(new_ev);
+        map_view.layer_mode = MapLayerMode::Events;
+        map_view.show_events = true;
+
+        assert_eq!(map_view.events.len(), 1);
+        assert_eq!(map_view.events[0].id, 1);
+        assert_eq!(map_view.events[0].name, "EV0001");
+        assert_eq!(map_view.events[0].x, 5);
+        assert_eq!(map_view.events[0].y, 7);
+        assert_eq!(map_view.layer_mode, MapLayerMode::Events);
+        assert!(map_view.show_events);
+    }
 }

@@ -74,6 +74,8 @@ pub struct MapViewState {
     /// remembers where it started, for the undo action and for snap-back if
     /// the drop lands on another event.
     pub dragging_event: Option<(usize, i32, i32)>,
+    /// Tile coordinate where the right-click context menu was opened.
+    pub context_menu_tile: Option<(i32, i32)>,
     pub show_shift_dialog: bool,
     pub shift_dx: i32,
     pub shift_dy: i32,
@@ -111,6 +113,7 @@ impl Default for MapViewState {
             hover_tile: None,
             copied_event: None,
             dragging_event: None,
+            context_menu_tile: None,
             show_shift_dialog: false,
             shift_dx: 0,
             shift_dy: 0,
@@ -701,6 +704,17 @@ impl MapViewState {
                     }
                 });
 
+                // Capture tile on right-click for the context menu
+                if resp.secondary_clicked() {
+                    if let Some(pos) = resp.interact_pointer_pos().or(resp.hover_pos()) {
+                        let tx = ((pos.x - rect.min.x) / tile_px) as i32;
+                        let ty = ((pos.y - rect.min.y) / tile_px) as i32;
+                        if tx >= 0 && tx < dims.width && ty >= 0 && ty < dims.height {
+                            self.context_menu_tile = Some((tx, ty));
+                        }
+                    }
+                }
+
                 // Render Map Image
                 let tint = if self.dim_inactive_layers && self.layer_mode == MapLayerMode::Events {
                     egui::Color32::from_rgba_unmultiplied(160, 160, 160, 180)
@@ -957,133 +971,150 @@ impl MapViewState {
                                 self.undo_stack.push(MapEditAction::TileStroke { is_upper, changes });
                             }
                         }
-
-                        // Right-Click Context Menu on Canvas - a different menu when
-                        // the clicked tile already holds an event.
-                        let cur_map_id = map_id.unwrap_or(1);
-                        let event_here_idx = if self.layer_mode == MapLayerMode::Events {
-                            self.events.iter().position(|e| e.x == tile_x && e.y == tile_y)
-                        } else {
-                            None
-                        };
-
-                        resp.context_menu(|ui| {
-                            // One consistent menu: event-specific actions when
-                            // the tile already holds an event, then the
-                            // creation actions (New/Paste/Quick Events) - which
-                            // don't make sense on an occupied tile, since two
-                            // events can't share a tile (same rule the drag-to-
-                            // move block enforces) - only when it's empty. Set
-                            // Starting Position is always available either way.
-                            if let Some(idx) = event_here_idx {
-                                let ev_id = self.events[idx].id;
-                                let ev_name = self.events[idx].name.clone();
-                                let ev_pages = self.events[idx].page_count;
-                                ui.label(format!("#{ev_id} {ev_name} — {ev_pages} page(s)"));
-                                ui.separator();
-
-                                if ui.button(format!("✏ {}", rust_i18n::t!("map.edit_event"))).clicked() {
-                                    self.event_dialog.open(&self.events[idx]);
-                                    ui.close();
-                                }
-                                if ui.button(format!("🗑 {}", rust_i18n::t!("map.delete_event"))).clicked() {
-                                    let removed = self.events.remove(idx);
-                                    self.undo_stack.push(MapEditAction::EventDelete { index: idx, event: removed });
-                                    self.events_dirty = true;
-                                    ui.close();
-                                }
-                                if ui.button(format!("✂ {}", rust_i18n::t!("map.cut_event"))).clicked() {
-                                    self.copied_event = Some(self.events[idx].clone());
-                                    let removed = self.events.remove(idx);
-                                    self.undo_stack.push(MapEditAction::EventDelete { index: idx, event: removed });
-                                    self.events_dirty = true;
-                                    ui.close();
-                                }
-                                if ui.button(format!("📋 {}", rust_i18n::t!("map.copy_event"))).clicked() {
-                                    self.copied_event = Some(self.events[idx].clone());
-                                    ui.close();
-                                }
-                            } else {
-                                if ui.button(format!("✨ {}", rust_i18n::t!("map.new_event_here"))).clicked() {
-                                    let new_id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
-                                    let new_ev = EventInfo {
-                                        id: new_id,
-                                        name: format!("EV{:04}", new_id),
-                                        x: tile_x,
-                                        y: tile_y,
-                                        page_count: 1,
-                                        ..Default::default()
-                                    };
-                                    self.event_dialog.open(&new_ev);
-                                    ui.close();
-                                }
-
-                                if self.copied_event.is_some() && ui.button(format!("📋 {}", rust_i18n::t!("map.paste_event"))).clicked() {
-                                    let mut pasted = self.copied_event.clone().unwrap();
-                                    pasted.id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
-                                    pasted.x = tile_x;
-                                    pasted.y = tile_y;
-                                    let idx = self.events.len();
-                                    self.events.push(pasted.clone());
-                                    self.undo_stack.push(MapEditAction::EventAdd { index: idx, event: pasted });
-                                    self.events_dirty = true;
-                                    ui.close();
-                                }
-                            }
-
-                            ui.separator();
-                            ui.label("Set Starting Position:");
-                            if ui.button(format!("🧍 {}", rust_i18n::t!("map.set_start_party"))).clicked() {
-                                self.start_points.party_map_id = cur_map_id;
-                                self.start_points.party_x = tile_x;
-                                self.start_points.party_y = tile_y;
-                                if let Some(proj) = project_path {
-                                    let _ = lcf_bridge::save_start_points(proj, &self.start_points);
-                                }
-                                ui.close();
-                            }
-                            if ui.button(format!("⛵ {}", rust_i18n::t!("map.set_start_boat"))).clicked() {
-                                self.start_points.boat_map_id = cur_map_id;
-                                self.start_points.boat_x = tile_x;
-                                self.start_points.boat_y = tile_y;
-                                if let Some(proj) = project_path {
-                                    let _ = lcf_bridge::save_start_points(proj, &self.start_points);
-                                }
-                                ui.close();
-                            }
-
-                            if event_here_idx.is_none() {
-                                ui.separator();
-                                ui.label("Quick Events:");
-                                if ui.button(format!("🚪 {}", rust_i18n::t!("map.quick_event_door"))).clicked() {
-                                    self.quick_event_pending = Some(QuickEventPending::Door { x: tile_x, y: tile_y });
-                                    self.target_picker.open(proj_str, cur_map_id, tile_x, tile_y);
-                                    ui.close();
-                                }
-                                if ui.button(format!("🎁 {}", rust_i18n::t!("map.quick_event_chest"))).clicked() {
-                                    self.create_quick_chest(tile_x, tile_y);
-                                    ui.close();
-                                }
-                                if ui.button(format!("🏨 {}", rust_i18n::t!("map.quick_event_inn"))).clicked() {
-                                    self.create_quick_inn(tile_x, tile_y);
-                                    ui.close();
-                                }
-                                if ui.button(format!("🚶 {}", rust_i18n::t!("map.quick_event_transfer"))).clicked() {
-                                    self.quick_event_pending = Some(QuickEventPending::Transfer { x: tile_x, y: tile_y });
-                                    self.target_picker.open(proj_str, cur_map_id, tile_x, tile_y);
-                                    ui.close();
-                                }
-                                if ui.button("💾 Quick Save Point").clicked() {
-                                    self.create_quick_save_point(tile_x, tile_y);
-                                    ui.close();
-                                }
-                                if ui.button("⛲ Quick Recovery Spring").clicked() {
-                                    self.create_quick_recovery(tile_x, tile_y);
-                                    ui.close();
-                                }
-                            }
-                        });
                     }
+                }
+
+                // Right-Click Context Menu on Canvas
+                if let Some((tile_x, tile_y)) = self.context_menu_tile {
+                    let cur_map_id = map_id.unwrap_or(1);
+                    let event_here_idx = if self.layer_mode == MapLayerMode::Events {
+                        self.events.iter().position(|e| e.x == tile_x && e.y == tile_y)
+                    } else {
+                        None
+                    };
+
+                    resp.context_menu(|ui| {
+                        // One consistent menu: event-specific actions when
+                        // the tile already holds an event, then the
+                        // creation actions (New/Paste/Quick Events) - which
+                        // don't make sense on an occupied tile, since two
+                        // events can't share a tile (same rule the drag-to-
+                        // move block enforces) - only when it's empty. Set
+                        // Starting Position is always available either way.
+                        if let Some(idx) = event_here_idx {
+                            let ev_id = self.events[idx].id;
+                            let ev_name = self.events[idx].name.clone();
+                            let ev_pages = self.events[idx].page_count;
+                            ui.label(format!("#{ev_id} {ev_name} — {ev_pages} page(s)"));
+                            ui.separator();
+
+                            if ui.button(format!("✏ {}", rust_i18n::t!("map.edit_event"))).clicked() {
+                                self.event_dialog.open(&self.events[idx]);
+                                ui.close();
+                            }
+                            if ui.button(format!("🗑 {}", rust_i18n::t!("map.delete_event"))).clicked() {
+                                let removed = self.events.remove(idx);
+                                self.undo_stack.push(MapEditAction::EventDelete { index: idx, event: removed });
+                                self.events_dirty = true;
+                                ui.close();
+                            }
+                            if ui.button(format!("✂ {}", rust_i18n::t!("map.cut_event"))).clicked() {
+                                self.copied_event = Some(self.events[idx].clone());
+                                let removed = self.events.remove(idx);
+                                self.undo_stack.push(MapEditAction::EventDelete { index: idx, event: removed });
+                                self.events_dirty = true;
+                                ui.close();
+                            }
+                            if ui.button(format!("📋 {}", rust_i18n::t!("map.copy_event"))).clicked() {
+                                self.copied_event = Some(self.events[idx].clone());
+                                ui.close();
+                            }
+                        } else {
+                            if ui.button(format!("✨ {}", rust_i18n::t!("map.new_event_here"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                let new_id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
+                                let new_ev = EventInfo {
+                                    id: new_id,
+                                    name: format!("EV{:04}", new_id),
+                                    x: tile_x,
+                                    y: tile_y,
+                                    page_count: 1,
+                                    ..Default::default()
+                                };
+                                self.event_dialog.open(&new_ev);
+                                ui.close();
+                            }
+
+                            if self.copied_event.is_some() && ui.button(format!("📋 {}", rust_i18n::t!("map.paste_event"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                let mut pasted = self.copied_event.clone().unwrap();
+                                pasted.id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
+                                pasted.x = tile_x;
+                                pasted.y = tile_y;
+                                let idx = self.events.len();
+                                self.events.push(pasted.clone());
+                                self.undo_stack.push(MapEditAction::EventAdd { index: idx, event: pasted });
+                                self.events_dirty = true;
+                                ui.close();
+                            }
+                        }
+
+                        ui.separator();
+                        ui.label("Set Starting Position:");
+                        if ui.button(format!("🧍 {}", rust_i18n::t!("map.set_start_party"))).clicked() {
+                            self.start_points.party_map_id = cur_map_id;
+                            self.start_points.party_x = tile_x;
+                            self.start_points.party_y = tile_y;
+                            if let Some(proj) = project_path {
+                                let _ = lcf_bridge::save_start_points(proj, &self.start_points);
+                            }
+                            ui.close();
+                        }
+                        if ui.button(format!("⛵ {}", rust_i18n::t!("map.set_start_boat"))).clicked() {
+                            self.start_points.boat_map_id = cur_map_id;
+                            self.start_points.boat_x = tile_x;
+                            self.start_points.boat_y = tile_y;
+                            if let Some(proj) = project_path {
+                                let _ = lcf_bridge::save_start_points(proj, &self.start_points);
+                            }
+                            ui.close();
+                        }
+
+                        if event_here_idx.is_none() {
+                            ui.separator();
+                            ui.label("Quick Events:");
+                            if ui.button(format!("🚪 {}", rust_i18n::t!("map.quick_event_door"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.quick_event_pending = Some(QuickEventPending::Door { x: tile_x, y: tile_y });
+                                self.target_picker.open(proj_str, cur_map_id, tile_x, tile_y);
+                                ui.close();
+                            }
+                            if ui.button(format!("🎁 {}", rust_i18n::t!("map.quick_event_chest"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.create_quick_chest(tile_x, tile_y);
+                                ui.close();
+                            }
+                            if ui.button(format!("🏨 {}", rust_i18n::t!("map.quick_event_inn"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.create_quick_inn(tile_x, tile_y);
+                                ui.close();
+                            }
+                            if ui.button(format!("🚶 {}", rust_i18n::t!("map.quick_event_transfer"))).clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.quick_event_pending = Some(QuickEventPending::Transfer { x: tile_x, y: tile_y });
+                                self.target_picker.open(proj_str, cur_map_id, tile_x, tile_y);
+                                ui.close();
+                            }
+                            if ui.button("💾 Quick Save Point").clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.create_quick_save_point(tile_x, tile_y);
+                                ui.close();
+                            }
+                            if ui.button("⛲ Quick Recovery Spring").clicked() {
+                                self.layer_mode = MapLayerMode::Events;
+                                self.show_events = true;
+                                self.create_quick_recovery(tile_x, tile_y);
+                                ui.close();
+                            }
+                        }
+                    });
                 }
             }
         });

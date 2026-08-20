@@ -225,7 +225,7 @@ Test background music (BGM), background sounds (BGS), and sound effects (SE) wit
 ---
 
 ### MIDI & Audio Configuration
-Configure the audio backend and MIDI playback settings for authentic RPG Maker 2000/2003 music reproduction.
+Configure the cross-platform MIDI software synthesizer powered by `rustysynth`. The editor can auto-detect standard SoundFonts (`.sf2` files) in system and RTP directories or let you load custom soundfont files for authentic RPG Maker 2000/2003 soundtrack reproduction across Windows, Linux, and macOS.
 
 ![MIDI Configuration](images/midi-config.png)
 

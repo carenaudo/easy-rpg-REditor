@@ -13,6 +13,8 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 
 **Use at your own risk, and always keep your own backups or version control of any project you open with this.** Every write does create a one-time `.bak` copy of the file it's about to touch before the first save in a session, but that is a safety net for this tool's own mistakes, not a substitute for a real backup.
 
+> 📸 **Visual Tour & Guide**: See the [**Visual Showcase & User Guide**](docs/showcase.md) for screenshots and walkthroughs of all editor views, tools, and database editors.
+
 ## Features
 
 - **Maps**: tile painting (pen, rectangle, ellipse, flood fill, eyedropper), a live   tileset palette, passability/grid overlays, undo/redo, a searchable map tree with create/duplicate/delete/properties, and a "Shift Map" tool for repositioning an entire   map's contents.

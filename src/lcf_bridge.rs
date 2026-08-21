@@ -224,6 +224,13 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
         11720 => "Shop Processing".to_string(),
         11730 => "Inn Processing".to_string(),
         11740 => "Hero Name Input".to_string(),
+        code if is_maniac_command_code(code) => {
+            if !cmd.string.is_empty() {
+                format!("Maniac: {} ({})", maniac_command_name(code), cmd.string)
+            } else {
+                format!("Maniac: {}", maniac_command_name(code))
+            }
+        }
         _ => {
             if !cmd.string.is_empty() {
                 format!("Command #{} ({})", cmd.code, cmd.string)
@@ -1095,6 +1102,125 @@ pub fn maniac_command_name(code: i32) -> &'static str {
         3029 => "Control Text Processing",
         3032 => "Zoom",
         _ => "Unknown Maniac Command",
+    }
+}
+
+/// Minimum parameter count EasyRPG Player's interpreter requires before
+/// dispatching each Maniac command (`CmdSetup<N>` in `game_interpreter.cpp`
+/// / `game_interpreter_battle.cpp`, EasyRPG/Player master branch, checked
+/// 2026-08-21). `None` for codes Player does not implement at all
+/// (`Maniac_EditPicture`/`AddMoveRoute`/`EditTile`/`ControlTextProcessing`/`Zoom`)
+/// or that aren't an assigned Maniac code - there is no known layout to
+/// size a fresh command against, so callers should fall back to a small
+/// default the user can grow manually.
+pub fn maniac_param_count(code: i32) -> Option<usize> {
+    match code {
+        3001 => Some(12),
+        // CmdSetup<3>, but Save conditionally reads parameters[3] as the
+        // result-output variable when parameters[2] != 0 - size new
+        // commands to 4 so that field always has a slot.
+        3002 => Some(4),
+        3003 => Some(3),
+        3004 => Some(0),
+        3005 => Some(2),
+        3006 => Some(3),
+        3007 => Some(23),
+        3008 => Some(8),
+        3009 => Some(4),
+        3010 => Some(7),
+        3011 => Some(2),
+        3012 => Some(5),
+        3013 => Some(5),
+        3014 => Some(4),
+        3015 => Some(9),
+        3016 => Some(6),
+        3017 => Some(6),
+        3018 => Some(4),
+        3019 => Some(6),
+        3020 => Some(8),
+        3021 => Some(8),
+        3026 => Some(5),
+        _ => None,
+    }
+}
+
+/// Short, human-readable hint for one parameter slot of a Maniac command,
+/// for the generic parameter-list editor used by commands too complex for
+/// a bespoke form this pass (see `EventCommandDialogState`). Sourced from
+/// reading EasyRPG Player's actual parameter-decoding code, not guessed -
+/// covers only the "known but complex" Tier-2 commands (`GetGameInfo`,
+/// `ShowStringPicture`, `GetPictureInfo`, `RewriteMap`, `SetGameOption`,
+/// `CallCommand`, `ControlStrings`, `WritePicture`). Returns `None` for
+/// every other slot/code, including all five commands Player doesn't
+/// implement at all - there is nothing to honestly report for those.
+pub fn maniac_param_hint(code: i32, index: usize) -> Option<&'static str> {
+    match (code, index) {
+        // Maniac_GetGameInfo (3001) / alias entry (3021)
+        (3001, 0) | (3021, 0) => Some("Value/variable mode bitfield"),
+        (3001, 1) | (3021, 1) => Some("Info category (0=map size .. 10=current BGM)"),
+        (3001, 2) | (3021, 2) => Some("Result variable (base) / tile layer (category 1)"),
+        // Maniac_ShowStringPicture (3007)
+        (3007, 0) => Some("Value/variable mode bitfield"),
+        (3007, 1) => Some("Picture ID"),
+        (3007, 2) => Some("Position X"),
+        (3007, 3) => Some("Position Y"),
+        (3007, 4) => Some("Magnify width %"),
+        (3007, 5) => Some("Top transparency"),
+        (3007, 6) => Some("Red"),
+        (3007, 7) => Some("Green"),
+        (3007, 8) => Some("Blue"),
+        (3007, 9) => Some("Saturation"),
+        (3007, 10) => Some("Effect mode"),
+        (3007, 11) => Some("Effect power"),
+        (3007, 12) => Some("Blend/flip/origin flags"),
+        (3007, 13) => Some("Effect flags"),
+        (3007, 14) => Some("Transparency/spacing flags"),
+        (3007, 15) => Some("Show on map layer"),
+        (3007, 16) => Some("Show on battle layer"),
+        (3007, 17) => Some("Window flags"),
+        (3007, 18) => Some("Width"),
+        (3007, 19) => Some("Height"),
+        (3007, 20) => Some("Font size"),
+        (3007, 21) => Some("Fixed-angle divisor"),
+        (3007, 22) => Some("String parsing mode arg"),
+        // Maniac_GetPictureInfo (3008)
+        (3008, 0) => Some("Picture ID / value-or-variable"),
+        (3008, 1) => Some("Info stage (0=current, 1=start, 2=finish)"),
+        (3008, 2) => Some("Coordinate origin mode"),
+        (3008, 3) => Some("Picture ID variable (when mode uses a variable)"),
+        (3008, 4) => Some("Result variable: X"),
+        (3008, 5) => Some("Result variable: Y"),
+        (3008, 6) => Some("Result variable: Width"),
+        (3008, 7) => Some("Result variable: Height"),
+        // Maniac_RewriteMap (3015)
+        (3015, 0) => Some("Value/variable mode bitfield"),
+        (3015, 1) => Some("Replace with a range of tile IDs from variables"),
+        (3015, 2) => Some("Target upper layer (else lower)"),
+        (3015, 3) => Some("Tile ID (or first variable of the range)"),
+        (3015, 4) => Some("X start"),
+        (3015, 5) => Some("Y start"),
+        (3015, 6) => Some("Width"),
+        (3015, 7) => Some("Height"),
+        (3015, 8) => Some("Disable autotile"),
+        // Maniac_SetGameOption (3018) - only operation 2 (Picture Limit) is
+        // implemented by EasyRPG Player; others are accepted but no-ops.
+        (3018, 0) => Some("Value/variable mode"),
+        (3018, 1) => Some("Option to change (2=Picture Limit; others not emulated)"),
+        (3018, 2) => Some("New value"),
+        // Maniac_CallCommand (3019) - encodes a *nested* EventCommand, not
+        // flat parameters; editing these integers directly edits the
+        // encoded inner command.
+        (3019, 0) => Some("Nested command code"),
+        // Maniac_ControlStrings (3020)
+        (3020, 0) => Some("Mode bitfield (string index + up to 4 argument modes)"),
+        (3020, 1) => Some("String index (or range start)"),
+        (3020, 2) => Some("String index range end (optional)"),
+        (3020, 3) => Some("Operation/sub-operation/flags (packed bytes)"),
+        (3020, 4) => Some("Argument 1"),
+        (3020, 5) => Some("Argument 2"),
+        (3020, 6) => Some("Argument 3"),
+        (3020, 7) => Some("Argument 4 (exMatch only)"),
+        _ => None,
     }
 }
 

@@ -490,6 +490,8 @@ impl DatabaseViewState {
                                             let label = format!("{:04}: {}", t.id, t.name);
                                             if ui.selectable_label(self.selected_troop == i, label).clicked() {
                                                 self.selected_troop = i;
+                                                self.troop_view_state.selected_cmd_idx = None;
+                                                self.troop_view_state.active_page_idx = 0;
                                             }
                                         }
                                     }

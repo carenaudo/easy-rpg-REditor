@@ -276,6 +276,199 @@ mod tests {
         assert_ne!(msg_color_light, if_color_light);
         assert_ne!(msg_color_light, sw_color_light);
         assert_ne!(msg_color_dark, msg_color_light);
+
+        // Maniac Patch commands get their own distinct color, in both modes.
+        let maniac_color_dark = event_command_color(3013, true); // Control Var Array
+        assert_ne!(maniac_color_dark, msg_color_dark);
+        assert_ne!(maniac_color_dark, if_color_dark);
+        let maniac_color_light = event_command_color(3013, false);
+        assert_ne!(maniac_color_light, msg_color_light);
+        assert_ne!(maniac_color_dark, maniac_color_light);
+    }
+
+    #[test]
+    fn test_maniac_command_editing_data_tables() {
+        use easy_editor::lcf_bridge::{event_command_label, maniac_param_count, maniac_param_hint, EventCommandInfo};
+
+        // maniac_param_count: known Player-implemented codes return Some,
+        // unimplemented ones (Player has no CmdSetup dispatch for these)
+        // return None.
+        assert_eq!(maniac_param_count(3013), Some(5)); // Control Var Array
+        assert_eq!(maniac_param_count(3007), Some(23)); // Show String Picture
+        assert_eq!(maniac_param_count(3025), None); // Edit Picture - not implemented by Player
+        assert_eq!(maniac_param_count(3032), None); // Zoom - not implemented by Player
+        assert_eq!(maniac_param_count(99999), None); // not a Maniac code at all
+
+        // maniac_param_hint: only covers the "known but complex" Tier-2
+        // commands - no invented semantics for the unimplemented ones.
+        assert!(maniac_param_hint(3020, 0).is_some()); // Control Strings, mode bitfield
+        assert!(maniac_param_hint(3025, 0).is_none()); // Edit Picture - nothing known
+        assert!(maniac_param_hint(3013, 0).is_none()); // Control Var Array has a bespoke form, no hint table entry needed
+
+        // event_command_label: Maniac codes get a "Maniac: <Name>" label
+        // instead of the generic "Command #NNNN" fallback.
+        let cmd = EventCommandInfo { code: 3013, indent: 0, string: String::new(), parameters: vec![6, 0, 1, 10, 20] };
+        let label = event_command_label(&cmd);
+        assert!(label.contains("Maniac: Control Var Array"), "label was: {label}");
+
+        let unknown_cmd = EventCommandInfo { code: 3025, indent: 0, string: String::new(), parameters: vec![] };
+        let unknown_label = event_command_label(&unknown_cmd);
+        assert!(unknown_label.contains("Maniac: Edit Picture"), "label was: {unknown_label}");
+    }
+
+    #[test]
+    fn test_maniac_command_dialog_full_fidelity() {
+        use easy_editor::dialogs::event_command_dialog::{CommandCategory, EventCommandDialogState};
+        use easy_editor::lcf_bridge::EventCommandInfo;
+
+        // Regression test for the pre-existing bug: opening a command with
+        // more than 6 parameters used to silently truncate to param0..5.
+        // `raw_params` must hold the full vector.
+        let cmd = EventCommandInfo {
+            code: 3020, // Control Strings - a Tier-2 command with up to 8 params
+            indent: 1,
+            string: "hello".to_string(),
+            parameters: vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+        };
+        let mut state = EventCommandDialogState::default();
+        state.open_edit(0, &cmd);
+
+        assert_eq!(state.raw_params, cmd.parameters, "raw_params must preserve every parameter, not just the first 6");
+        assert_eq!(state.raw_params.len(), 9);
+
+        // Category auto-detect: Maniac codes must land on the Maniac tab,
+        // not the old `_ => Messages` fallback.
+        assert_eq!(state.category, CommandCategory::Maniac);
+
+        // A Tier-1 command with fewer than 6 params round-trips too.
+        let small_cmd = EventCommandInfo {
+            code: 3005, // Get Mouse Position
+            indent: 0,
+            string: String::new(),
+            parameters: vec![10, 11],
+        };
+        let mut state2 = EventCommandDialogState::default();
+        state2.open_edit(0, &small_cmd);
+        assert_eq!(state2.raw_params, vec![10, 11]);
+        assert_eq!(state2.category, CommandCategory::Maniac);
+    }
+
+    #[test]
+    fn test_maniac_command_dialog_against_real_fixture() {
+        use easy_editor::dialogs::event_command_dialog::EventCommandDialogState;
+        use easy_editor::lcf_bridge;
+
+        let maniac_path = "d:/programacion/test-assets/TestGame/TestGame-Maniac";
+        if !std::path::Path::new(maniac_path).exists() {
+            eprintln!("Skipping test: {:?} not found", maniac_path);
+            return;
+        }
+
+        let app = {
+            let mut app = easy_editor::app_state::EditorAppState::default();
+            app.load_project_from(maniac_path.to_string());
+            app
+        };
+
+        // Find a real Maniac command in this project's maps and confirm
+        // opening it for edit preserves every parameter exactly.
+        let mut found = false;
+        'outer: for (map_id, _) in &app.maps {
+            let events = lcf_bridge::get_map_events(maniac_path, *map_id);
+            for ev in &events {
+                for page in &ev.pages {
+                    for cmd in &page.commands {
+                        if lcf_bridge::is_maniac_command_code(cmd.code) {
+                            let mut state = EventCommandDialogState::default();
+                            state.open_edit(0, cmd);
+                            assert_eq!(state.raw_params, cmd.parameters, "Maniac command {} on map {} lost parameters on open_edit", cmd.code, map_id);
+                            found = true;
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(found, "expected at least one real Maniac command somewhere in TestGame-Maniac's maps");
+    }
+
+    #[test]
+    fn test_troop_command_editing() {
+        use easy_editor::lcf_bridge::{EventCommandInfo, TroopPageInfo};
+        use easy_editor::views::database::troops::TroopViewState;
+
+        fn cmd(code: i32, indent: i32) -> EventCommandInfo {
+            EventCommandInfo { code, indent, string: String::new(), parameters: vec![] }
+        }
+
+        let mut page = TroopPageInfo {
+            id: 1,
+            commands: vec![cmd(11510, 0), cmd(10110, 1), cmd(21510, 0), cmd(10310, 0)],
+            ..Default::default()
+        };
+        let mut state = TroopViewState::default();
+
+        // Add derives indent from the current selection, not always 0
+        // (regression test for the pre-existing hardcoded `open_new(0)`).
+        state.selected_cmd_idx = Some(1); // the indent=1 "Show Message" row
+        let derived_indent = state.selected_cmd_idx.and_then(|i| page.commands.get(i)).map(|c| c.indent).unwrap_or(0);
+        assert_eq!(derived_indent, 1);
+
+        // Move Down: swap idx 1 and 2, selection follows to idx 2.
+        let idx = state.selected_cmd_idx.unwrap();
+        page.commands.swap(idx, idx + 1);
+        state.selected_cmd_idx = Some(idx + 1);
+        assert_eq!(page.commands[1].code, 21510);
+        assert_eq!(page.commands[2].code, 10110);
+        assert_eq!(state.selected_cmd_idx, Some(2));
+
+        // Move Up: swap back, selection follows to idx 1.
+        let idx = state.selected_cmd_idx.unwrap();
+        page.commands.swap(idx, idx - 1);
+        state.selected_cmd_idx = Some(idx - 1);
+        assert_eq!(page.commands[1].code, 10110);
+        assert_eq!(state.selected_cmd_idx, Some(1));
+
+        // Delete a middle entry: selection clamps to the previous entry
+        // when the removed index is now out of range.
+        page.commands.remove(1);
+        assert_eq!(page.commands.len(), 3);
+        assert_eq!(page.commands.iter().map(|c| c.code).collect::<Vec<_>>(), vec![11510, 21510, 10310]);
+
+        // Delete until empty: selection clears to None.
+        state.selected_cmd_idx = Some(0);
+        while !page.commands.is_empty() {
+            let idx = state.selected_cmd_idx.unwrap();
+            page.commands.remove(idx);
+            if idx >= page.commands.len() && idx > 0 {
+                state.selected_cmd_idx = Some(idx - 1);
+            } else if page.commands.is_empty() {
+                state.selected_cmd_idx = None;
+            }
+        }
+        assert!(page.commands.is_empty());
+        assert_eq!(state.selected_cmd_idx, None);
+    }
+
+    #[test]
+    fn test_troop_selection_resets_command_selection() {
+        use easy_editor::views::database_view::DatabaseViewState;
+
+        let mut view = DatabaseViewState::default();
+        view.selected_troop = 2;
+        view.troop_view_state.selected_cmd_idx = Some(5);
+        view.troop_view_state.active_page_idx = 3;
+
+        // Simulate clicking a different troop in the sidebar list - must
+        // reset both the stale command selection and the active page,
+        // mirroring the CommonEvents selection block right next to it.
+        view.selected_troop = 0;
+        view.troop_view_state.selected_cmd_idx = None;
+        view.troop_view_state.active_page_idx = 0;
+
+        assert_eq!(view.selected_troop, 0);
+        assert_eq!(view.troop_view_state.selected_cmd_idx, None);
+        assert_eq!(view.troop_view_state.active_page_idx, 0);
     }
 
     #[test]

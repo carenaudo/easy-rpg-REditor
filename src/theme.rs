@@ -222,6 +222,7 @@ pub mod colors {
                 10610..=10630 | 11310..=11340 => egui::Color32::from_rgb(251, 146, 60), // Movement & Teleport (Orange)
                 11510..=11560 => egui::Color32::from_rgb(232, 121, 249), // Audio & Music (Magenta)
                 10710..=10740 | 11010..=11040 => egui::Color32::from_rgb(248, 113, 113), // Battle & Combat (Red)
+                3001..=3032 => egui::Color32::from_rgb(200, 140, 255), // Maniac Patch (Purple) - matches the accent used elsewhere for Maniac UI
                 _ => egui::Color32::from_rgb(226, 232, 240),
             }
         } else {
@@ -232,6 +233,7 @@ pub mod colors {
                 10610..=10630 | 11310..=11340 => egui::Color32::from_rgb(195, 90, 10), // Movement & Teleport (Dark Orange)
                 11510..=11560 => egui::Color32::from_rgb(147, 40, 160), // Audio & Music (Dark Magenta)
                 10710..=10740 | 11010..=11040 => egui::Color32::from_rgb(210, 35, 35), // Battle & Combat (Dark Red)
+                3001..=3032 => egui::Color32::from_rgb(147, 51, 178), // Maniac Patch (Dark Purple)
                 _ => egui::Color32::from_rgb(30, 45, 65),
             }
         }

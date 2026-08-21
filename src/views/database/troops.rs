@@ -454,7 +454,46 @@ pub fn show_troop_form(
 
                 ui.horizontal(|ui| {
                     if ui.small_button("➕ Add Command").clicked() {
-                        cmd_dialog.open_new(0);
+                        let indent = state.selected_cmd_idx.and_then(|i| page.commands.get(i)).map(|c| c.indent).unwrap_or(0);
+                        cmd_dialog.open_new(indent);
+                    }
+
+                    if ui.add_enabled(state.selected_cmd_idx.is_some(), egui::Button::new("✏ Edit")).clicked() {
+                        if let Some(idx) = state.selected_cmd_idx {
+                            if let Some(cmd) = page.commands.get(idx) {
+                                cmd_dialog.open_edit(idx, cmd);
+                            }
+                        }
+                    }
+
+                    if ui.add_enabled(state.selected_cmd_idx.is_some(), egui::Button::new("🗑 Delete")).clicked() {
+                        if let Some(idx) = state.selected_cmd_idx {
+                            page.commands.remove(idx);
+                            *dirty = true;
+                            if idx >= page.commands.len() && idx > 0 {
+                                state.selected_cmd_idx = Some(idx - 1);
+                            } else if page.commands.is_empty() {
+                                state.selected_cmd_idx = None;
+                            }
+                        }
+                    }
+
+                    let can_up = state.selected_cmd_idx.map(|i| i > 0).unwrap_or(false);
+                    if ui.add_enabled(can_up, egui::Button::new("⬆ Move Up")).clicked() {
+                        if let Some(idx) = state.selected_cmd_idx {
+                            page.commands.swap(idx, idx - 1);
+                            state.selected_cmd_idx = Some(idx - 1);
+                            *dirty = true;
+                        }
+                    }
+
+                    let can_down = state.selected_cmd_idx.map(|i| i + 1 < page.commands.len()).unwrap_or(false);
+                    if ui.add_enabled(can_down, egui::Button::new("⬇ Move Down")).clicked() {
+                        if let Some(idx) = state.selected_cmd_idx {
+                            page.commands.swap(idx, idx + 1);
+                            state.selected_cmd_idx = Some(idx + 1);
+                            *dirty = true;
+                        }
                     }
                 });
 
@@ -471,8 +510,12 @@ pub fn show_troop_form(
                             let color = crate::lcf_bridge::event_command_color(cmd.code, is_dark);
                             let is_sel = state.selected_cmd_idx == Some(c_idx);
                             let rich = egui::RichText::new(label).color(color).monospace();
-                            if ui.selectable_label(is_sel, rich).clicked() {
+                            let resp = ui.selectable_label(is_sel, rich);
+                            if resp.clicked() {
                                 state.selected_cmd_idx = Some(c_idx);
+                            }
+                            if resp.double_clicked() {
+                                cmd_dialog.open_edit(c_idx, cmd);
                             }
                         }
                     });

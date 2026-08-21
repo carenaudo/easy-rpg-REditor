@@ -239,7 +239,7 @@ Export the Database (`RPG_RT.ldb`), Map Tree (`RPG_RT.lmt`), individual Maps (`M
 ---
 
 ### Project Health Analyzer
-Scan your project for broken references, missing asset files, invalid switch/variable references, and unreachable maps to identify integrity issues before playtesting.
+Scan your project for broken references, missing asset files, invalid switch/variable references, and unreachable maps to identify integrity issues before playtesting. Also detects Maniac Patch usage - a badge appears in the Database view when signals are found (an `EasyRPG.ini` patch flag, Maniac string variables, extended Terms, or battle-trigger common events), and this dialog's scan lists every Maniac event command found across maps, common events, and troop battle events, with its exact location.
 
 ![Project Health Analyzer](images/health.png)
 

@@ -24,7 +24,7 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 - **Resource Manager**: Browse, import, export, and delete project assets across all standard folders with live checkerboard image previews and in-app audio playback.
 - **Audio & MIDI**: In-app sound test/jukebox and audio preview (WAV, MP3, OGG Vorbis, and cross-platform MIDI synthesis via `rustysynth` with SoundFont `.sf2` support).
 - **XML import/export** of the database, map tree, individual maps, or save files, in liblcf-compatible XML - for inspecting raw structures, hand-editing, or round-tripping through external tools.
-- Project health analyzer, project-wide search (`Ctrl+F`), RTP path auto-detection, recent-projects restore, 8 UI languages, and 12 light/dark color themes.
+- Project health analyzer (with Maniac Patch detection), project-wide search (`Ctrl+F`), RTP path auto-detection, recent-projects restore, 8 UI languages, and 12 light/dark color themes.
 - Comprehensive unsaved-changes tracking across all views with prompt safeguards.
 
 ## Limitations
@@ -32,7 +32,7 @@ their free-licensed replacement runtime package, is what this editor's Resource 
 - **This has not been tested anywhere near as broadly as EasyRPG's own tools.** It has been exercised against a handful of real and synthetic test projects during development, not the enormous variety of real-world RPG Maker games that exist. Bugs that corrupt data on write are a real, live risk category for a project at this stage.
 - **MIDI playback requires a SoundFont (`.sf2`)**, rendered in real time via the built-in `rustysynth` software synthesizer. The editor can auto-detect standard SoundFonts (such as `FluidR3_GM.sf2`, `GeneralUser_GS.sf2`, or Windows/system soundfonts) and lets you configure custom `.sf2` paths via the MIDI settings dialog.
 - **This editor is developed primarily on Windows** — although its dependencies (Rust, `eframe`/`egui`, `wgpu`, `rodio`, `rustysynth`, `symphonia`) are cross-platform, automated CI and release binaries are currently focused on Windows.
-- No battle-test simulation, no scripting/plugin system, and no equivalent of engine extensions like Maniac Patch's scripting conventions (files following that pattern are simply treated as inert data, not specially interpreted).
+- No battle-test simulation and no scripting/plugin system. Maniac Patch content is **detected** (a badge in the Database view, plus a full command-by-command report in Project Health) but not specially interpreted or editable - its extra event commands, string variables, and other extensions are read/written as inert data, same as everything else.
 
 ## Building from source
 

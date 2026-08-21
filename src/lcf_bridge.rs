@@ -12,7 +12,7 @@ use lcf_core::generated::ldb_gen::{
     Chipset as LdbChipset, State as LdbState, Terrain as LdbTerrain,
     AnimationTiming as LdbAnimationTiming, AnimationFrame as LdbAnimationFrame,
     TroopPage as LdbTroopPage, TroopPageCondition as LdbTroopPageCondition, TroopMember as LdbTroopMember,
-    Learning as LdbLearning, EnemyAction as LdbEnemyAction,
+    Learning as LdbLearning, EnemyAction as LdbEnemyAction, StringVariable as LdbStringVariable,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -508,6 +508,17 @@ pub struct CommonEventInfo {
 
 #[derive(Clone, Debug, Default)]
 pub struct SwitchInfo {
+    pub id: i32,
+    pub name: String,
+}
+
+/// A named slot for Maniac Patch's string variables
+/// (`Database.maniac_string_variables`). This only carries the display
+/// name for a slot, mirroring `SwitchInfo`/`VariableInfo` - the actual
+/// runtime string value lives in save data (`SaveSystem.maniac_strings`),
+/// not here.
+#[derive(Clone, Debug, Default)]
+pub struct ManiacStringVariableInfo {
     pub id: i32,
     pub name: String,
 }
@@ -1039,6 +1050,136 @@ pub fn is_project_2003(path: &str) -> bool {
     } else {
         false
     }
+}
+
+/// True for an event command code liblcf/EasyRPG's schema assigns to
+/// Maniac Patch (`ManiacGetSaveInfo=3001` .. `ManiacZoom=3032`, with a few
+/// gaps - see `crates/lcf-core/src/generated/enums.rs`'s `EventCommand_Code`
+/// enum, currently unused elsewhere in the app). Vanilla RPG Maker 2000/2003
+/// and EasyRPG's own extensions both live below 3000.
+pub fn is_maniac_command_code(code: i32) -> bool {
+    matches!(code, 3001..=3032)
+}
+
+/// Human-readable name for a Maniac Patch event command code, for the
+/// Project Health report. Falls back gracefully for the handful of gap
+/// codes in the 3001..=3032 range that aren't assigned, matching
+/// `event_command_label`'s "don't error on the unexpected" style.
+pub fn maniac_command_name(code: i32) -> &'static str {
+    match code {
+        3001 => "Get Save Info",
+        3002 => "Save",
+        3003 => "Load",
+        3004 => "End Load Process",
+        3005 => "Get Mouse Position",
+        3006 => "Set Mouse Position",
+        3007 => "Show String Picture",
+        3008 => "Get Picture Info",
+        3009 => "Control Battle",
+        3010 => "Control ATB Gauge",
+        3011 => "Change Battle Command Ex",
+        3012 => "Get Battle Info",
+        3013 => "Control Var Array",
+        3014 => "Key Input Proc Ex",
+        3015 => "Rewrite Map",
+        3016 => "Control Global Save",
+        3017 => "Change Picture Id",
+        3018 => "Set Game Option",
+        3019 => "Call Command",
+        3020 => "Control Strings",
+        3021 => "Get Game Info",
+        3025 => "Edit Picture",
+        3026 => "Write Picture",
+        3027 => "Add Move Route",
+        3028 => "Edit Tile",
+        3029 => "Control Text Processing",
+        3032 => "Zoom",
+        _ => "Unknown Maniac Command",
+    }
+}
+
+/// Result of the cheap, load-time Maniac Patch heuristic (see
+/// `detect_maniac_patch`). A heuristic result: `detected` can have false
+/// negatives (a project using Maniac only via map event commands, with no
+/// other signal, won't be caught here - see `ProjectAnalyzerDialog`'s
+/// deeper scan for that), but should not have false positives.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ManiacDetection {
+    pub detected: bool,
+    /// True when `EasyRPG.ini` explicitly declares `[Patch] Maniac=1` -
+    /// the one signal that isn't just circumstantial.
+    pub confirmed_by_ini: bool,
+    /// Human-readable reasons `detected` is true, for a tooltip/report.
+    pub evidence: Vec<String>,
+}
+
+/// Cheap, load-time Maniac Patch heuristic: checks `EasyRPG.ini`, one fresh
+/// `RPG_RT.ldb` read for `maniac_string_variables`, and already-in-memory
+/// terms/common-event/troop data. Deliberately does **not** scan every
+/// map's event commands - that's a synchronous per-map file read this
+/// editor has no threading to hide, so it belongs in the opt-in
+/// `ProjectAnalyzerDialog` scan instead (see `is_maniac_command_code`).
+pub fn detect_maniac_patch(
+    path: &str,
+    common_events: &[CommonEventInfo],
+    troops: &[TroopInfo],
+    terms: &Option<TermsInfo>,
+) -> ManiacDetection {
+    let mut result = ManiacDetection::default();
+
+    let ini_path = Path::new(path).join("EasyRPG.ini");
+    if let Ok(ini) = lcf_core::ini::IniReader::load(&ini_path) {
+        if ini.get_bool("Patch", "Maniac", false) {
+            result.confirmed_by_ini = true;
+            result.evidence.push("EasyRPG.ini declares [Patch] Maniac=1".to_string());
+        }
+    }
+
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    if let Ok(db) = LdbReader::load(&ldb_path, "auto") {
+        if !db.maniac_string_variables.is_empty() {
+            result.evidence.push(format!(
+                "Database defines {} Maniac string variable(s)",
+                db.maniac_string_variables.len()
+            ));
+        }
+    }
+
+    if let Some(t) = terms {
+        let has_maniac_terms = !t.maniac_item_received_a.is_empty()
+            || !t.maniac_level_up_a.is_empty()
+            || !t.maniac_level_up_b.is_empty()
+            || !t.maniac_level_up_c.is_empty()
+            || !t.maniac_exp_received_a.is_empty()
+            || !t.maniac_skill_learned_a.is_empty();
+        if has_maniac_terms {
+            result.evidence.push("Terms include Maniac Patch message overrides".to_string());
+        }
+    }
+
+    for ce in common_events {
+        if ce.trigger == 6 || ce.trigger == 7 {
+            result.evidence.push(format!(
+                "Common Event #{:04} \"{}\" uses a Maniac battle trigger",
+                ce.id, ce.name
+            ));
+        }
+    }
+
+    for troop in troops {
+        for page in &troop.pages {
+            if page.commands.iter().any(|c| is_maniac_command_code(c.code)) {
+                result.evidence.push(format!(
+                    "Troop #{:04} \"{}\" battle event uses a Maniac command",
+                    troop.id, troop.name
+                ));
+                break;
+            }
+        }
+    }
+
+    result.detected = result.confirmed_by_ini || !result.evidence.is_empty();
+    result
 }
 
 pub fn get_map_chipset(path: &str, map_id: i32) -> Vec<u8> {
@@ -2047,6 +2188,46 @@ pub fn save_variables(path: &str, variables: &[VariableInfo]) -> Result<(), Stri
             v.name = edit.name.clone().into();
         }
     }
+
+    let engine = engine_version_for(&db);
+    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_maniac_string_variables(path: &str) -> Vec<ManiacStringVariableInfo> {
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let db = match LdbReader::load(&ldb_path, "auto") {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+
+    db.maniac_string_variables
+        .into_iter()
+        .map(|s| ManiacStringVariableInfo {
+            id: s.id,
+            name: s.name.0,
+        })
+        .collect()
+}
+
+/// Unlike `save_switches`/`save_variables` (which only ever update names in
+/// an array RPG Maker always pre-allocates in full), Maniac string
+/// variables are a genuinely sparse, optional array - a fresh project has
+/// none. So this replaces `db.maniac_string_variables` wholesale rather
+/// than updating existing entries by id, letting the UI's resize/add flow
+/// actually grow the array on save.
+pub fn save_maniac_string_variables(path: &str, vars: &[ManiacStringVariableInfo]) -> Result<(), String> {
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
+    backup_ldb_once(&ldb_path)?;
+
+    db.maniac_string_variables = vars
+        .iter()
+        .map(|v| LdbStringVariable {
+            id: v.id,
+            name: v.name.clone().into(),
+        })
+        .collect();
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;

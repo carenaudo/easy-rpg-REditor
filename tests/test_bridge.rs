@@ -710,6 +710,117 @@ mod tests {
     }
 
     #[test]
+    fn test_maniac_patch_detection() {
+        use easy_editor::app_state::EditorAppState;
+        use easy_editor::dialogs::project_analyzer_dialog::ProjectAnalyzerDialog;
+
+        // Positive: TestGame-Maniac declares [Patch] Maniac=1 in EasyRPG.ini
+        // and is literally named "Maniac Test suite" - it should trip both
+        // the cheap load-time heuristic and the deep per-map/common-event/
+        // troop command scan.
+        let maniac_path = "d:/programacion/test-assets/TestGame/TestGame-Maniac";
+        if std::path::Path::new(maniac_path).exists() {
+            let mut app = EditorAppState::default();
+            app.load_project_from(maniac_path.to_string());
+
+            assert!(app.maniac.detected, "TestGame-Maniac should be detected as using Maniac Patch");
+            assert!(app.maniac.confirmed_by_ini, "EasyRPG.ini declares Maniac=1, detection should be ini-confirmed");
+            assert!(!app.maniac.evidence.is_empty());
+
+            let mut analyzer = ProjectAnalyzerDialog::default();
+            analyzer.run_analysis(&app);
+            assert!(
+                !analyzer.maniac_hits.is_empty(),
+                "TestGame-Maniac's maps/common events/troops should contain at least one Maniac event command"
+            );
+            for hit in &analyzer.maniac_hits {
+                assert!(easy_editor::lcf_bridge::is_maniac_command_code(hit.code), "hit code {} should be in the Maniac range", hit.code);
+            }
+        } else {
+            eprintln!("Skipping test: {:?} not found", maniac_path);
+        }
+
+        // Negative control: TestGame-2000/2003 have no Maniac markers.
+        for path in ["d:/programacion/test-assets/TestGame/TestGame-2000", "d:/programacion/test-assets/TestGame/TestGame-2003"] {
+            if !std::path::Path::new(path).exists() {
+                continue;
+            }
+            let mut app = EditorAppState::default();
+            app.load_project_from(path.to_string());
+            assert!(!app.maniac.detected, "{} should not be detected as using Maniac Patch", path);
+
+            let mut analyzer = ProjectAnalyzerDialog::default();
+            analyzer.run_analysis(&app);
+            assert!(analyzer.maniac_hits.is_empty(), "{} should have no Maniac command hits", path);
+        }
+    }
+
+    #[test]
+    fn test_new_project_maniac_and_string_variables() {
+        use easy_editor::app_state::{DbCategory, EditorAppState};
+        use easy_editor::dialogs::new_project_dialog::NewProjectDialogState;
+        use easy_editor::lcf_bridge::ManiacStringVariableInfo;
+
+        // 1. Creating a 2003 project with Maniac enabled should write an
+        // EasyRPG.ini that lcf_bridge::detect_maniac_patch recognizes.
+        let tmp = std::env::temp_dir().join(format!(
+            "test_new_maniac_proj_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "ManiacFromScratch".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = true;
+        dialog.is_maniac = true;
+
+        let proj_dir = dialog.create_project().expect("Maniac project creation should succeed");
+        assert!(proj_dir.join("EasyRPG.ini").exists(), "EasyRPG.ini should be written when is_maniac is set");
+
+        let mut app = EditorAppState::default();
+        app.load_project_from(proj_dir.to_string_lossy().to_string());
+        assert!(app.maniac.detected, "freshly created Maniac project should be detected");
+        assert!(app.maniac.confirmed_by_ini, "should be confirmed via the written EasyRPG.ini");
+
+        // The Maniac String Variables category should now be reachable and
+        // start empty (a fresh project has none).
+        assert!(app.maniac_string_variables.is_empty());
+
+        // 2. Editing and saving Maniac string variables should round-trip
+        // through RPG_RT.ldb, and the category should be selectable.
+        app.db_category = DbCategory::ManiacStringVariables;
+        app.maniac_string_variables.push(ManiacStringVariableInfo { id: 1, name: "PlayerNickname".to_string() });
+        app.maniac_string_variables.push(ManiacStringVariableInfo { id: 2, name: "LastTownVisited".to_string() });
+        app.maniac_string_variables_dirty = true;
+        app.save_current_db_category();
+
+        assert!(!app.maniac_string_variables_dirty, "saving should clear the dirty flag");
+        assert!(matches!(app.maniac_string_variables_save_message, Some(Ok(_))));
+
+        let reloaded = easy_editor::lcf_bridge::get_maniac_string_variables(&proj_dir.to_string_lossy());
+        assert_eq!(reloaded.len(), 2);
+        assert_eq!(reloaded[0].id, 1);
+        assert_eq!(reloaded[0].name, "PlayerNickname");
+        assert_eq!(reloaded[1].id, 2);
+        assert_eq!(reloaded[1].name, "LastTownVisited");
+
+        let _ = std::fs::remove_dir_all(&proj_dir);
+
+        // 3. Non-Maniac project creation should not write EasyRPG.ini.
+        let tmp2 = std::env::temp_dir().join(format!(
+            "test_new_plain_proj_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog2 = NewProjectDialogState::default();
+        dialog2.project_title = "PlainGame".to_string();
+        dialog2.destination_dir = tmp2.to_string_lossy().to_string();
+        dialog2.is_2003 = true;
+        dialog2.is_maniac = false;
+        let proj_dir2 = dialog2.create_project().expect("plain project creation should succeed");
+        assert!(!proj_dir2.join("EasyRPG.ini").exists());
+        let _ = std::fs::remove_dir_all(&proj_dir2);
+    }
+
+    #[test]
     fn test_phase11_layer_visibility_and_event_command_filter() {
         use easy_editor::views::map_view::MapViewState;
         use easy_editor::dialogs::event_dialog::EventDialogState;

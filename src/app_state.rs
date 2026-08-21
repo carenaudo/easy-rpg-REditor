@@ -3,8 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 use crate::lcf_bridge::{
     self, ActorInfo, AnimationInfo, AttributeInfo, ChipsetInfo, ClassInfo, CommonEventInfo,
-    EnemyInfo, ItemInfo, MapTreeItem, SkillInfo, StateInfo, SwitchInfo, SystemInfo, TermsInfo,
-    TerrainInfo, TroopInfo, VariableInfo,
+    EnemyInfo, ItemInfo, ManiacStringVariableInfo, MapTreeItem, SkillInfo, StateInfo, SwitchInfo,
+    SystemInfo, TermsInfo, TerrainInfo, TroopInfo, VariableInfo,
 };
 use crate::theme::AppTheme;
 use crate::views::save_view::SaveSlotView;
@@ -34,6 +34,7 @@ pub enum DbCategory {
     Animations,
     System,
     Terms,
+    ManiacStringVariables,
 }
 
 impl DbCategory {
@@ -57,6 +58,7 @@ impl DbCategory {
             DbCategory::Animations => rust_i18n::t!("db.animations").to_string(),
             DbCategory::System => rust_i18n::t!("db.system").to_string(),
             DbCategory::Terms => rust_i18n::t!("db.terms").to_string(),
+            DbCategory::ManiacStringVariables => rust_i18n::t!("db.maniac_string_variables").to_string(),
         }
     }
 }
@@ -265,6 +267,7 @@ pub struct EditorAppState {
     pub db_category: DbCategory,
     pub db_filter: String,
     pub is_2003: bool,
+    pub maniac: lcf_bridge::ManiacDetection,
 
     // Database Tables
     pub actors: Vec<ActorInfo>,
@@ -331,6 +334,10 @@ pub struct EditorAppState {
     pub terms_dirty: bool,
     pub terms_save_message: Option<Result<String, String>>,
 
+    pub maniac_string_variables: Vec<ManiacStringVariableInfo>,
+    pub maniac_string_variables_dirty: bool,
+    pub maniac_string_variables_save_message: Option<Result<String, String>>,
+
     // Saves
     pub saves: Vec<SaveSlotView>,
 
@@ -351,6 +358,7 @@ impl Default for EditorAppState {
             db_category: DbCategory::Actors,
             db_filter: String::new(),
             is_2003: false,
+            maniac: lcf_bridge::ManiacDetection::default(),
             actors: Vec::new(),
             actors_dirty: false,
             actors_save_message: None,
@@ -399,6 +407,9 @@ impl Default for EditorAppState {
             terms: None,
             terms_dirty: false,
             terms_save_message: None,
+            maniac_string_variables: Vec::new(),
+            maniac_string_variables_dirty: false,
+            maniac_string_variables_save_message: None,
             saves: Vec::new(),
             config,
         }
@@ -423,6 +434,7 @@ impl EditorAppState {
             || self.animations_dirty
             || self.system_dirty
             || self.terms_dirty
+            || self.maniac_string_variables_dirty
             || self.saves.iter().any(|s| s.dirty)
     }
 
@@ -446,6 +458,7 @@ impl EditorAppState {
             DbCategory::Animations => (self.animations.len(), self.animations_dirty),
             DbCategory::System => (1, self.system_dirty),
             DbCategory::Terms => (1, self.terms_dirty),
+            DbCategory::ManiacStringVariables => (self.maniac_string_variables.len(), self.maniac_string_variables_dirty),
         }
     }
 
@@ -516,6 +529,10 @@ impl EditorAppState {
             self.terms = lcf_bridge::get_terms(&path_str);
             self.terms_dirty = false;
             self.terms_save_message = None;
+            self.maniac = lcf_bridge::detect_maniac_patch(&path_str, &self.common_events, &self.troops, &self.terms);
+            self.maniac_string_variables = lcf_bridge::get_maniac_string_variables(&path_str);
+            self.maniac_string_variables_dirty = false;
+            self.maniac_string_variables_save_message = None;
             self.saves = lcf_bridge::list_saves(&path_str)
                 .into_iter()
                 .map(|info| SaveSlotView { info, dirty: false, save_message: None })
@@ -536,6 +553,8 @@ impl EditorAppState {
             self.variables.clear();
             self.system = None;
             self.terms = None;
+            self.maniac = lcf_bridge::ManiacDetection::default();
+            self.maniac_string_variables.clear();
             self.saves.clear();
         }
     }
@@ -751,6 +770,15 @@ impl EditorAppState {
                     }
                 }
             }
+            DbCategory::ManiacStringVariables => {
+                match lcf_bridge::save_maniac_string_variables(path, &self.maniac_string_variables) {
+                    Ok(()) => {
+                        self.maniac_string_variables_save_message = Some(Ok("Maniac string variables saved successfully.".to_string()));
+                        self.maniac_string_variables_dirty = false;
+                    }
+                    Err(e) => self.maniac_string_variables_save_message = Some(Err(e)),
+                }
+            }
         }
     }
 
@@ -840,6 +868,11 @@ impl EditorAppState {
                 self.system = lcf_bridge::get_system(path);
                 self.system_dirty = false;
                 self.system_save_message = None;
+            }
+            DbCategory::ManiacStringVariables => {
+                self.maniac_string_variables = lcf_bridge::get_maniac_string_variables(path);
+                self.maniac_string_variables_dirty = false;
+                self.maniac_string_variables_save_message = None;
             }
         }
     }

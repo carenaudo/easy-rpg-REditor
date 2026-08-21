@@ -143,11 +143,19 @@ impl DatabaseViewState {
             crate::app_state::DbCategory::Animations => (app.animations_dirty, app.animations_save_message.clone()),
             crate::app_state::DbCategory::Terms => (app.terms_dirty, app.terms_save_message.clone()),
             crate::app_state::DbCategory::System => (false, None),
+            crate::app_state::DbCategory::ManiacStringVariables => (app.maniac_string_variables_dirty, app.maniac_string_variables_save_message.clone()),
         };
 
         ui.horizontal(|ui| {
             let engine_col = if app.is_2003 { egui::Color32::from_rgb(80, 180, 255) } else { egui::Color32::from_rgb(255, 180, 80) };
             ui.colored_label(engine_col, if app.is_2003 { "🎮 RPG Maker 2003" } else { "🎮 RPG Maker 2000" });
+
+            if app.maniac.detected {
+                let mut tooltip = app.maniac.evidence.join("\n");
+                tooltip.push_str("\n\nDetected via project data; run Project Health for a full event-command scan.");
+                ui.colored_label(egui::Color32::from_rgb(200, 140, 255), "🔧 Maniac Patch")
+                    .on_hover_text(tooltip);
+            }
             ui.separator();
 
             ui.add_enabled_ui(is_dirty, |ui| {
@@ -208,6 +216,10 @@ impl DatabaseViewState {
             }
             crate::app_state::DbCategory::Variables => {
                 switches_vars::show_variables_table(ui, &mut app.variables, &mut self.switch_var_view_state, &mut app.variables_dirty);
+                return;
+            }
+            crate::app_state::DbCategory::ManiacStringVariables => {
+                switches_vars::show_maniac_string_variables_table(ui, &mut app.maniac_string_variables, &mut self.switch_var_view_state, &mut app.maniac_string_variables_dirty);
                 return;
             }
             _ => {}

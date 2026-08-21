@@ -768,6 +768,12 @@ impl EditorApp {
                         ui.selectable_value(&mut self.state.db_category, DbCategory::Variables, format!("  Variables ({})", self.state.variables.len()));
                         ui.selectable_value(&mut self.state.db_category, DbCategory::System, "  System Settings".to_string());
                         ui.selectable_value(&mut self.state.db_category, DbCategory::Terms, "  Terms / Vocabulary".to_string());
+
+                        if self.state.maniac.detected {
+                            ui.selectable_value(&mut self.state.db_category, DbCategory::ManiacStringVariables, format!("  🔧 Maniac String Variables ({})", self.state.maniac_string_variables.len()));
+                        } else if self.state.db_category == DbCategory::ManiacStringVariables {
+                            self.state.db_category = DbCategory::Actors;
+                        }
                     }
                     ViewMode::Maps => {
                         egui::Panel::top("map_tree_pane")

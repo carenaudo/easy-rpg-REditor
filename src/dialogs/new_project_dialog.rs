@@ -14,6 +14,11 @@ pub struct NewProjectDialogState {
     pub project_title: String,
     pub destination_dir: String,
     pub is_2003: bool,
+    /// Maniac Patch is a RPG Maker 2003-only engine extension; when set,
+    /// `create_project` writes an `EasyRPG.ini` declaring `[Patch] Maniac=1`
+    /// (the same authoritative signal `lcf_bridge::detect_maniac_patch`
+    /// checks for), so the new project is recognized as Maniac immediately.
+    pub is_maniac: bool,
     pub status_message: Option<Result<String, String>>,
 }
 
@@ -24,6 +29,7 @@ impl Default for NewProjectDialogState {
             project_title: "My New RPG".to_string(),
             destination_dir: String::new(),
             is_2003: false,
+            is_maniac: false,
             status_message: None,
         }
     }
@@ -86,6 +92,15 @@ impl NewProjectDialogState {
         let ini_content = format!("[RPG_RT]\r\nGameTitle={}\r\nMapEditMode=2\r\nMapEditZoom=0\r\n", self.project_title);
         let _ = fs::write(project_dir.join("RPG_RT.ini"), ini_content);
 
+        // EasyRPG.ini - declares Maniac Patch support so
+        // lcf_bridge::detect_maniac_patch recognizes this project
+        // immediately (Maniac is 2003-only, mirrors real Maniac-patched
+        // games such as the TestGame-Maniac fixture).
+        if self.is_2003 && self.is_maniac {
+            let easyrpg_ini = "[Game]\r\nEngine=rpg2k3e\r\n\r\n[Patch]\r\nManiac=1\r\n";
+            let _ = fs::write(project_dir.join("EasyRPG.ini"), easyrpg_ini);
+        }
+
         // 2. Create Default LMT
         let mut tree = LmtTreeMap::default();
         let mut map_info = LmtMapInfo::default();
@@ -139,6 +154,17 @@ impl NewProjectDialogState {
                         ui.horizontal(|ui| {
                             ui.radio_value(&mut self.is_2003, false, "🎮 RPG Maker 2000");
                             ui.radio_value(&mut self.is_2003, true, "⚔ RPG Maker 2003");
+                        });
+                        ui.end_row();
+
+                        if !self.is_2003 {
+                            self.is_maniac = false;
+                        }
+                        ui.label("Engine Extension:");
+                        ui.add_enabled_ui(self.is_2003, |ui| {
+                            ui.checkbox(&mut self.is_maniac, "🔧 Enable Maniac Patch")
+                                .on_hover_text("Maniac Patch is a RPG Maker 2003-only engine extension. Writes an EasyRPG.ini declaring [Patch] Maniac=1 so the editor recognizes this project as Maniac immediately.")
+                                .on_disabled_hover_text("Maniac Patch requires RPG Maker 2003.");
                         });
                         ui.end_row();
 

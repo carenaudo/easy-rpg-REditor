@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::lcf_bridge::{SwitchInfo, VariableInfo};
+use crate::lcf_bridge::{ManiacStringVariableInfo, SwitchInfo, VariableInfo};
 
 pub struct SwitchVarViewState {
     pub search_query: String,
@@ -52,6 +52,30 @@ pub fn show_variables_table(
         state,
         dirty,
         |id| VariableInfo { id: id as i32, name: String::new() },
+        |item| &mut item.name,
+        |item| item.id,
+    );
+}
+
+/// Maniac Patch string variable name slots (`Database.maniac_string_variables`).
+/// Only meaningful for projects `EditorAppState::maniac` detects as using
+/// Maniac Patch - callers should gate this behind that flag. Naming the
+/// slot for readability in event editing, same role as `SwitchInfo`/
+/// `VariableInfo` - not the runtime string value (that's in save data).
+pub fn show_maniac_string_variables_table(
+    ui: &mut egui::Ui,
+    vars: &mut Vec<ManiacStringVariableInfo>,
+    state: &mut SwitchVarViewState,
+    dirty: &mut bool,
+) {
+    render_table(
+        ui,
+        "Maniac String Variables",
+        "🔧",
+        vars,
+        state,
+        dirty,
+        |id| ManiacStringVariableInfo { id: id as i32, name: String::new() },
         |item| &mut item.name,
         |item| item.id,
     );

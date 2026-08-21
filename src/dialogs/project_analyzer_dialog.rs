@@ -9,6 +9,13 @@ pub struct MissingAssetReport {
     pub referenced_by: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct ManiacCommandHit {
+    pub location: String,
+    pub code: i32,
+    pub name: String,
+}
+
 #[derive(Default)]
 pub struct ProjectAnalyzerDialog {
     pub is_open: bool,
@@ -24,6 +31,10 @@ pub struct ProjectAnalyzerDialog {
     pub total_switches: usize,
     pub total_variables: usize,
     pub missing_assets: Vec<MissingAssetReport>,
+    /// Every Maniac Patch event command found across maps, common events,
+    /// and troop battle events during the last full scan - the deep,
+    /// definitive counterpart to `EditorAppState::maniac`'s cheap heuristic.
+    pub maniac_hits: Vec<ManiacCommandHit>,
 }
 
 impl ProjectAnalyzerDialog {
@@ -142,7 +153,10 @@ impl ProjectAnalyzerDialog {
             }
         }
 
-        // 5. Audit Map Events across project
+        // 5. Audit Map Events across project (also scans for Maniac Patch
+        // commands - the one signal EditorAppState::maniac's cheap
+        // heuristic can't check without loading every map).
+        self.maniac_hits.clear();
         let mut event_count = 0;
         if let Some(path) = proj_path {
             for (mid, mname) in &app.maps {
@@ -157,11 +171,51 @@ impl ProjectAnalyzerDialog {
                                 referenced_by: format!("Map #{:04} ({}) Event #{:04}: {}", mid, mname, ev.id, ev.name),
                             });
                         }
+                        for cmd in &page.commands {
+                            if crate::lcf_bridge::is_maniac_command_code(cmd.code) {
+                                self.maniac_hits.push(ManiacCommandHit {
+                                    location: format!("Map #{:04} ({}) Event #{:04}: {}", mid, mname, ev.id, ev.name),
+                                    code: cmd.code,
+                                    name: crate::lcf_bridge::maniac_command_name(cmd.code).to_string(),
+                                });
+                            }
+                        }
                     }
                 }
             }
         }
         self.total_events = event_count;
+
+        // 6. Scan Common Events for Maniac Patch commands (already fully
+        // loaded in `app`, no extra file reads).
+        for ce in &app.common_events {
+            for cmd in &ce.commands {
+                if crate::lcf_bridge::is_maniac_command_code(cmd.code) {
+                    self.maniac_hits.push(ManiacCommandHit {
+                        location: format!("Common Event #{:04}: {}", ce.id, ce.name),
+                        code: cmd.code,
+                        name: crate::lcf_bridge::maniac_command_name(cmd.code).to_string(),
+                    });
+                }
+            }
+        }
+
+        // 7. Scan Troop battle events for Maniac Patch commands (also
+        // already fully loaded in `app`).
+        for troop in &app.troops {
+            for page in &troop.pages {
+                for cmd in &page.commands {
+                    if crate::lcf_bridge::is_maniac_command_code(cmd.code) {
+                        self.maniac_hits.push(ManiacCommandHit {
+                            location: format!("Troop #{:04} ({}) battle event", troop.id, troop.name),
+                            code: cmd.code,
+                            name: crate::lcf_bridge::maniac_command_name(cmd.code).to_string(),
+                        });
+                    }
+                }
+            }
+        }
+
         self.is_scanned = true;
     }
 
@@ -240,6 +294,52 @@ impl ProjectAnalyzerDialog {
                                     }
                                 });
                         });
+                }
+
+                ui.separator();
+                ui.heading("Maniac Patch Detection");
+
+                let evidence = &app.maniac.evidence;
+                if evidence.is_empty() && self.maniac_hits.is_empty() {
+                    ui.horizontal(|ui| {
+                        ui.colored_label(egui::Color32::from_rgb(140, 140, 140), "No Maniac Patch usage detected (heuristic - see below for what was checked).");
+                    });
+                } else {
+                    if !evidence.is_empty() {
+                        ui.colored_label(egui::Color32::from_rgb(200, 140, 255), "🔧 Maniac Patch signals found:");
+                        for line in evidence {
+                            ui.label(format!("  • {}", line));
+                        }
+                    }
+
+                    if !self.maniac_hits.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.colored_label(egui::Color32::from_rgb(200, 140, 255), format!("{} Maniac event command(s) found:", self.maniac_hits.len()));
+                        });
+
+                        egui::ScrollArea::vertical()
+                            .id_salt("maniac_hits_scroll")
+                            .max_height(200.0)
+                            .show(ui, |ui| {
+                                egui::Grid::new("maniac_hits_grid")
+                                    .num_columns(3)
+                                    .spacing([12.0, 6.0])
+                                    .striped(true)
+                                    .show(ui, |ui| {
+                                        ui.strong("Location");
+                                        ui.strong("Code");
+                                        ui.strong("Command");
+                                        ui.end_row();
+
+                                        for hit in &self.maniac_hits {
+                                            ui.label(&hit.location);
+                                            ui.colored_label(egui::Color32::from_rgb(100, 160, 240), hit.code.to_string());
+                                            ui.label(&hit.name);
+                                            ui.end_row();
+                                        }
+                                    });
+                            });
+                    }
                 }
 
                 ui.separator();

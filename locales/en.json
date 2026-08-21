@@ -27,7 +27,8 @@
     "shift_map": "Shift Map...",
     "sound_test": "Sound Test...",
     "project_health": "Project Health...",
-    "rtp": "RTP Folder..."
+    "rtp": "RTP Folder...",
+    "close_project": "Close Project"
   },
   "views": {
     "maps": "Maps",

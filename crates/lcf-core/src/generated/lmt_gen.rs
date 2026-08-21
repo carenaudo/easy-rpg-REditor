@@ -55,6 +55,26 @@ impl Encounter {
         writer.end_element("Encounter")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "troop_id" => obj.troop_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -255,6 +275,49 @@ impl MapInfo {
         writer.end_element("MapInfo")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "parent_map" => obj.parent_map = reader.read_node_int()? as i32,
+                    "indentation" => obj.indentation = reader.read_node_int()? as i32,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "scrollbar_x" => obj.scrollbar_x = reader.read_node_int()? as i32,
+                    "scrollbar_y" => obj.scrollbar_y = reader.read_node_int()? as i32,
+                    "expanded_node" => obj.expanded_node = reader.read_node_bool()?,
+                    "music_type" => obj.music_type = reader.read_node_int()? as i32,
+                    "music" => obj.music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "background_type" => obj.background_type = reader.read_node_int()? as i32,
+                    "background_name" => obj.background_name = reader.read_node_dbstring()?,
+                    "teleport" => obj.teleport = reader.read_node_int()? as i32,
+                    "escape" => obj.escape = reader.read_node_int()? as i32,
+                    "save" => obj.save = reader.read_node_int()? as i32,
+                    "encounters" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.encounters.push(Encounter::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "encounter_steps" => obj.encounter_steps = reader.read_node_int()? as i32,
+                    "area_rect" => obj.area_rect = match reader.next_child()? { Some(inner) => { let v = Rect::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Rect::default() },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -405,6 +468,36 @@ impl Start {
         writer.write_node_int("airship_y", self.airship_y as i32)?;
         writer.end_element("Start")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "party_map_id" => obj.party_map_id = reader.read_node_int()? as i32,
+                    "party_x" => obj.party_x = reader.read_node_int()? as i32,
+                    "party_y" => obj.party_y = reader.read_node_int()? as i32,
+                    "boat_map_id" => obj.boat_map_id = reader.read_node_int()? as i32,
+                    "boat_x" => obj.boat_x = reader.read_node_int()? as i32,
+                    "boat_y" => obj.boat_y = reader.read_node_int()? as i32,
+                    "ship_map_id" => obj.ship_map_id = reader.read_node_int()? as i32,
+                    "ship_x" => obj.ship_x = reader.read_node_int()? as i32,
+                    "ship_y" => obj.ship_y = reader.read_node_int()? as i32,
+                    "airship_map_id" => obj.airship_map_id = reader.read_node_int()? as i32,
+                    "airship_x" => obj.airship_x = reader.read_node_int()? as i32,
+                    "airship_y" => obj.airship_y = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 

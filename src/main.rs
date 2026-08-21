@@ -12,7 +12,7 @@ use easy_editor::dialogs::project_search::{ProjectSearchDialog, SearchJumpTarget
 use easy_editor::dialogs::resource_manager_dialog::ResourceManagerDialogState;
 use easy_editor::dialogs::sound_test_dialog::SoundTestDialog;
 use easy_editor::dialogs::soundfont_dialog::SoundFontDialog;
-use easy_editor::dialogs::xml_io_dialog::XmlIoDialogState;
+use easy_editor::dialogs::xml_io_dialog::{XmlImportKind, XmlIoDialogState};
 use easy_editor::lcf_bridge;
 use easy_editor::theme::{self, ThemeMode, ThemePalette};
 use easy_editor::tilemap;
@@ -127,6 +127,24 @@ impl EditorApp {
         if !self.state.maps.is_empty() {
             self.select_map(0, ctx);
         }
+    }
+
+    /// Closes the current project and returns to the "no project loaded"
+    /// state, so the developer can load a different project without
+    /// restarting the editor. Callers must check for unsaved changes first.
+    fn close_current_project(&mut self) {
+        self.state.close_project();
+        self.map_view.map_dims = None;
+        self.map_view.map_texture = None;
+        self.map_view.events.clear();
+        self.map_view.events_dirty = false;
+        self.map_view.map_dirty = false;
+        self.map_view.hover_tile = None;
+        self.map_view.start_points = Default::default();
+        self.map_view.undo_stack.clear();
+        self.map_view.save_message = None;
+        self.cached_chipset = None;
+        self.open_blocked_message = None;
     }
 
     fn select_map(&mut self, map_idx: usize, ctx: &egui::Context) {
@@ -317,10 +335,11 @@ impl EditorApp {
 
     /// 📦 RTP folder icon popup.
     fn ui_rtp_popup(&mut self, ui: &mut egui::Ui) {
+        let project_version = self.state.project_path.is_some().then_some(self.state.is_2003);
         let rtp_display = self
             .state
             .config
-            .get_effective_rtp_path()
+            .get_effective_rtp_path_for(project_version)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "(Not Configured)".to_string());
 
@@ -343,10 +362,11 @@ impl EditorApp {
     /// above, per the mockup's fourth icon. Actual changes happen via the
     /// dedicated 🌐/🎨/📦 popups; this just summarizes current state.
     fn ui_preferences_popup(&mut self, ui: &mut egui::Ui) {
+        let project_version = self.state.project_path.is_some().then_some(self.state.is_2003);
         let rtp_display = self
             .state
             .config
-            .get_effective_rtp_path()
+            .get_effective_rtp_path_for(project_version)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "(Not Configured)".to_string());
 
@@ -412,6 +432,16 @@ impl EditorApp {
                     };
                     if ui.add_enabled(can_save, egui::Button::new(format!("💾 {}", rust_i18n::t!("map.save_map")))).clicked() {
                         self.save_current();
+                        ui.close();
+                    }
+                    ui.separator();
+                    let has_project = self.state.project_path.is_some();
+                    if ui.add_enabled(has_project, egui::Button::new(format!("🗙 {}", rust_i18n::t!("menu.close_project")))).clicked() {
+                        if self.state.has_unsaved_changes() || self.map_view.map_dirty || self.map_view.events_dirty {
+                            self.open_blocked_message = Some(rust_i18n::t!("dialog.unsaved_prompt").to_string());
+                        } else {
+                            self.close_current_project();
+                        }
                         ui.close();
                     }
                     ui.separator();
@@ -929,7 +959,7 @@ impl eframe::App for EditorApp {
             &mut self.soundfont_dialog.is_open,
         );
 
-        if let Some(saved) = self.map_props_dialog.show(ui.ctx(), self.state.project_path.as_deref()) {
+        if let Some(saved) = self.map_props_dialog.show(ui.ctx(), self.state.project_path.as_deref(), self.audio.as_ref()) {
             if saved {
                 if let Some(sel) = self.state.selected_map {
                     self.select_map(sel, ui.ctx());
@@ -1000,6 +1030,39 @@ impl eframe::App for EditorApp {
 
         let active_map_id = self.state.selected_map.and_then(|i| self.state.maps.get(i)).map(|m| m.0);
         self.xml_dialog.show(ui.ctx(), self.state.project_path.as_deref(), active_map_id);
+        if let Some(kind) = self.xml_dialog.take_import() {
+            self.asset_cache.clear();
+            match kind {
+                XmlImportKind::Database | XmlImportKind::Tree => {
+                    if let Some(proj) = self.state.project_path.clone() {
+                        let prev_selected = self.state.selected_map;
+                        self.load_project(proj, ui.ctx());
+                        // load_project always selects map 0; restore the
+                        // previous selection if it's still valid, matching
+                        // how create_new_map/duplicate_map/delete_map do it.
+                        if let Some(idx) = prev_selected {
+                            if idx < self.state.maps.len() && idx != 0 {
+                                self.select_map(idx, ui.ctx());
+                            }
+                        }
+                    }
+                }
+                XmlImportKind::Map(map_id) => {
+                    if let Some(idx) = self.state.maps.iter().position(|m| m.0 == map_id) {
+                        self.select_map(idx, ui.ctx());
+                    }
+                }
+                XmlImportKind::Save => {
+                    if let Some(proj) = self.state.project_path.clone() {
+                        if let Some(slot) = self.state.saves.iter_mut().find(|s| s.info.file_name == "Save01.lsd") {
+                            slot.info = lcf_bridge::reload_save_slot(&proj, "Save01.lsd");
+                            slot.dirty = false;
+                            slot.save_message = None;
+                        }
+                    }
+                }
+            }
+        }
         self.sound_test_dialog.show(
             ui.ctx(),
             self.state.project_path.as_deref(),
@@ -1074,7 +1137,7 @@ impl eframe::App for EditorApp {
                     );
                 }
                 ViewMode::Database => {
-                    self.database_view.show(ui, &mut self.state, &mut self.asset_cache);
+                    self.database_view.show(ui, &mut self.state, &mut self.asset_cache, self.audio.as_ref());
                 }
                 ViewMode::Saves => {
                     self.save_view.show(ui, self.state.project_path.as_deref(), &mut self.state.saves);

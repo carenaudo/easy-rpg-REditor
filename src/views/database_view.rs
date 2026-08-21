@@ -61,6 +61,7 @@ impl DatabaseViewState {
         ui: &mut egui::Ui,
         app: &mut EditorAppState,
         asset_cache: &mut AssetPreviewCache,
+        audio: Option<&crate::audio::AudioPlayer>,
     ) {
         let proj = app.project_path.clone();
 
@@ -178,7 +179,7 @@ impl DatabaseViewState {
                 return;
             }
             crate::app_state::DbCategory::Terrains => {
-                self.terrains_view.show(ui, &mut app.terrains, proj.as_deref(), &mut self.asset_picker, asset_cache, &mut app.terrains_dirty);
+                self.terrains_view.show(ui, &mut app.terrains, proj.as_deref(), &mut self.asset_picker, asset_cache, &mut app.terrains_dirty, audio);
                 return;
             }
             crate::app_state::DbCategory::Animations => {
@@ -187,7 +188,7 @@ impl DatabaseViewState {
             }
             crate::app_state::DbCategory::System => {
                 if let Some(sys) = &mut app.system {
-                    system::show_system_form(ui, sys, proj.as_deref(), &mut self.asset_picker, asset_cache, &app.actors, &mut app.system_dirty);
+                    system::show_system_form(ui, sys, proj.as_deref(), &mut self.asset_picker, asset_cache, &app.actors, &mut app.system_dirty, audio);
                 } else {
                     ui.colored_label(egui::Color32::GRAY, "(No system data loaded)");
                 }

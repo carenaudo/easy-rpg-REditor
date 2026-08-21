@@ -195,11 +195,20 @@ fn generate_default_expr(f: &FieldDef) -> String {
     }
 }
 
-fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>) -> String {
-    let is_special_raw = matches!(
-        s.name.as_str(),
+/// Types hand-written in `types.rs` (liblcf calls these `RawStruct`s) whose
+/// `read_xml_fields`/`write_xml` take no `id`/`is_2k3` - they have neither
+/// an id attribute nor engine-conditional defaults. Every other struct
+/// referenced as a field type is codegen-emitted and takes
+/// `(reader, id, is_2k3)` / uses `default_for_engine(is_2k3)`.
+fn is_special_raw_name(name: &str) -> bool {
+    matches!(
+        name,
         "Parameters" | "Equipment" | "Rect" | "Music" | "Sound" | "MoveCommand" | "EventCommand" | "TreeMap"
-    );
+    )
+}
+
+fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>) -> String {
+    let is_special_raw = is_special_raw_name(s.name.as_str());
 
     if is_special_raw {
         return String::new();
@@ -457,24 +466,36 @@ fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>)
         let t = f.rust_type.as_str();
         if t == "i32" || t == "i16" || t == "u8" || t == "u32" || t == "i8" {
             code.push_str(&format!("        writer.write_node_int(\"{}\", self.{} as i32)?;\n", f.field, f.rust_name));
+        } else if t == "f64" {
+            code.push_str(&format!("        writer.write_node_f64(\"{}\", self.{})?;\n", f.field, f.rust_name));
         } else if t == "bool" {
             code.push_str(&format!("        writer.write_node_bool(\"{}\", self.{})?;\n", f.field, f.rust_name));
         } else if t == "DBString" {
             code.push_str(&format!("        writer.write_node_dbstring(\"{}\", &self.{})?;\n", f.field, f.rust_name));
         } else if t == "Rect" {
             code.push_str(&format!("        writer.write_node_rect(\"{}\", &self.{})?;\n", f.field, f.rust_name));
+        } else if t == "DBBitArray" {
+            code.push_str(&format!("        writer.write_node_vector_bool(\"{}\", &self.{}.0)?;\n", f.field, f.rust_name));
         } else if t == "Vec<i16>" {
             code.push_str(&format!("        writer.write_node_vector_i16(\"{}\", &self.{})?;\n", f.field, f.rust_name));
         } else if t == "Vec<u8>" {
             code.push_str(&format!("        writer.write_node_vector_u8(\"{}\", &self.{})?;\n", f.field, f.rust_name));
         } else if t == "Vec<i32>" {
             code.push_str(&format!("        writer.write_node_vector_i32(\"{}\", &self.{})?;\n", f.field, f.rust_name));
+        } else if t == "Vec<u32>" {
+            code.push_str(&format!("        writer.write_node_vector_u32(\"{}\", &self.{})?;\n", f.field, f.rust_name));
+        } else if t == "Vec<bool>" {
+            code.push_str(&format!("        writer.write_node_vector_bool(\"{}\", &self.{})?;\n", f.field, f.rust_name));
         } else if t.starts_with("Vec<") {
             let inner = &t[4..t.len() - 1];
             if inner == "DBString" {
-                code.push_str(&format!("        writer.begin_element(\"{}\")?;\n        for item in &self.{} {{ writer.write_node_dbstring(\"string\", item)?; }}\n        writer.end_element(\"{}\")?;\n", f.field, f.rust_name, f.field));
-            } else if inner == "bool" {
-                code.push_str(&format!("        writer.begin_element(\"{}\")?;\n        for &item in &self.{} {{ writer.write_node_bool(\"bool\", item)?; }}\n        writer.end_element(\"{}\")?;\n", f.field, f.rust_name, f.field));
+                // liblcf skips empty entries and writes non-empty ones as
+                // <item id="N"> with 1-based id = original index+1
+                // (dbstring_struct.cpp: WriteXml/DbStringVectorXmlHandler).
+                code.push_str(&format!(
+                    "        writer.begin_element(\"{}\")?;\n        for (idx, item) in self.{}.iter().enumerate() {{ if !item.as_str().is_empty() {{ writer.begin_element_with_id(\"item\", (idx + 1) as i32)?; writer.write_node_dbstring_value(item)?; writer.end_element(\"item\")?; }} }}\n        writer.end_element(\"{}\")?;\n",
+                    f.field, f.rust_name, f.field
+                ));
             } else if all_structs.contains_key(inner) {
                 code.push_str(&format!("        writer.begin_element(\"{}\")?;\n        for item in &self.{} {{ item.write_xml(writer)?; }}\n        writer.end_element(\"{}\")?;\n", f.field, f.rust_name, f.field));
             }
@@ -485,6 +506,107 @@ fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>)
 
     code.push_str(&format!("        writer.end_element(\"{}\")?;\n", s.name));
     code.push_str("        Ok(())\n");
+    code.push_str("    }\n");
+
+    // read_xml: top-level, consumes this struct's own start tag (and thus
+    // its id attribute) before delegating to read_xml_fields. Used by
+    // format facades (Database/TreeMap/Map/Save) once the format-root tag
+    // (<LDB>/<LMT>/<LMU>/<LSD>) has been consumed, and by any field that
+    // nests a singular non-special-raw struct.
+    code.push_str("    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {\n");
+    code.push_str("        match reader.next_child()? {\n");
+    code.push_str("            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),\n");
+    code.push_str("            None => Ok(Self::default_for_engine(is_2k3)),\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+    // read_xml_fields: assumes this struct's own start tag was already
+    // consumed by the caller (mirrors write_xml, which always emits its
+    // own tag) - the mirror mechanism used for nested/repeated struct
+    // fields, where the wrapping field-name tag (and, for Vec<Struct>,
+    // each item's own tag) is consumed by the parent's dispatch loop.
+    code.push_str("    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {\n");
+    code.push_str("        let mut obj = Self::default_for_engine(is_2k3);\n");
+    if s.has_id {
+        code.push_str("        obj.id = id;\n");
+    }
+    code.push_str("        loop {\n");
+    code.push_str("            match reader.next_child()? {\n");
+    code.push_str("                None => break,\n");
+    code.push_str("                Some(tag) => match tag.name.as_str() {\n");
+
+    for f in &s.fields {
+        if f.is_size_field {
+            continue;
+        }
+        let t = f.rust_type.as_str();
+        if t == "i32" || t == "i8" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_int()? as {},\n", f.field, f.rust_name, t));
+        } else if t == "i16" || t == "u8" || t == "u32" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_int()? as {},\n", f.field, f.rust_name, t));
+        } else if t == "f64" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_f64()?,\n", f.field, f.rust_name));
+        } else if t == "bool" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_bool()?,\n", f.field, f.rust_name));
+        } else if t == "DBString" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_dbstring()?,\n", f.field, f.rust_name));
+        } else if t == "DBBitArray" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = crate::types::DBBitArray(reader.read_node_vector_bool()?),\n", f.field, f.rust_name));
+        } else if t == "Vec<i16>" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_vector_i16()?,\n", f.field, f.rust_name));
+        } else if t == "Vec<u8>" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_vector_u8()?,\n", f.field, f.rust_name));
+        } else if t == "Vec<i32>" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_vector_i32()?,\n", f.field, f.rust_name));
+        } else if t == "Vec<u32>" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_vector_u32()?,\n", f.field, f.rust_name));
+        } else if t == "Vec<bool>" {
+            code.push_str(&format!("                    \"{}\" => obj.{} = reader.read_node_vector_bool()?,\n", f.field, f.rust_name));
+        } else if t == "Rect" || all_structs.contains_key(t) {
+            // Singular struct-typed field: field-name wrap around exactly
+            // one instance of the type's own self-tag (mirrors
+            // XmlWriter::write_node_rect / the all_structs write_xml branch).
+            let read_call = if is_special_raw_name(t) {
+                format!("{}::read_xml_fields(reader)?", t)
+            } else {
+                format!("{}::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?", t)
+            };
+            code.push_str(&format!(
+                "                    \"{field}\" => obj.{name} = match reader.next_child()? {{ Some(inner) => {{ let v = {call}; reader.consume_wrapper_end()?; v }}, None => {ty}::default() }},\n",
+                field = f.field, name = f.rust_name, call = read_call, ty = t
+            ));
+        } else if t.starts_with("Vec<") {
+            let inner = &t[4..t.len() - 1];
+            if inner == "DBString" {
+                // Sparse: <item id="N">value</item>, empty entries omitted
+                // (mirrors dbstring_struct.cpp's resize(id) reconstruction).
+                code.push_str(&format!(
+                    "                    \"{field}\" => {{\n                        let mut v: Vec<crate::types::DBString> = Vec::new();\n                        loop {{\n                            match reader.next_child()? {{\n                                None => break,\n                                Some(item_tag) => {{\n                                    let text = reader.read_node_string()?;\n                                    let id = item_tag.id.unwrap_or(0) as usize;\n                                    if id >= 1 {{\n                                        if id > v.len() {{ v.resize(id, crate::types::DBString::default()); }}\n                                        v[id - 1] = crate::types::DBString::new(text);\n                                    }}\n                                }}\n                            }}\n                        }}\n                        obj.{name} = v;\n                    }},\n",
+                    field = f.field, name = f.rust_name
+                ));
+            } else if all_structs.contains_key(inner) {
+                let item_read_call = if is_special_raw_name(inner) {
+                    format!("{}::read_xml_fields(reader)?", inner)
+                } else {
+                    format!("{}::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?", inner)
+                };
+                code.push_str(&format!(
+                    "                    \"{field}\" => {{\n                        loop {{\n                            match reader.next_child()? {{\n                                None => break,\n                                Some(item_tag) => obj.{name}.push({call}),\n                            }}\n                        }}\n                    }},\n",
+                    field = f.field, name = f.rust_name, call = item_read_call
+                ));
+            } else {
+                code.push_str(&format!("                    \"{}\" => reader.skip_to_end()?,\n", f.field));
+            }
+        } else {
+            code.push_str(&format!("                    \"{}\" => reader.skip_to_end()?,\n", f.field));
+        }
+    }
+
+    code.push_str("                    _ => reader.skip_to_end()?,\n");
+    code.push_str("                },\n");
+    code.push_str("            }\n");
+    code.push_str("        }\n");
+    code.push_str("        Ok(obj)\n");
     code.push_str("    }\n");
 
     code.push_str("}\n\n");

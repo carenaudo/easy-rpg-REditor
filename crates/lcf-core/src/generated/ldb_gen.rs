@@ -428,11 +428,81 @@ impl Actor {
         writer.write_node_bool("easyrpg_immune_to_attribute_downshifts", self.easyrpg_immune_to_attribute_downshifts)?;
         writer.write_node_bool("easyrpg_ignore_evasion", self.easyrpg_ignore_evasion)?;
         writer.write_node_int("easyrpg_unarmed_hit", self.easyrpg_unarmed_hit as i32)?;
+        writer.write_node_vector_bool("easyrpg_unarmed_state_set", &self.easyrpg_unarmed_state_set.0)?;
         writer.write_node_int("easyrpg_unarmed_state_chance", self.easyrpg_unarmed_state_chance as i32)?;
+        writer.write_node_vector_bool("easyrpg_unarmed_attribute_set", &self.easyrpg_unarmed_attribute_set.0)?;
         writer.write_node_bool("easyrpg_dual_attack", self.easyrpg_dual_attack)?;
         writer.write_node_bool("easyrpg_attack_all", self.easyrpg_attack_all)?;
         writer.end_element("Actor")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "title" => obj.title = reader.read_node_dbstring()?,
+                    "character_name" => obj.character_name = reader.read_node_dbstring()?,
+                    "character_index" => obj.character_index = reader.read_node_int()? as i32,
+                    "transparent" => obj.transparent = reader.read_node_bool()?,
+                    "initial_level" => obj.initial_level = reader.read_node_int()? as i32,
+                    "final_level" => obj.final_level = reader.read_node_int()? as i32,
+                    "critical_hit" => obj.critical_hit = reader.read_node_bool()?,
+                    "critical_hit_chance" => obj.critical_hit_chance = reader.read_node_int()? as i32,
+                    "face_name" => obj.face_name = reader.read_node_dbstring()?,
+                    "face_index" => obj.face_index = reader.read_node_int()? as i32,
+                    "two_weapon" => obj.two_weapon = reader.read_node_bool()?,
+                    "lock_equipment" => obj.lock_equipment = reader.read_node_bool()?,
+                    "auto_battle" => obj.auto_battle = reader.read_node_bool()?,
+                    "super_guard" => obj.super_guard = reader.read_node_bool()?,
+                    "parameters" => obj.parameters = match reader.next_child()? { Some(inner) => { let v = Parameters::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Parameters::default() },
+                    "exp_base" => obj.exp_base = reader.read_node_int()? as i32,
+                    "exp_inflation" => obj.exp_inflation = reader.read_node_int()? as i32,
+                    "exp_correction" => obj.exp_correction = reader.read_node_int()? as i32,
+                    "initial_equipment" => obj.initial_equipment = match reader.next_child()? { Some(inner) => { let v = Equipment::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Equipment::default() },
+                    "unarmed_animation" => obj.unarmed_animation = reader.read_node_int()? as i32,
+                    "class_id" => obj.class_id = reader.read_node_int()? as i32,
+                    "battle_x" => obj.battle_x = reader.read_node_int()? as i32,
+                    "battle_y" => obj.battle_y = reader.read_node_int()? as i32,
+                    "battler_animation" => obj.battler_animation = reader.read_node_int()? as i32,
+                    "skills" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.skills.push(Learning::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "rename_skill" => obj.rename_skill = reader.read_node_bool()?,
+                    "skill_name" => obj.skill_name = reader.read_node_dbstring()?,
+                    "state_ranks" => obj.state_ranks = reader.read_node_vector_u8()?,
+                    "attribute_ranks" => obj.attribute_ranks = reader.read_node_vector_u8()?,
+                    "battle_commands" => obj.battle_commands = reader.read_node_vector_i32()?,
+                    "easyrpg_actorai" => obj.easyrpg_actorai = reader.read_node_int()? as i32,
+                    "easyrpg_prevent_critical" => obj.easyrpg_prevent_critical = reader.read_node_bool()?,
+                    "easyrpg_raise_evasion" => obj.easyrpg_raise_evasion = reader.read_node_bool()?,
+                    "easyrpg_immune_to_attribute_downshifts" => obj.easyrpg_immune_to_attribute_downshifts = reader.read_node_bool()?,
+                    "easyrpg_ignore_evasion" => obj.easyrpg_ignore_evasion = reader.read_node_bool()?,
+                    "easyrpg_unarmed_hit" => obj.easyrpg_unarmed_hit = reader.read_node_int()? as i32,
+                    "easyrpg_unarmed_state_set" => obj.easyrpg_unarmed_state_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "easyrpg_unarmed_state_chance" => obj.easyrpg_unarmed_state_chance = reader.read_node_int()? as i32,
+                    "easyrpg_unarmed_attribute_set" => obj.easyrpg_unarmed_attribute_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "easyrpg_dual_attack" => obj.easyrpg_dual_attack = reader.read_node_bool()?,
+                    "easyrpg_attack_all" => obj.easyrpg_attack_all = reader.read_node_bool()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -565,6 +635,46 @@ impl Animation {
         writer.end_element("frames")?;
         writer.end_element("Animation")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "animation_name" => obj.animation_name = reader.read_node_dbstring()?,
+                    "large" => obj.large = reader.read_node_bool()?,
+                    "timings" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.timings.push(AnimationTiming::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "scope" => obj.scope = reader.read_node_int()? as i32,
+                    "position" => obj.position = reader.read_node_int()? as i32,
+                    "frames" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.frames.push(AnimationFrame::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -701,6 +811,35 @@ impl AnimationCellData {
         writer.end_element("AnimationCellData")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "valid" => obj.valid = reader.read_node_int()? as i32,
+                    "cell_id" => obj.cell_id = reader.read_node_int()? as i32,
+                    "x" => obj.x = reader.read_node_int()? as i32,
+                    "y" => obj.y = reader.read_node_int()? as i32,
+                    "zoom" => obj.zoom = reader.read_node_int()? as i32,
+                    "tone_red" => obj.tone_red = reader.read_node_int()? as i32,
+                    "tone_green" => obj.tone_green = reader.read_node_int()? as i32,
+                    "tone_blue" => obj.tone_blue = reader.read_node_int()? as i32,
+                    "tone_gray" => obj.tone_gray = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -768,6 +907,33 @@ impl AnimationFrame {
         writer.end_element("cells")?;
         writer.end_element("AnimationFrame")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "cells" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.cells.push(AnimationCellData::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -884,6 +1050,33 @@ impl AnimationTiming {
         writer.end_element("AnimationTiming")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "frame" => obj.frame = reader.read_node_int()? as i32,
+                    "se" => obj.se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "flash_scope" => obj.flash_scope = reader.read_node_int()? as i32,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_power" => obj.flash_power = reader.read_node_int()? as i32,
+                    "screen_shake" => obj.screen_shake = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -990,6 +1183,32 @@ impl Attribute {
         writer.end_element("Attribute")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "a_rate" => obj.a_rate = reader.read_node_int()? as i32,
+                    "b_rate" => obj.b_rate = reader.read_node_int()? as i32,
+                    "c_rate" => obj.c_rate = reader.read_node_int()? as i32,
+                    "d_rate" => obj.d_rate = reader.read_node_int()? as i32,
+                    "e_rate" => obj.e_rate = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1050,6 +1269,27 @@ impl BattleCommand {
         writer.write_node_int("type", self.r#type as i32)?;
         writer.end_element("BattleCommand")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -1297,6 +1537,52 @@ impl BattleCommands {
         writer.end_element("BattleCommands")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "placement" => obj.placement = reader.read_node_int()? as i32,
+                    "death_handler_unused" => obj.death_handler_unused = reader.read_node_bool()?,
+                    "row" => obj.row = reader.read_node_int()? as i32,
+                    "battle_type" => obj.battle_type = reader.read_node_int()? as i32,
+                    "unused_display_normal_parameters" => obj.unused_display_normal_parameters = reader.read_node_bool()?,
+                    "commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.commands.push(BattleCommand::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "death_handler" => obj.death_handler = reader.read_node_bool()?,
+                    "death_event" => obj.death_event = reader.read_node_int()? as i32,
+                    "window_size" => obj.window_size = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "death_teleport" => obj.death_teleport = reader.read_node_bool()?,
+                    "death_teleport_id" => obj.death_teleport_id = reader.read_node_int()? as i32,
+                    "death_teleport_x" => obj.death_teleport_x = reader.read_node_int()? as i32,
+                    "death_teleport_y" => obj.death_teleport_y = reader.read_node_int()? as i32,
+                    "death_teleport_face" => obj.death_teleport_face = reader.read_node_int()? as i32,
+                    "easyrpg_default_atb_mode" => obj.easyrpg_default_atb_mode = reader.read_node_int()? as i32,
+                    "easyrpg_enable_battle_row_command" => obj.easyrpg_enable_battle_row_command = reader.read_node_bool()?,
+                    "easyrpg_sequential_order" => obj.easyrpg_sequential_order = reader.read_node_bool()?,
+                    "easyrpg_disable_row_feature" => obj.easyrpg_disable_row_feature = reader.read_node_bool()?,
+                    "easyrpg_fixed_actor_facing_direction" => obj.easyrpg_fixed_actor_facing_direction = reader.read_node_int()? as i32,
+                    "easyrpg_fixed_enemy_facing_direction" => obj.easyrpg_fixed_enemy_facing_direction = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1409,6 +1695,43 @@ impl BattlerAnimation {
         writer.end_element("weapons")?;
         writer.end_element("BattlerAnimation")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "speed" => obj.speed = reader.read_node_int()? as i32,
+                    "poses" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.poses.push(BattlerAnimationPose::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "weapons" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.weapons.push(BattlerAnimationWeapon::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -1554,6 +1877,36 @@ impl BattlerAnimationItemSkill {
         writer.end_element("BattlerAnimationItemSkill")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "unknown02" => obj.unknown02 = reader.read_node_int()? as i32,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "weapon_animation_id" => obj.weapon_animation_id = reader.read_node_int()? as i32,
+                    "movement" => obj.movement = reader.read_node_int()? as i32,
+                    "after_image" => obj.after_image = reader.read_node_int()? as i32,
+                    "attacks" => obj.attacks = reader.read_node_int()? as i32,
+                    "ranged" => obj.ranged = reader.read_node_bool()?,
+                    "ranged_animation_id" => obj.ranged_animation_id = reader.read_node_int()? as i32,
+                    "ranged_speed" => obj.ranged_speed = reader.read_node_int()? as i32,
+                    "battle_animation_id" => obj.battle_animation_id = reader.read_node_int()? as i32,
+                    "pose" => obj.pose = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1644,6 +1997,30 @@ impl BattlerAnimationPose {
         writer.end_element("BattlerAnimationPose")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "battler_name" => obj.battler_name = reader.read_node_dbstring()?,
+                    "battler_index" => obj.battler_index = reader.read_node_int()? as i32,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "battle_animation_id" => obj.battle_animation_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1715,6 +2092,28 @@ impl BattlerAnimationWeapon {
         writer.write_node_int("weapon_index", self.weapon_index as i32)?;
         writer.end_element("BattlerAnimationWeapon")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "weapon_name" => obj.weapon_name = reader.read_node_dbstring()?,
+                    "weapon_index" => obj.weapon_index = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -1827,6 +2226,32 @@ impl Chipset {
         writer.write_node_int("animation_speed", self.animation_speed as i32)?;
         writer.end_element("Chipset")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "chipset_name" => obj.chipset_name = reader.read_node_dbstring()?,
+                    "terrain_data" => obj.terrain_data = reader.read_node_vector_i16()?,
+                    "passable_data_lower" => obj.passable_data_lower = reader.read_node_vector_u8()?,
+                    "passable_data_upper" => obj.passable_data_upper = reader.read_node_vector_u8()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "animation_speed" => obj.animation_speed = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -2014,6 +2439,46 @@ impl Class {
         writer.end_element("Class")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "two_weapon" => obj.two_weapon = reader.read_node_bool()?,
+                    "lock_equipment" => obj.lock_equipment = reader.read_node_bool()?,
+                    "auto_battle" => obj.auto_battle = reader.read_node_bool()?,
+                    "super_guard" => obj.super_guard = reader.read_node_bool()?,
+                    "parameters" => obj.parameters = match reader.next_child()? { Some(inner) => { let v = Parameters::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Parameters::default() },
+                    "exp_base" => obj.exp_base = reader.read_node_int()? as i32,
+                    "exp_inflation" => obj.exp_inflation = reader.read_node_int()? as i32,
+                    "exp_correction" => obj.exp_correction = reader.read_node_int()? as i32,
+                    "battler_animation" => obj.battler_animation = reader.read_node_int()? as i32,
+                    "skills" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.skills.push(Learning::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "state_ranks" => obj.state_ranks = reader.read_node_vector_u8()?,
+                    "attribute_ranks" => obj.attribute_ranks = reader.read_node_vector_u8()?,
+                    "battle_commands" => obj.battle_commands = reader.read_node_vector_i32()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -2116,6 +2581,37 @@ impl CommonEvent {
         writer.end_element("event_commands")?;
         writer.end_element("CommonEvent")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "trigger" => obj.trigger = reader.read_node_int()? as i32,
+                    "switch_flag" => obj.switch_flag = reader.read_node_bool()?,
+                    "switch_id" => obj.switch_id = reader.read_node_int()? as i32,
+                    "event_commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.event_commands.push(EventCommand::read_xml_fields(reader)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -2598,6 +3094,159 @@ impl Database {
         writer.end_element("Database")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "actors" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.actors.push(Actor::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "skills" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.skills.push(Skill::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "items" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.items.push(Item::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "enemies" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.enemies.push(Enemy::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "troops" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.troops.push(Troop::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "terrains" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.terrains.push(Terrain::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "attributes" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.attributes.push(Attribute::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "states" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.states.push(State::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "animations" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.animations.push(Animation::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "chipsets" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.chipsets.push(Chipset::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "terms" => obj.terms = match reader.next_child()? { Some(inner) => { let v = Terms::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => Terms::default() },
+                    "system" => obj.system = match reader.next_child()? { Some(inner) => { let v = System::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => System::default() },
+                    "switches" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.switches.push(Switch::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "variables" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.variables.push(Variable::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "commonevents" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.commonevents.push(CommonEvent::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "version" => obj.version = reader.read_node_int()? as i32,
+                    "commoneventD2" => obj.commoneventD2 = reader.read_node_int()? as i32,
+                    "commoneventD3" => obj.commoneventD3 = reader.read_node_int()? as i32,
+                    "battlecommands" => obj.battlecommands = match reader.next_child()? { Some(inner) => { let v = BattleCommands::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => BattleCommands::default() },
+                    "classes" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.classes.push(Class::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "classD1" => obj.classD1 = reader.read_node_int()? as i32,
+                    "battleranimations" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.battleranimations.push(BattlerAnimation::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "maniac_string_variables" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.maniac_string_variables.push(StringVariable::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -2940,11 +3589,72 @@ impl Enemy {
         writer.write_node_bool("easyrpg_immune_to_attribute_downshifts", self.easyrpg_immune_to_attribute_downshifts)?;
         writer.write_node_bool("easyrpg_ignore_evasion", self.easyrpg_ignore_evasion)?;
         writer.write_node_int("easyrpg_hit", self.easyrpg_hit as i32)?;
+        writer.write_node_vector_bool("easyrpg_state_set", &self.easyrpg_state_set.0)?;
         writer.write_node_int("easyrpg_state_chance", self.easyrpg_state_chance as i32)?;
+        writer.write_node_vector_bool("easyrpg_attribute_set", &self.easyrpg_attribute_set.0)?;
         writer.write_node_bool("easyrpg_super_guard", self.easyrpg_super_guard)?;
         writer.write_node_bool("easyrpg_attack_all", self.easyrpg_attack_all)?;
         writer.end_element("Enemy")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "battler_name" => obj.battler_name = reader.read_node_dbstring()?,
+                    "battler_hue" => obj.battler_hue = reader.read_node_int()? as i32,
+                    "max_hp" => obj.max_hp = reader.read_node_int()? as i32,
+                    "max_sp" => obj.max_sp = reader.read_node_int()? as i32,
+                    "attack" => obj.attack = reader.read_node_int()? as i32,
+                    "defense" => obj.defense = reader.read_node_int()? as i32,
+                    "spirit" => obj.spirit = reader.read_node_int()? as i32,
+                    "agility" => obj.agility = reader.read_node_int()? as i32,
+                    "transparent" => obj.transparent = reader.read_node_bool()?,
+                    "exp" => obj.exp = reader.read_node_int()? as i32,
+                    "gold" => obj.gold = reader.read_node_int()? as i32,
+                    "drop_id" => obj.drop_id = reader.read_node_int()? as i32,
+                    "drop_prob" => obj.drop_prob = reader.read_node_int()? as i32,
+                    "critical_hit" => obj.critical_hit = reader.read_node_bool()?,
+                    "critical_hit_chance" => obj.critical_hit_chance = reader.read_node_int()? as i32,
+                    "miss" => obj.miss = reader.read_node_bool()?,
+                    "levitate" => obj.levitate = reader.read_node_bool()?,
+                    "state_ranks" => obj.state_ranks = reader.read_node_vector_u8()?,
+                    "attribute_ranks" => obj.attribute_ranks = reader.read_node_vector_u8()?,
+                    "actions" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.actions.push(EnemyAction::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "maniac_unarmed_animation" => obj.maniac_unarmed_animation = reader.read_node_int()? as i32,
+                    "easyrpg_enemyai" => obj.easyrpg_enemyai = reader.read_node_int()? as i32,
+                    "easyrpg_prevent_critical" => obj.easyrpg_prevent_critical = reader.read_node_bool()?,
+                    "easyrpg_raise_evasion" => obj.easyrpg_raise_evasion = reader.read_node_bool()?,
+                    "easyrpg_immune_to_attribute_downshifts" => obj.easyrpg_immune_to_attribute_downshifts = reader.read_node_bool()?,
+                    "easyrpg_ignore_evasion" => obj.easyrpg_ignore_evasion = reader.read_node_bool()?,
+                    "easyrpg_hit" => obj.easyrpg_hit = reader.read_node_int()? as i32,
+                    "easyrpg_state_set" => obj.easyrpg_state_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "easyrpg_state_chance" => obj.easyrpg_state_chance = reader.read_node_int()? as i32,
+                    "easyrpg_attribute_set" => obj.easyrpg_attribute_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "easyrpg_super_guard" => obj.easyrpg_super_guard = reader.read_node_bool()?,
+                    "easyrpg_attack_all" => obj.easyrpg_attack_all = reader.read_node_bool()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3101,6 +3811,38 @@ impl EnemyAction {
         writer.write_node_int("rating", self.rating as i32)?;
         writer.end_element("EnemyAction")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "kind" => obj.kind = reader.read_node_int()? as i32,
+                    "basic" => obj.basic = reader.read_node_int()? as i32,
+                    "skill_id" => obj.skill_id = reader.read_node_int()? as i32,
+                    "enemy_id" => obj.enemy_id = reader.read_node_int()? as i32,
+                    "condition_type" => obj.condition_type = reader.read_node_int()? as i32,
+                    "condition_param1" => obj.condition_param1 = reader.read_node_int()? as i32,
+                    "condition_param2" => obj.condition_param2 = reader.read_node_int()? as i32,
+                    "switch_id" => obj.switch_id = reader.read_node_int()? as i32,
+                    "switch_on" => obj.switch_on = reader.read_node_bool()?,
+                    "switch_on_id" => obj.switch_on_id = reader.read_node_int()? as i32,
+                    "switch_off" => obj.switch_off = reader.read_node_bool()?,
+                    "switch_off_id" => obj.switch_off_id = reader.read_node_int()? as i32,
+                    "rating" => obj.rating = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3615,6 +4357,9 @@ impl Item {
         writer.write_node_int("switch_id", self.switch_id as i32)?;
         writer.write_node_bool("occasion_field2", self.occasion_field2)?;
         writer.write_node_bool("occasion_battle", self.occasion_battle)?;
+        writer.write_node_vector_bool("actor_set", &self.actor_set.0)?;
+        writer.write_node_vector_bool("state_set", &self.state_set.0)?;
+        writer.write_node_vector_bool("attribute_set", &self.attribute_set.0)?;
         writer.write_node_int("state_chance", self.state_chance as i32)?;
         writer.write_node_bool("reverse_state_effect", self.reverse_state_effect)?;
         writer.write_node_int("weapon_animation", self.weapon_animation as i32)?;
@@ -3622,12 +4367,93 @@ impl Item {
         for item in &self.animation_data { item.write_xml(writer)?; }
         writer.end_element("animation_data")?;
         writer.write_node_bool("use_skill", self.use_skill)?;
+        writer.write_node_vector_bool("class_set", &self.class_set.0)?;
         writer.write_node_int("ranged_trajectory", self.ranged_trajectory as i32)?;
         writer.write_node_int("ranged_target", self.ranged_target as i32)?;
         writer.write_node_dbstring("easyrpg_using_message", &self.easyrpg_using_message)?;
         writer.write_node_int("easyrpg_max_count", self.easyrpg_max_count as i32)?;
         writer.end_element("Item")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "description" => obj.description = reader.read_node_dbstring()?,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "price" => obj.price = reader.read_node_int()? as i32,
+                    "uses" => obj.uses = reader.read_node_int()? as i32,
+                    "atk_points1" => obj.atk_points1 = reader.read_node_int()? as i32,
+                    "def_points1" => obj.def_points1 = reader.read_node_int()? as i32,
+                    "spi_points1" => obj.spi_points1 = reader.read_node_int()? as i32,
+                    "agi_points1" => obj.agi_points1 = reader.read_node_int()? as i32,
+                    "two_handed" => obj.two_handed = reader.read_node_bool()?,
+                    "sp_cost" => obj.sp_cost = reader.read_node_int()? as i32,
+                    "hit" => obj.hit = reader.read_node_int()? as i32,
+                    "critical_hit" => obj.critical_hit = reader.read_node_int()? as i32,
+                    "animation_id" => obj.animation_id = reader.read_node_int()? as i32,
+                    "preemptive" => obj.preemptive = reader.read_node_bool()?,
+                    "dual_attack" => obj.dual_attack = reader.read_node_bool()?,
+                    "attack_all" => obj.attack_all = reader.read_node_bool()?,
+                    "ignore_evasion" => obj.ignore_evasion = reader.read_node_bool()?,
+                    "prevent_critical" => obj.prevent_critical = reader.read_node_bool()?,
+                    "raise_evasion" => obj.raise_evasion = reader.read_node_bool()?,
+                    "half_sp_cost" => obj.half_sp_cost = reader.read_node_bool()?,
+                    "no_terrain_damage" => obj.no_terrain_damage = reader.read_node_bool()?,
+                    "cursed" => obj.cursed = reader.read_node_bool()?,
+                    "entire_party" => obj.entire_party = reader.read_node_bool()?,
+                    "recover_hp_rate" => obj.recover_hp_rate = reader.read_node_int()? as i32,
+                    "recover_hp" => obj.recover_hp = reader.read_node_int()? as i32,
+                    "recover_sp_rate" => obj.recover_sp_rate = reader.read_node_int()? as i32,
+                    "recover_sp" => obj.recover_sp = reader.read_node_int()? as i32,
+                    "occasion_field1" => obj.occasion_field1 = reader.read_node_bool()?,
+                    "ko_only" => obj.ko_only = reader.read_node_bool()?,
+                    "max_hp_points" => obj.max_hp_points = reader.read_node_int()? as i32,
+                    "max_sp_points" => obj.max_sp_points = reader.read_node_int()? as i32,
+                    "atk_points2" => obj.atk_points2 = reader.read_node_int()? as i32,
+                    "def_points2" => obj.def_points2 = reader.read_node_int()? as i32,
+                    "spi_points2" => obj.spi_points2 = reader.read_node_int()? as i32,
+                    "agi_points2" => obj.agi_points2 = reader.read_node_int()? as i32,
+                    "using_message" => obj.using_message = reader.read_node_int()? as i32,
+                    "skill_id" => obj.skill_id = reader.read_node_int()? as i32,
+                    "switch_id" => obj.switch_id = reader.read_node_int()? as i32,
+                    "occasion_field2" => obj.occasion_field2 = reader.read_node_bool()?,
+                    "occasion_battle" => obj.occasion_battle = reader.read_node_bool()?,
+                    "actor_set" => obj.actor_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "state_set" => obj.state_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "attribute_set" => obj.attribute_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "state_chance" => obj.state_chance = reader.read_node_int()? as i32,
+                    "reverse_state_effect" => obj.reverse_state_effect = reader.read_node_bool()?,
+                    "weapon_animation" => obj.weapon_animation = reader.read_node_int()? as i32,
+                    "animation_data" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.animation_data.push(BattlerAnimationItemSkill::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "use_skill" => obj.use_skill = reader.read_node_bool()?,
+                    "class_set" => obj.class_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "ranged_trajectory" => obj.ranged_trajectory = reader.read_node_int()? as i32,
+                    "ranged_target" => obj.ranged_target = reader.read_node_int()? as i32,
+                    "easyrpg_using_message" => obj.easyrpg_using_message = reader.read_node_dbstring()?,
+                    "easyrpg_max_count" => obj.easyrpg_max_count = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3691,6 +4517,27 @@ impl Learning {
         writer.write_node_int("skill_id", self.skill_id as i32)?;
         writer.end_element("Learning")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "level" => obj.level = reader.read_node_int()? as i32,
+                    "skill_id" => obj.skill_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4145,6 +4992,8 @@ impl Skill {
         writer.write_node_bool("affect_agility", self.affect_agility)?;
         writer.write_node_bool("absorb_damage", self.absorb_damage)?;
         writer.write_node_bool("ignore_defense", self.ignore_defense)?;
+        writer.write_node_vector_bool("state_effects", &self.state_effects.0)?;
+        writer.write_node_vector_bool("attribute_effects", &self.attribute_effects.0)?;
         writer.write_node_bool("affect_attr_defence", self.affect_attr_defence)?;
         writer.write_node_int("battler_animation", self.battler_animation as i32)?;
         writer.begin_element("battler_animation_data")?;
@@ -4165,6 +5014,79 @@ impl Skill {
         writer.write_node_int("easyrpg_hp_cost", self.easyrpg_hp_cost as i32)?;
         writer.end_element("Skill")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "description" => obj.description = reader.read_node_dbstring()?,
+                    "using_message1" => obj.using_message1 = reader.read_node_dbstring()?,
+                    "using_message2" => obj.using_message2 = reader.read_node_dbstring()?,
+                    "failure_message" => obj.failure_message = reader.read_node_int()? as i32,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "sp_type" => obj.sp_type = reader.read_node_int()? as i32,
+                    "sp_percent" => obj.sp_percent = reader.read_node_int()? as i32,
+                    "sp_cost" => obj.sp_cost = reader.read_node_int()? as i32,
+                    "scope" => obj.scope = reader.read_node_int()? as i32,
+                    "switch_id" => obj.switch_id = reader.read_node_int()? as i32,
+                    "animation_id" => obj.animation_id = reader.read_node_int()? as i32,
+                    "sound_effect" => obj.sound_effect = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "occasion_field" => obj.occasion_field = reader.read_node_bool()?,
+                    "occasion_battle" => obj.occasion_battle = reader.read_node_bool()?,
+                    "reverse_state_effect" => obj.reverse_state_effect = reader.read_node_bool()?,
+                    "physical_rate" => obj.physical_rate = reader.read_node_int()? as i32,
+                    "magical_rate" => obj.magical_rate = reader.read_node_int()? as i32,
+                    "variance" => obj.variance = reader.read_node_int()? as i32,
+                    "power" => obj.power = reader.read_node_int()? as i32,
+                    "hit" => obj.hit = reader.read_node_int()? as i32,
+                    "affect_hp" => obj.affect_hp = reader.read_node_bool()?,
+                    "affect_sp" => obj.affect_sp = reader.read_node_bool()?,
+                    "affect_attack" => obj.affect_attack = reader.read_node_bool()?,
+                    "affect_defense" => obj.affect_defense = reader.read_node_bool()?,
+                    "affect_spirit" => obj.affect_spirit = reader.read_node_bool()?,
+                    "affect_agility" => obj.affect_agility = reader.read_node_bool()?,
+                    "absorb_damage" => obj.absorb_damage = reader.read_node_bool()?,
+                    "ignore_defense" => obj.ignore_defense = reader.read_node_bool()?,
+                    "state_effects" => obj.state_effects = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "attribute_effects" => obj.attribute_effects = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "affect_attr_defence" => obj.affect_attr_defence = reader.read_node_bool()?,
+                    "battler_animation" => obj.battler_animation = reader.read_node_int()? as i32,
+                    "battler_animation_data" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.battler_animation_data.push(BattlerAnimationItemSkill::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "easyrpg_battle2k3_message" => obj.easyrpg_battle2k3_message = reader.read_node_dbstring()?,
+                    "easyrpg_ignore_reflect" => obj.easyrpg_ignore_reflect = reader.read_node_bool()?,
+                    "easyrpg_state_hit" => obj.easyrpg_state_hit = reader.read_node_int()? as i32,
+                    "easyrpg_attribute_hit" => obj.easyrpg_attribute_hit = reader.read_node_int()? as i32,
+                    "easyrpg_ignore_restrict_skill" => obj.easyrpg_ignore_restrict_skill = reader.read_node_bool()?,
+                    "easyrpg_ignore_restrict_magic" => obj.easyrpg_ignore_restrict_magic = reader.read_node_bool()?,
+                    "easyrpg_enable_stat_absorbing" => obj.easyrpg_enable_stat_absorbing = reader.read_node_bool()?,
+                    "easyrpg_affected_by_evade_all_physical_attacks" => obj.easyrpg_affected_by_evade_all_physical_attacks = reader.read_node_bool()?,
+                    "easyrpg_critical_hit_chance" => obj.easyrpg_critical_hit_chance = reader.read_node_int()? as i32,
+                    "easyrpg_affected_by_row_modifiers" => obj.easyrpg_affected_by_row_modifiers = reader.read_node_bool()?,
+                    "easyrpg_hp_type" => obj.easyrpg_hp_type = reader.read_node_int()? as i32,
+                    "easyrpg_hp_percent" => obj.easyrpg_hp_percent = reader.read_node_int()? as i32,
+                    "easyrpg_hp_cost" => obj.easyrpg_hp_cost = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4588,8 +5510,71 @@ impl State {
         writer.write_node_int("sp_change_val", self.sp_change_val as i32)?;
         writer.write_node_int("sp_change_map_steps", self.sp_change_map_steps as i32)?;
         writer.write_node_int("sp_change_map_val", self.sp_change_map_val as i32)?;
+        writer.write_node_vector_bool("easyrpg_immune_states", &self.easyrpg_immune_states.0)?;
         writer.end_element("State")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "type" => obj.r#type = reader.read_node_int()? as i32,
+                    "color" => obj.color = reader.read_node_int()? as i32,
+                    "priority" => obj.priority = reader.read_node_int()? as i32,
+                    "restriction" => obj.restriction = reader.read_node_int()? as i32,
+                    "a_rate" => obj.a_rate = reader.read_node_int()? as i32,
+                    "b_rate" => obj.b_rate = reader.read_node_int()? as i32,
+                    "c_rate" => obj.c_rate = reader.read_node_int()? as i32,
+                    "d_rate" => obj.d_rate = reader.read_node_int()? as i32,
+                    "e_rate" => obj.e_rate = reader.read_node_int()? as i32,
+                    "hold_turn" => obj.hold_turn = reader.read_node_int()? as i32,
+                    "auto_release_prob" => obj.auto_release_prob = reader.read_node_int()? as i32,
+                    "release_by_damage" => obj.release_by_damage = reader.read_node_int()? as i32,
+                    "affect_type" => obj.affect_type = reader.read_node_int()? as i32,
+                    "affect_attack" => obj.affect_attack = reader.read_node_bool()?,
+                    "affect_defense" => obj.affect_defense = reader.read_node_bool()?,
+                    "affect_spirit" => obj.affect_spirit = reader.read_node_bool()?,
+                    "affect_agility" => obj.affect_agility = reader.read_node_bool()?,
+                    "reduce_hit_ratio" => obj.reduce_hit_ratio = reader.read_node_int()? as i32,
+                    "avoid_attacks" => obj.avoid_attacks = reader.read_node_bool()?,
+                    "reflect_magic" => obj.reflect_magic = reader.read_node_bool()?,
+                    "cursed" => obj.cursed = reader.read_node_bool()?,
+                    "battler_animation_id" => obj.battler_animation_id = reader.read_node_int()? as i32,
+                    "restrict_skill" => obj.restrict_skill = reader.read_node_bool()?,
+                    "restrict_skill_level" => obj.restrict_skill_level = reader.read_node_int()? as i32,
+                    "restrict_magic" => obj.restrict_magic = reader.read_node_bool()?,
+                    "restrict_magic_level" => obj.restrict_magic_level = reader.read_node_int()? as i32,
+                    "hp_change_type" => obj.hp_change_type = reader.read_node_int()? as i32,
+                    "sp_change_type" => obj.sp_change_type = reader.read_node_int()? as i32,
+                    "message_actor" => obj.message_actor = reader.read_node_dbstring()?,
+                    "message_enemy" => obj.message_enemy = reader.read_node_dbstring()?,
+                    "message_already" => obj.message_already = reader.read_node_dbstring()?,
+                    "message_affected" => obj.message_affected = reader.read_node_dbstring()?,
+                    "message_recovery" => obj.message_recovery = reader.read_node_dbstring()?,
+                    "hp_change_max" => obj.hp_change_max = reader.read_node_int()? as i32,
+                    "hp_change_val" => obj.hp_change_val = reader.read_node_int()? as i32,
+                    "hp_change_map_steps" => obj.hp_change_map_steps = reader.read_node_int()? as i32,
+                    "hp_change_map_val" => obj.hp_change_map_val = reader.read_node_int()? as i32,
+                    "sp_change_max" => obj.sp_change_max = reader.read_node_int()? as i32,
+                    "sp_change_val" => obj.sp_change_val = reader.read_node_int()? as i32,
+                    "sp_change_map_steps" => obj.sp_change_map_steps = reader.read_node_int()? as i32,
+                    "sp_change_map_val" => obj.sp_change_map_val = reader.read_node_int()? as i32,
+                    "easyrpg_immune_states" => obj.easyrpg_immune_states = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4645,6 +5630,26 @@ impl StringVariable {
         writer.end_element("StringVariable")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -4698,6 +5703,26 @@ impl Switch {
         writer.write_node_dbstring("name", &self.name)?;
         writer.end_element("Switch")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -5416,6 +6441,106 @@ impl System {
         writer.write_node_int("easyrpg_default_enemyai", self.easyrpg_default_enemyai as i32)?;
         writer.end_element("System")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "ldb_id" => obj.ldb_id = reader.read_node_int()? as i32,
+                    "boat_name" => obj.boat_name = reader.read_node_dbstring()?,
+                    "ship_name" => obj.ship_name = reader.read_node_dbstring()?,
+                    "airship_name" => obj.airship_name = reader.read_node_dbstring()?,
+                    "boat_index" => obj.boat_index = reader.read_node_int()? as i32,
+                    "ship_index" => obj.ship_index = reader.read_node_int()? as i32,
+                    "airship_index" => obj.airship_index = reader.read_node_int()? as i32,
+                    "title_name" => obj.title_name = reader.read_node_dbstring()?,
+                    "gameover_name" => obj.gameover_name = reader.read_node_dbstring()?,
+                    "system_name" => obj.system_name = reader.read_node_dbstring()?,
+                    "system2_name" => obj.system2_name = reader.read_node_dbstring()?,
+                    "party" => obj.party = reader.read_node_vector_i16()?,
+                    "menu_commands" => obj.menu_commands = reader.read_node_vector_i16()?,
+                    "title_music" => obj.title_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "battle_music" => obj.battle_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "battle_end_music" => obj.battle_end_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "inn_music" => obj.inn_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "boat_music" => obj.boat_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "ship_music" => obj.ship_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "airship_music" => obj.airship_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "gameover_music" => obj.gameover_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "cursor_se" => obj.cursor_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "decision_se" => obj.decision_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "cancel_se" => obj.cancel_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "buzzer_se" => obj.buzzer_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "battle_se" => obj.battle_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "escape_se" => obj.escape_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_attack_se" => obj.enemy_attack_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_damaged_se" => obj.enemy_damaged_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "actor_damaged_se" => obj.actor_damaged_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "dodge_se" => obj.dodge_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_death_se" => obj.enemy_death_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "item_se" => obj.item_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "transition_out" => obj.transition_out = reader.read_node_int()? as i32,
+                    "transition_in" => obj.transition_in = reader.read_node_int()? as i32,
+                    "battle_start_fadeout" => obj.battle_start_fadeout = reader.read_node_int()? as i32,
+                    "battle_start_fadein" => obj.battle_start_fadein = reader.read_node_int()? as i32,
+                    "battle_end_fadeout" => obj.battle_end_fadeout = reader.read_node_int()? as i32,
+                    "battle_end_fadein" => obj.battle_end_fadein = reader.read_node_int()? as i32,
+                    "message_stretch" => obj.message_stretch = reader.read_node_int()? as i32,
+                    "font_id" => obj.font_id = reader.read_node_int()? as i32,
+                    "selected_condition" => obj.selected_condition = reader.read_node_int()? as i32,
+                    "selected_hero" => obj.selected_hero = reader.read_node_int()? as i32,
+                    "battletest_background" => obj.battletest_background = reader.read_node_dbstring()?,
+                    "battletest_data" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.battletest_data.push(TestBattler::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "save_count" => obj.save_count = reader.read_node_int()? as i32,
+                    "battletest_terrain" => obj.battletest_terrain = reader.read_node_int()? as i32,
+                    "battletest_formation" => obj.battletest_formation = reader.read_node_int()? as i32,
+                    "battletest_condition" => obj.battletest_condition = reader.read_node_int()? as i32,
+                    "equipment_setting" => obj.equipment_setting = reader.read_node_int()? as i32,
+                    "battletest_alt_terrain" => obj.battletest_alt_terrain = reader.read_node_int()? as i32,
+                    "show_frame" => obj.show_frame = reader.read_node_bool()?,
+                    "frame_name" => obj.frame_name = reader.read_node_dbstring()?,
+                    "invert_animations" => obj.invert_animations = reader.read_node_bool()?,
+                    "show_title" => obj.show_title = reader.read_node_bool()?,
+                    "easyrpg_alternative_exp" => obj.easyrpg_alternative_exp = reader.read_node_int()? as i32,
+                    "easyrpg_battle_options" => obj.easyrpg_battle_options = reader.read_node_vector_i16()?,
+                    "easyrpg_max_actor_hp" => obj.easyrpg_max_actor_hp = reader.read_node_int()? as i32,
+                    "easyrpg_max_enemy_hp" => obj.easyrpg_max_enemy_hp = reader.read_node_int()? as i32,
+                    "easyrpg_max_damage" => obj.easyrpg_max_damage = reader.read_node_int()? as i32,
+                    "easyrpg_max_exp" => obj.easyrpg_max_exp = reader.read_node_int()? as i32,
+                    "easyrpg_max_level" => obj.easyrpg_max_level = reader.read_node_int()? as i32,
+                    "easyrpg_max_savefiles" => obj.easyrpg_max_savefiles = reader.read_node_int()? as i32,
+                    "easyrpg_max_item_count" => obj.easyrpg_max_item_count = reader.read_node_int()? as i32,
+                    "easyrpg_variable_min_value" => obj.easyrpg_variable_min_value = reader.read_node_int()? as i32,
+                    "easyrpg_variable_max_value" => obj.easyrpg_variable_max_value = reader.read_node_int()? as i32,
+                    "easyrpg_max_actor_sp" => obj.easyrpg_max_actor_sp = reader.read_node_int()? as i32,
+                    "easyrpg_max_enemy_sp" => obj.easyrpg_max_enemy_sp = reader.read_node_int()? as i32,
+                    "easyrpg_max_stat_base_value" => obj.easyrpg_max_stat_base_value = reader.read_node_int()? as i32,
+                    "easyrpg_max_stat_battle_value" => obj.easyrpg_max_stat_battle_value = reader.read_node_int()? as i32,
+                    "easyrpg_use_rpg2k_battle_system" => obj.easyrpg_use_rpg2k_battle_system = reader.read_node_bool()?,
+                    "easyrpg_battle_use_rpg2ke_strings" => obj.easyrpg_battle_use_rpg2ke_strings = reader.read_node_bool()?,
+                    "easyrpg_use_rpg2k_battle_commands" => obj.easyrpg_use_rpg2k_battle_commands = reader.read_node_bool()?,
+                    "easyrpg_default_actorai" => obj.easyrpg_default_actorai = reader.read_node_int()? as i32,
+                    "easyrpg_default_enemyai" => obj.easyrpg_default_enemyai = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -6597,6 +7722,177 @@ impl Terms {
         writer.end_element("Terms")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "encounter" => obj.encounter = reader.read_node_dbstring()?,
+                    "special_combat" => obj.special_combat = reader.read_node_dbstring()?,
+                    "escape_success" => obj.escape_success = reader.read_node_dbstring()?,
+                    "escape_failure" => obj.escape_failure = reader.read_node_dbstring()?,
+                    "victory" => obj.victory = reader.read_node_dbstring()?,
+                    "defeat" => obj.defeat = reader.read_node_dbstring()?,
+                    "exp_received" => obj.exp_received = reader.read_node_dbstring()?,
+                    "gold_recieved_a" => obj.gold_recieved_a = reader.read_node_dbstring()?,
+                    "gold_recieved_b" => obj.gold_recieved_b = reader.read_node_dbstring()?,
+                    "item_recieved" => obj.item_recieved = reader.read_node_dbstring()?,
+                    "attacking" => obj.attacking = reader.read_node_dbstring()?,
+                    "enemy_critical" => obj.enemy_critical = reader.read_node_dbstring()?,
+                    "actor_critical" => obj.actor_critical = reader.read_node_dbstring()?,
+                    "defending" => obj.defending = reader.read_node_dbstring()?,
+                    "observing" => obj.observing = reader.read_node_dbstring()?,
+                    "focus" => obj.focus = reader.read_node_dbstring()?,
+                    "autodestruction" => obj.autodestruction = reader.read_node_dbstring()?,
+                    "enemy_escape" => obj.enemy_escape = reader.read_node_dbstring()?,
+                    "enemy_transform" => obj.enemy_transform = reader.read_node_dbstring()?,
+                    "enemy_damaged" => obj.enemy_damaged = reader.read_node_dbstring()?,
+                    "enemy_undamaged" => obj.enemy_undamaged = reader.read_node_dbstring()?,
+                    "actor_damaged" => obj.actor_damaged = reader.read_node_dbstring()?,
+                    "actor_undamaged" => obj.actor_undamaged = reader.read_node_dbstring()?,
+                    "skill_failure_a" => obj.skill_failure_a = reader.read_node_dbstring()?,
+                    "skill_failure_b" => obj.skill_failure_b = reader.read_node_dbstring()?,
+                    "skill_failure_c" => obj.skill_failure_c = reader.read_node_dbstring()?,
+                    "dodge" => obj.dodge = reader.read_node_dbstring()?,
+                    "use_item" => obj.use_item = reader.read_node_dbstring()?,
+                    "hp_recovery" => obj.hp_recovery = reader.read_node_dbstring()?,
+                    "parameter_increase" => obj.parameter_increase = reader.read_node_dbstring()?,
+                    "parameter_decrease" => obj.parameter_decrease = reader.read_node_dbstring()?,
+                    "enemy_hp_absorbed" => obj.enemy_hp_absorbed = reader.read_node_dbstring()?,
+                    "actor_hp_absorbed" => obj.actor_hp_absorbed = reader.read_node_dbstring()?,
+                    "resistance_increase" => obj.resistance_increase = reader.read_node_dbstring()?,
+                    "resistance_decrease" => obj.resistance_decrease = reader.read_node_dbstring()?,
+                    "level_up" => obj.level_up = reader.read_node_dbstring()?,
+                    "skill_learned" => obj.skill_learned = reader.read_node_dbstring()?,
+                    "battle_start" => obj.battle_start = reader.read_node_dbstring()?,
+                    "miss" => obj.miss = reader.read_node_dbstring()?,
+                    "shop_greeting1" => obj.shop_greeting1 = reader.read_node_dbstring()?,
+                    "shop_regreeting1" => obj.shop_regreeting1 = reader.read_node_dbstring()?,
+                    "shop_buy1" => obj.shop_buy1 = reader.read_node_dbstring()?,
+                    "shop_sell1" => obj.shop_sell1 = reader.read_node_dbstring()?,
+                    "shop_leave1" => obj.shop_leave1 = reader.read_node_dbstring()?,
+                    "shop_buy_select1" => obj.shop_buy_select1 = reader.read_node_dbstring()?,
+                    "shop_buy_number1" => obj.shop_buy_number1 = reader.read_node_dbstring()?,
+                    "shop_purchased1" => obj.shop_purchased1 = reader.read_node_dbstring()?,
+                    "shop_sell_select1" => obj.shop_sell_select1 = reader.read_node_dbstring()?,
+                    "shop_sell_number1" => obj.shop_sell_number1 = reader.read_node_dbstring()?,
+                    "shop_sold1" => obj.shop_sold1 = reader.read_node_dbstring()?,
+                    "shop_greeting2" => obj.shop_greeting2 = reader.read_node_dbstring()?,
+                    "shop_regreeting2" => obj.shop_regreeting2 = reader.read_node_dbstring()?,
+                    "shop_buy2" => obj.shop_buy2 = reader.read_node_dbstring()?,
+                    "shop_sell2" => obj.shop_sell2 = reader.read_node_dbstring()?,
+                    "shop_leave2" => obj.shop_leave2 = reader.read_node_dbstring()?,
+                    "shop_buy_select2" => obj.shop_buy_select2 = reader.read_node_dbstring()?,
+                    "shop_buy_number2" => obj.shop_buy_number2 = reader.read_node_dbstring()?,
+                    "shop_purchased2" => obj.shop_purchased2 = reader.read_node_dbstring()?,
+                    "shop_sell_select2" => obj.shop_sell_select2 = reader.read_node_dbstring()?,
+                    "shop_sell_number2" => obj.shop_sell_number2 = reader.read_node_dbstring()?,
+                    "shop_sold2" => obj.shop_sold2 = reader.read_node_dbstring()?,
+                    "shop_greeting3" => obj.shop_greeting3 = reader.read_node_dbstring()?,
+                    "shop_regreeting3" => obj.shop_regreeting3 = reader.read_node_dbstring()?,
+                    "shop_buy3" => obj.shop_buy3 = reader.read_node_dbstring()?,
+                    "shop_sell3" => obj.shop_sell3 = reader.read_node_dbstring()?,
+                    "shop_leave3" => obj.shop_leave3 = reader.read_node_dbstring()?,
+                    "shop_buy_select3" => obj.shop_buy_select3 = reader.read_node_dbstring()?,
+                    "shop_buy_number3" => obj.shop_buy_number3 = reader.read_node_dbstring()?,
+                    "shop_purchased3" => obj.shop_purchased3 = reader.read_node_dbstring()?,
+                    "shop_sell_select3" => obj.shop_sell_select3 = reader.read_node_dbstring()?,
+                    "shop_sell_number3" => obj.shop_sell_number3 = reader.read_node_dbstring()?,
+                    "shop_sold3" => obj.shop_sold3 = reader.read_node_dbstring()?,
+                    "inn_a_greeting_1" => obj.inn_a_greeting_1 = reader.read_node_dbstring()?,
+                    "inn_a_greeting_2" => obj.inn_a_greeting_2 = reader.read_node_dbstring()?,
+                    "inn_a_greeting_3" => obj.inn_a_greeting_3 = reader.read_node_dbstring()?,
+                    "inn_a_accept" => obj.inn_a_accept = reader.read_node_dbstring()?,
+                    "inn_a_cancel" => obj.inn_a_cancel = reader.read_node_dbstring()?,
+                    "inn_b_greeting_1" => obj.inn_b_greeting_1 = reader.read_node_dbstring()?,
+                    "inn_b_greeting_2" => obj.inn_b_greeting_2 = reader.read_node_dbstring()?,
+                    "inn_b_greeting_3" => obj.inn_b_greeting_3 = reader.read_node_dbstring()?,
+                    "inn_b_accept" => obj.inn_b_accept = reader.read_node_dbstring()?,
+                    "inn_b_cancel" => obj.inn_b_cancel = reader.read_node_dbstring()?,
+                    "possessed_items" => obj.possessed_items = reader.read_node_dbstring()?,
+                    "equipped_items" => obj.equipped_items = reader.read_node_dbstring()?,
+                    "gold" => obj.gold = reader.read_node_dbstring()?,
+                    "battle_fight" => obj.battle_fight = reader.read_node_dbstring()?,
+                    "battle_auto" => obj.battle_auto = reader.read_node_dbstring()?,
+                    "battle_escape" => obj.battle_escape = reader.read_node_dbstring()?,
+                    "command_attack" => obj.command_attack = reader.read_node_dbstring()?,
+                    "command_defend" => obj.command_defend = reader.read_node_dbstring()?,
+                    "command_item" => obj.command_item = reader.read_node_dbstring()?,
+                    "command_skill" => obj.command_skill = reader.read_node_dbstring()?,
+                    "menu_equipment" => obj.menu_equipment = reader.read_node_dbstring()?,
+                    "menu_save" => obj.menu_save = reader.read_node_dbstring()?,
+                    "menu_quit" => obj.menu_quit = reader.read_node_dbstring()?,
+                    "new_game" => obj.new_game = reader.read_node_dbstring()?,
+                    "load_game" => obj.load_game = reader.read_node_dbstring()?,
+                    "exit_game" => obj.exit_game = reader.read_node_dbstring()?,
+                    "status" => obj.status = reader.read_node_dbstring()?,
+                    "row" => obj.row = reader.read_node_dbstring()?,
+                    "order" => obj.order = reader.read_node_dbstring()?,
+                    "wait_on" => obj.wait_on = reader.read_node_dbstring()?,
+                    "wait_off" => obj.wait_off = reader.read_node_dbstring()?,
+                    "level" => obj.level = reader.read_node_dbstring()?,
+                    "health_points" => obj.health_points = reader.read_node_dbstring()?,
+                    "spirit_points" => obj.spirit_points = reader.read_node_dbstring()?,
+                    "normal_status" => obj.normal_status = reader.read_node_dbstring()?,
+                    "exp_short" => obj.exp_short = reader.read_node_dbstring()?,
+                    "lvl_short" => obj.lvl_short = reader.read_node_dbstring()?,
+                    "hp_short" => obj.hp_short = reader.read_node_dbstring()?,
+                    "sp_short" => obj.sp_short = reader.read_node_dbstring()?,
+                    "sp_cost" => obj.sp_cost = reader.read_node_dbstring()?,
+                    "attack" => obj.attack = reader.read_node_dbstring()?,
+                    "defense" => obj.defense = reader.read_node_dbstring()?,
+                    "spirit" => obj.spirit = reader.read_node_dbstring()?,
+                    "agility" => obj.agility = reader.read_node_dbstring()?,
+                    "weapon" => obj.weapon = reader.read_node_dbstring()?,
+                    "shield" => obj.shield = reader.read_node_dbstring()?,
+                    "armor" => obj.armor = reader.read_node_dbstring()?,
+                    "helmet" => obj.helmet = reader.read_node_dbstring()?,
+                    "accessory" => obj.accessory = reader.read_node_dbstring()?,
+                    "save_game_message" => obj.save_game_message = reader.read_node_dbstring()?,
+                    "load_game_message" => obj.load_game_message = reader.read_node_dbstring()?,
+                    "file" => obj.file = reader.read_node_dbstring()?,
+                    "exit_game_message" => obj.exit_game_message = reader.read_node_dbstring()?,
+                    "yes" => obj.yes = reader.read_node_dbstring()?,
+                    "no" => obj.no = reader.read_node_dbstring()?,
+                    "maniac_item_received_a" => obj.maniac_item_received_a = reader.read_node_dbstring()?,
+                    "maniac_level_up_a" => obj.maniac_level_up_a = reader.read_node_dbstring()?,
+                    "maniac_level_up_b" => obj.maniac_level_up_b = reader.read_node_dbstring()?,
+                    "maniac_level_up_c" => obj.maniac_level_up_c = reader.read_node_dbstring()?,
+                    "maniac_exp_received_a" => obj.maniac_exp_received_a = reader.read_node_dbstring()?,
+                    "maniac_skill_learned_a" => obj.maniac_skill_learned_a = reader.read_node_dbstring()?,
+                    "easyrpg_item_number_separator" => obj.easyrpg_item_number_separator = reader.read_node_dbstring()?,
+                    "easyrpg_skill_cost_separator" => obj.easyrpg_skill_cost_separator = reader.read_node_dbstring()?,
+                    "easyrpg_equipment_arrow" => obj.easyrpg_equipment_arrow = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_name" => obj.easyrpg_status_scene_name = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_class" => obj.easyrpg_status_scene_class = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_title" => obj.easyrpg_status_scene_title = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_condition" => obj.easyrpg_status_scene_condition = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_front" => obj.easyrpg_status_scene_front = reader.read_node_dbstring()?,
+                    "easyrpg_status_scene_back" => obj.easyrpg_status_scene_back = reader.read_node_dbstring()?,
+                    "easyrpg_order_scene_confirm" => obj.easyrpg_order_scene_confirm = reader.read_node_dbstring()?,
+                    "easyrpg_order_scene_redo" => obj.easyrpg_order_scene_redo = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_double_attack" => obj.easyrpg_battle2k3_double_attack = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_defend" => obj.easyrpg_battle2k3_defend = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_observe" => obj.easyrpg_battle2k3_observe = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_charge" => obj.easyrpg_battle2k3_charge = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_selfdestruct" => obj.easyrpg_battle2k3_selfdestruct = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_escape" => obj.easyrpg_battle2k3_escape = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_special_combat_back" => obj.easyrpg_battle2k3_special_combat_back = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_skill" => obj.easyrpg_battle2k3_skill = reader.read_node_dbstring()?,
+                    "easyrpg_battle2k3_item" => obj.easyrpg_battle2k3_item = reader.read_node_dbstring()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -6948,6 +8244,59 @@ impl Terrain {
         writer.end_element("Terrain")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "damage" => obj.damage = reader.read_node_int()? as i32,
+                    "encounter_rate" => obj.encounter_rate = reader.read_node_int()? as i32,
+                    "background_name" => obj.background_name = reader.read_node_dbstring()?,
+                    "boat_pass" => obj.boat_pass = reader.read_node_bool()?,
+                    "ship_pass" => obj.ship_pass = reader.read_node_bool()?,
+                    "airship_pass" => obj.airship_pass = reader.read_node_bool()?,
+                    "airship_land" => obj.airship_land = reader.read_node_bool()?,
+                    "bush_depth" => obj.bush_depth = reader.read_node_int()? as i32,
+                    "footstep" => obj.footstep = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "on_damage_se" => obj.on_damage_se = reader.read_node_bool()?,
+                    "background_type" => obj.background_type = reader.read_node_int()? as i32,
+                    "background_a_name" => obj.background_a_name = reader.read_node_dbstring()?,
+                    "background_a_scrollh" => obj.background_a_scrollh = reader.read_node_bool()?,
+                    "background_a_scrollv" => obj.background_a_scrollv = reader.read_node_bool()?,
+                    "background_a_scrollh_speed" => obj.background_a_scrollh_speed = reader.read_node_int()? as i32,
+                    "background_a_scrollv_speed" => obj.background_a_scrollv_speed = reader.read_node_int()? as i32,
+                    "background_b" => obj.background_b = reader.read_node_bool()?,
+                    "background_b_name" => obj.background_b_name = reader.read_node_dbstring()?,
+                    "background_b_scrollh" => obj.background_b_scrollh = reader.read_node_bool()?,
+                    "background_b_scrollv" => obj.background_b_scrollv = reader.read_node_bool()?,
+                    "background_b_scrollh_speed" => obj.background_b_scrollh_speed = reader.read_node_int()? as i32,
+                    "background_b_scrollv_speed" => obj.background_b_scrollv_speed = reader.read_node_int()? as i32,
+                    "special_flags" => obj.special_flags = reader.read_node_int()? as i32,
+                    "special_back_party" => obj.special_back_party = reader.read_node_int()? as i32,
+                    "special_back_enemies" => obj.special_back_enemies = reader.read_node_int()? as i32,
+                    "special_lateral_party" => obj.special_lateral_party = reader.read_node_int()? as i32,
+                    "special_lateral_enemies" => obj.special_lateral_enemies = reader.read_node_int()? as i32,
+                    "grid_location" => obj.grid_location = reader.read_node_int()? as i32,
+                    "grid_top_y" => obj.grid_top_y = reader.read_node_int()? as i32,
+                    "grid_elongation" => obj.grid_elongation = reader.read_node_int()? as i32,
+                    "grid_inclination" => obj.grid_inclination = reader.read_node_int()? as i32,
+                    "easyrpg_damage_in_percent" => obj.easyrpg_damage_in_percent = reader.read_node_bool()?,
+                    "easyrpg_damage_can_kill" => obj.easyrpg_damage_can_kill = reader.read_node_bool()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -7055,6 +8404,32 @@ impl TestBattler {
         writer.write_node_int("accessory_id", self.accessory_id as i32)?;
         writer.end_element("TestBattler")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "actor_id" => obj.actor_id = reader.read_node_int()? as i32,
+                    "level" => obj.level = reader.read_node_int()? as i32,
+                    "weapon_id" => obj.weapon_id = reader.read_node_int()? as i32,
+                    "shield_id" => obj.shield_id = reader.read_node_int()? as i32,
+                    "armor_id" => obj.armor_id = reader.read_node_int()? as i32,
+                    "helmet_id" => obj.helmet_id = reader.read_node_int()? as i32,
+                    "accessory_id" => obj.accessory_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -7173,12 +8548,52 @@ impl Troop {
         for item in &self.members { item.write_xml(writer)?; }
         writer.end_element("members")?;
         writer.write_node_bool("auto_alignment", self.auto_alignment)?;
+        writer.write_node_vector_bool("terrain_set", &self.terrain_set.0)?;
         writer.write_node_bool("appear_randomly", self.appear_randomly)?;
         writer.begin_element("pages")?;
         for item in &self.pages { item.write_xml(writer)?; }
         writer.end_element("pages")?;
         writer.end_element("Troop")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "members" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.members.push(TroopMember::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "auto_alignment" => obj.auto_alignment = reader.read_node_bool()?,
+                    "terrain_set" => obj.terrain_set = crate::types::DBBitArray(reader.read_node_vector_bool()?),
+                    "appear_randomly" => obj.appear_randomly = reader.read_node_bool()?,
+                    "pages" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.pages.push(TroopPage::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -7261,6 +8676,29 @@ impl TroopMember {
         writer.end_element("TroopMember")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "enemy_id" => obj.enemy_id = reader.read_node_int()? as i32,
+                    "x" => obj.x = reader.read_node_int()? as i32,
+                    "y" => obj.y = reader.read_node_int()? as i32,
+                    "invisible" => obj.invisible = reader.read_node_bool()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -7338,6 +8776,34 @@ impl TroopPage {
         writer.end_element("event_commands")?;
         writer.end_element("TroopPage")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "condition" => obj.condition = match reader.next_child()? { Some(inner) => { let v = TroopPageCondition::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => TroopPageCondition::default() },
+                    "event_commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.event_commands.push(EventCommand::read_xml_fields(reader)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -7587,6 +9053,47 @@ impl TroopPageCondition {
         writer.end_element("TroopPageCondition")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "flags" => obj.flags = reader.read_node_int()? as i32,
+                    "switch_a_id" => obj.switch_a_id = reader.read_node_int()? as i32,
+                    "switch_b_id" => obj.switch_b_id = reader.read_node_int()? as i32,
+                    "variable_id" => obj.variable_id = reader.read_node_int()? as i32,
+                    "variable_value" => obj.variable_value = reader.read_node_int()? as i32,
+                    "turn_a" => obj.turn_a = reader.read_node_int()? as i32,
+                    "turn_b" => obj.turn_b = reader.read_node_int()? as i32,
+                    "fatigue_min" => obj.fatigue_min = reader.read_node_int()? as i32,
+                    "fatigue_max" => obj.fatigue_max = reader.read_node_int()? as i32,
+                    "enemy_id" => obj.enemy_id = reader.read_node_int()? as i32,
+                    "enemy_hp_min" => obj.enemy_hp_min = reader.read_node_int()? as i32,
+                    "enemy_hp_max" => obj.enemy_hp_max = reader.read_node_int()? as i32,
+                    "actor_id" => obj.actor_id = reader.read_node_int()? as i32,
+                    "actor_hp_min" => obj.actor_hp_min = reader.read_node_int()? as i32,
+                    "actor_hp_max" => obj.actor_hp_max = reader.read_node_int()? as i32,
+                    "turn_enemy_id" => obj.turn_enemy_id = reader.read_node_int()? as i32,
+                    "turn_enemy_a" => obj.turn_enemy_a = reader.read_node_int()? as i32,
+                    "turn_enemy_b" => obj.turn_enemy_b = reader.read_node_int()? as i32,
+                    "turn_actor_id" => obj.turn_actor_id = reader.read_node_int()? as i32,
+                    "turn_actor_a" => obj.turn_actor_a = reader.read_node_int()? as i32,
+                    "turn_actor_b" => obj.turn_actor_b = reader.read_node_int()? as i32,
+                    "command_actor_id" => obj.command_actor_id = reader.read_node_int()? as i32,
+                    "command_id" => obj.command_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -7640,6 +9147,26 @@ impl Variable {
         writer.write_node_dbstring("name", &self.name)?;
         writer.end_element("Variable")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 

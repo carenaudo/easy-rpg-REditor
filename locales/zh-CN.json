@@ -6,6 +6,7 @@
     "new_project": "新建项目",
     "open_project": "打开项目",
     "recent_projects": "最近项目",
+    "close_project": "关闭项目",
     "resources": "资源管理",
     "search": "全局搜索",
     "xml_io": "XML 导入导出",

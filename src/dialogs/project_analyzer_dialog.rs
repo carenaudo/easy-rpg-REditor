@@ -82,7 +82,7 @@ impl ProjectAnalyzerDialog {
 
         let proj_path = app.project_path.as_deref();
         let config = AppPersistentData::load();
-        let rtp_path = config.get_effective_rtp_path();
+        let rtp_path = config.get_effective_rtp_path_for(proj_path.is_some().then_some(app.is_2003));
 
         // 1. Audit Actors
         for actor in &app.actors {

@@ -1,7 +1,8 @@
 use eframe::egui;
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use crate::app_state::AppPersistentData;
+use crate::audio::AudioPlayer;
 
 pub fn list_available_resources(category: &str, project_path: Option<&str>) -> Vec<String> {
     let mut files = BTreeSet::new();
@@ -53,6 +54,31 @@ pub fn list_available_resources(category: &str, project_path: Option<&str>) -> V
     files.into_iter().collect()
 }
 
+/// Finds the actual file on disk for a resource `stem` in `category`, checking the
+/// project directory first and falling back to the RTP directory.
+fn resolve_resource_path(category: &str, stem: &str, project_path: Option<&str>) -> Option<PathBuf> {
+    let cfg = AppPersistentData::load();
+    let search_dirs: Vec<PathBuf> = [
+        project_path.map(|p| Path::new(p).join(category)),
+        cfg.get_effective_rtp_path().map(|p| p.join(category)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    for dir in search_dirs {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && p.file_stem().and_then(|s| s.to_str()) == Some(stem) {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn resource_combo_box(
     ui: &mut egui::Ui,
     id_salt: &str,
@@ -60,6 +86,7 @@ pub fn resource_combo_box(
     category: &str,
     project_path: Option<&str>,
     dirty: &mut bool,
+    audio: Option<&AudioPlayer>,
 ) {
     let items = list_available_resources(category, project_path);
     let is_audio = category == "Music" || category == "Sound";
@@ -86,12 +113,27 @@ pub fn resource_combo_box(
 
         if is_audio && !current_value.is_empty() {
             let is_playing_id = ui.make_persistent_id(format!("{}_playing", id_salt));
-            let mut is_playing = ui.ctx().data_mut(|d| d.get_temp::<bool>(is_playing_id).unwrap_or(false));
+            let is_playing = ui.ctx().data_mut(|d| d.get_temp::<bool>(is_playing_id).unwrap_or(false));
 
             let btn_text = if is_playing { "⏹ Stop" } else { "▶ Play" };
             if ui.small_button(btn_text).clicked() {
-                is_playing = !is_playing;
-                ui.ctx().data_mut(|d| d.insert_temp(is_playing_id, is_playing));
+                if is_playing {
+                    if let Some(a) = audio {
+                        a.stop();
+                    }
+                    ui.ctx().data_mut(|d| d.insert_temp(is_playing_id, false));
+                } else if let Some(a) = audio {
+                    match resolve_resource_path(category, current_value, project_path) {
+                        Some(path) => {
+                            if a.play_file(&path).is_ok() {
+                                ui.ctx().data_mut(|d| d.insert_temp(is_playing_id, true));
+                            }
+                        }
+                        None => {
+                            ui.ctx().data_mut(|d| d.insert_temp(is_playing_id, false));
+                        }
+                    }
+                }
             }
         }
     });

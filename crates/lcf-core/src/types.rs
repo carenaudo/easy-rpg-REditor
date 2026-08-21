@@ -141,8 +141,37 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// Self-contained `<Rect><l>..</l><t>..</t><r>..</r><b>..</b></Rect>`,
+    /// matching `RawStruct<rpg::Rect>::WriteXml` (`lmt_rect.cpp`). Note this
+    /// does not add a field-name wrapper - callers writing a `Rect`-typed
+    /// field should use `XmlWriter::write_node_rect(field_name, rect)`
+    /// instead, which supplies that wrapper.
     pub fn write_xml<W: std::io::Write>(&self, writer: &mut crate::xml::XmlWriter<W>) -> Result<(), LcfError> {
-        writer.write_node_rect("rect", self)
+        writer.begin_element("Rect")?;
+        writer.write_node_int("l", self.l)?;
+        writer.write_node_int("t", self.t)?;
+        writer.write_node_int("r", self.r)?;
+        writer.write_node_int("b", self.b)?;
+        writer.end_element("Rect")
+    }
+
+    /// Reads `l`/`t`/`r`/`b` fields, assuming this type's own `<Rect>` start
+    /// tag was already consumed by the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut rect = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "l" => rect.l = reader.read_node_int()?,
+                    "t" => rect.t = reader.read_node_int()?,
+                    "r" => rect.r = reader.read_node_int()?,
+                    "b" => rect.b = reader.read_node_int()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(rect)
     }
 }
 
@@ -178,12 +207,34 @@ impl Equipment {
     }
 
     pub fn write_xml<W: std::io::Write>(&self, writer: &mut crate::xml::XmlWriter<W>) -> Result<(), LcfError> {
+        writer.begin_element("Equipment")?;
         writer.write_node_int("weapon_id", self.weapon_id)?;
         writer.write_node_int("shield_id", self.shield_id)?;
         writer.write_node_int("armor_id", self.armor_id)?;
         writer.write_node_int("helmet_id", self.helmet_id)?;
         writer.write_node_int("accessory_id", self.accessory_id)?;
+        writer.end_element("Equipment")?;
         Ok(())
+    }
+
+    /// Assumes this type's own `<Equipment>` start tag was already consumed
+    /// by the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut eq = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "weapon_id" => eq.weapon_id = reader.read_node_int()?,
+                    "shield_id" => eq.shield_id = reader.read_node_int()?,
+                    "armor_id" => eq.armor_id = reader.read_node_int()?,
+                    "helmet_id" => eq.helmet_id = reader.read_node_int()?,
+                    "accessory_id" => eq.accessory_id = reader.read_node_int()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(eq)
     }
 }
 
@@ -230,13 +281,36 @@ impl Parameters {
 
 
     pub fn write_xml<W: std::io::Write>(&self, writer: &mut crate::xml::XmlWriter<W>) -> Result<(), LcfError> {
+        writer.begin_element("Parameters")?;
         writer.write_node_vector_i16("maxhp", &self.maxhp)?;
         writer.write_node_vector_i16("maxsp", &self.maxsp)?;
         writer.write_node_vector_i16("attack", &self.attack)?;
         writer.write_node_vector_i16("defense", &self.defense)?;
         writer.write_node_vector_i16("spirit", &self.spirit)?;
         writer.write_node_vector_i16("agility", &self.agility)?;
+        writer.end_element("Parameters")?;
         Ok(())
+    }
+
+    /// Assumes this type's own `<Parameters>` start tag was already
+    /// consumed by the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut p = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "maxhp" => p.maxhp = reader.read_node_vector_i16()?,
+                    "maxsp" => p.maxsp = reader.read_node_vector_i16()?,
+                    "attack" => p.attack = reader.read_node_vector_i16()?,
+                    "defense" => p.defense = reader.read_node_vector_i16()?,
+                    "spirit" => p.spirit = reader.read_node_vector_i16()?,
+                    "agility" => p.agility = reader.read_node_vector_i16()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(p)
     }
 }
 
@@ -301,6 +375,26 @@ impl Music {
         writer.end_element("Music")?;
         Ok(())
     }
+
+    /// Assumes this type's own `<Music>` start tag was already consumed by
+    /// the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut m = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => m.name = reader.read_node_dbstring()?,
+                    "fadein" => m.fadein = reader.read_node_int()?,
+                    "volume" => m.volume = reader.read_node_int()?,
+                    "tempo" => m.tempo = reader.read_node_int()?,
+                    "balance" => m.balance = reader.read_node_int()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(m)
+    }
 }
 
 /// RPG Maker Sound effect specification.
@@ -361,6 +455,25 @@ impl Sound {
         writer.end_element("Sound")?;
         Ok(())
     }
+
+    /// Assumes this type's own `<Sound>` start tag was already consumed by
+    /// the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut s = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => s.name = reader.read_node_dbstring()?,
+                    "volume" => s.volume = reader.read_node_int()?,
+                    "tempo" => s.tempo = reader.read_node_int()?,
+                    "balance" => s.balance = reader.read_node_int()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(s)
+    }
 }
 
 /// An Event Command instruction.
@@ -417,6 +530,25 @@ impl EventCommand {
         writer.write_node_vector_i32("parameters", &self.parameters)?;
         writer.end_element("EventCommand")?;
         Ok(())
+    }
+
+    /// Assumes this type's own `<EventCommand>` start tag was already
+    /// consumed by the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut c = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "code" => c.code = reader.read_node_int()?,
+                    "indent" => c.indent = reader.read_node_int()?,
+                    "string" => c.string = reader.read_node_dbstring()?,
+                    "parameters" => c.parameters = reader.read_node_vector_i32()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(c)
     }
 }
 
@@ -508,6 +640,26 @@ impl MoveCommand {
         writer.end_element("MoveCommand")?;
         Ok(())
     }
+
+    /// Assumes this type's own `<MoveCommand>` start tag was already
+    /// consumed by the caller (mirrors `write_xml` above).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut c = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "code" => c.code = reader.read_node_int()?,
+                    "parameter_a" => c.parameter_a = reader.read_node_int()?,
+                    "parameter_b" => c.parameter_b = reader.read_node_int()?,
+                    "parameter_c" => c.parameter_c = reader.read_node_int()?,
+                    "string" => c.string = reader.read_node_dbstring()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(c)
+    }
 }
 
 /// Map Tree Map struct holding hierarchy, order, and start location.
@@ -569,8 +721,61 @@ impl TreeMap {
         writer.end_element("maps")?;
         writer.write_node_vector_i32("tree_order", &self.tree_order)?;
         writer.write_node_int("active_node", self.active_node)?;
+        writer.begin_element("start")?;
         self.start.write_xml(writer)?;
+        writer.end_element("start")?;
         writer.end_element("TreeMap")?;
         Ok(())
+    }
+
+    /// Reads a `<TreeMap>` element (self-tag included) written by
+    /// `write_xml` above, or by upstream liblcf (`lmt_treemap.cpp`).
+    /// Assumes the *enclosing* tag (e.g. `<LMT>`) was already consumed by
+    /// the caller, and itself consumes `<TreeMap>...</TreeMap>`.
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        match reader.next_child()? {
+            Some(_) => Self::read_xml_fields(reader),
+            None => Ok(Self::default()),
+        }
+    }
+
+    /// Same as `read_xml`, but assumes the `<TreeMap>` start tag itself was
+    /// already consumed by the caller (used when `TreeMap` appears nested
+    /// as a field, which it currently doesn't, but kept symmetric with the
+    /// generated structs' `read_xml`/`read_xml_fields` split).
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>) -> Result<Self, LcfError> {
+        let mut tmap = Self::default();
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "maps" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => {
+                                    let id = item_tag.id.unwrap_or(0);
+                                    let info = crate::generated::lmt_gen::MapInfo::read_xml_fields(reader, id, false)?;
+                                    tmap.maps.push(info);
+                                }
+                            }
+                        }
+                    }
+                    "tree_order" => tmap.tree_order = reader.read_node_vector_i32()?,
+                    "active_node" => tmap.active_node = reader.read_node_int()?,
+                    "start" => {
+                        match reader.next_child()? {
+                            Some(inner) => {
+                                tmap.start = crate::generated::lmt_gen::Start::read_xml_fields(reader, inner.id.unwrap_or(0), false)?;
+                                reader.consume_wrapper_end()?;
+                            }
+                            None => {}
+                        }
+                    }
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(tmap)
     }
 }

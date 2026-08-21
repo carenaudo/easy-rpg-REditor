@@ -2627,6 +2627,63 @@ pub fn export_save_to_xml(path: &str, save_file: &str, dest_xml_path: &Path) -> 
     LsdReader::save_xml(dest_xml_path, &save, engine).map_err(|e| e.to_string())
 }
 
+/// Imports an XML file (as produced by `export_database_to_xml`, or by
+/// upstream liblcf/EasyRPG tooling in the same format) back into the
+/// project's `RPG_RT.ldb`, replacing it in place. The pre-import file is
+/// backed up once via `backup_file_once`, same as every other mutating
+/// function in this module.
+pub fn import_database_from_xml(path: &str, src_xml_path: &Path) -> Result<(), String> {
+    let db = LdbReader::load_xml(src_xml_path).map_err(|e| e.to_string())?;
+    let engine = engine_version_for(&db);
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    backup_file_once(&ldb_path)?;
+    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())
+}
+
+/// Imports an XML file back into a single `MapXXXX.lmu`, replacing it in
+/// place. Engine version is read from the project's `RPG_RT.ldb` (falling
+/// back to 2000 if it can't be read), matching `export_map_to_xml`'s
+/// fallback, since LMU's XML carries no engine flag of its own.
+pub fn import_map_from_xml(path: &str, map_id: i32, src_xml_path: &Path) -> Result<(), String> {
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let engine = match LdbReader::load(&ldb_path, "auto") {
+        Ok(db) => engine_version_for(&db),
+        Err(_) => EngineVersion::Engine2000,
+    };
+    let map = LmuReader::load_xml(src_xml_path, engine.is_2k3()).map_err(|e| e.to_string())?;
+    let map_path = Path::new(path).join(map_filename(map_id));
+    backup_file_once(&map_path)?;
+    LmuReader::save(&map_path, &map, engine, "auto").map_err(|e| e.to_string())
+}
+
+/// Imports an XML file back into the project's `RPG_RT.lmt` (the map tree),
+/// replacing it in place.
+pub fn import_tree_from_xml(path: &str, src_xml_path: &Path) -> Result<(), String> {
+    let tree = LmtReader::load_xml(src_xml_path).map_err(|e| e.to_string())?;
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let engine = match LdbReader::load(&ldb_path, "auto") {
+        Ok(db) => engine_version_for(&db),
+        Err(_) => EngineVersion::Engine2000,
+    };
+    let lmt_path = Path::new(path).join("RPG_RT.lmt");
+    backup_file_once(&lmt_path)?;
+    LmtReader::save(&lmt_path, &tree, engine, "auto").map_err(|e| e.to_string())
+}
+
+/// Imports an XML file back into a save slot file (e.g. `Save01.lsd`),
+/// replacing it in place.
+pub fn import_save_from_xml(path: &str, save_file: &str, src_xml_path: &Path) -> Result<(), String> {
+    let save = LsdReader::load_xml(src_xml_path).map_err(|e| e.to_string())?;
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let engine = match LdbReader::load(&ldb_path, "auto") {
+        Ok(db) => engine_version_for(&db),
+        Err(_) => EngineVersion::Engine2000,
+    };
+    let lsd_path = Path::new(path).join(save_file);
+    backup_file_once(&lsd_path)?;
+    LsdReader::save(&lsd_path, &save, engine, "auto").map_err(|e| e.to_string())
+}
+
 pub fn resize_map_layers(
     old_lower: &[i32],
     old_upper: &[i32],

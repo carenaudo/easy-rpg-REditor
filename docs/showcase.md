@@ -231,8 +231,8 @@ Configure the cross-platform MIDI software synthesizer powered by `rustysynth`. 
 
 ---
 
-### XML Export Utility
-Export the Database (`RPG_RT.ldb`), Map Tree (`RPG_RT.lmt`), individual Maps (`MapXXXX.lmu`), or Save Files (`SaveXX.lsd`) into human-readable XML for debugging, diffing, and inspecting project internals.
+### XML Import/Export Utility
+Export the Database (`RPG_RT.ldb`), Map Tree (`RPG_RT.lmt`), individual Maps (`MapXXXX.lmu`), or Save Files (`SaveXX.lsd`) into human-readable, liblcf-compatible XML for debugging, diffing, and inspecting project internals - then import an edited XML file back in to replace the matching project file in place (the original is backed up first).
 
 ![XML Export Tool](images/xml-export.png)
 

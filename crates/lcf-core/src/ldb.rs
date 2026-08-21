@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Seek, Write};
 use std::path::Path;
 use crate::error::LcfError;
 use crate::generated::ldb_gen::Database;
@@ -8,7 +8,7 @@ use crate::reader_util::ReaderUtil;
 use crate::setup::Setup;
 use crate::types::EngineVersion;
 use crate::writer::LcfWriter;
-use crate::xml::XmlWriter;
+use crate::xml::{XmlReader, XmlWriter};
 
 pub const LDB_HEADER: &str = "LcfDataBase";
 
@@ -89,6 +89,33 @@ impl LdbReader {
         db.write_xml(&mut writer)?;
         writer.end_element("LDB")?;
         Ok(())
+    }
+
+    pub fn load_xml<P: AsRef<Path>>(path: P) -> Result<Database, LcfError> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Self::load_xml_from_reader(reader)
+    }
+
+    pub fn load_xml_from_reader<R: BufRead>(stream: R) -> Result<Database, LcfError> {
+        let mut reader = XmlReader::new(stream);
+        reader.expect_root()?; // <LDB>
+        // Engine version isn't known until the parsed data is available
+        // (unlike binary loading, XML carries no header flag for it), so
+        // parse once with is_2k3=false for field defaults - every field a
+        // well-formed export writes is overwritten regardless, and this
+        // only affects defaults for fields a foreign/hand-edited XML omits.
+        let mut db = Database::read_xml(&mut reader, false)?;
+        reader.consume_wrapper_end()?; // </LDB>
+
+        // Mirror LdbReader::load's post-load fixup (see `load_from_reader`
+        // above): infer the real engine version now that data is present,
+        // and run the same per-actor setup pass.
+        let engine = ReaderUtil::get_engine_version(&db);
+        for actor in &mut db.actors {
+            Setup::actor(actor, engine.is_2k3());
+        }
+        Ok(db)
     }
 }
 

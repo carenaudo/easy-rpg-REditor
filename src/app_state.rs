@@ -109,11 +109,31 @@ impl Default for AppPersistentData {
 }
 
 impl AppPersistentData {
-    /// Detects official RPG Maker 2000/2003 / EasyRPG RTP paths via standard environment variables and system paths
+    /// Detects official RPG Maker 2000/2003 / EasyRPG RTP paths by scanning
+    /// the standard install locations, oldest first: the legacy Enterbrain
+    /// / ASCII "Common Files" installers, then the current KADOKAWA Steam
+    /// RTP layout under the user's roaming profile. The first existing
+    /// directory wins; a user-selected RTP folder (`rtp_path`) always takes
+    /// priority over anything auto-detected here (see `get_effective_rtp_path`).
+    ///
+    /// Version-agnostic: does not know whether the current project is
+    /// RM2000 or RM2003. Prefer `detect_standard_rtp_path_for` when the
+    /// project's version is known, so its matching RTP is tried first.
     pub fn detect_standard_rtp_path() -> Option<PathBuf> {
-        // 1. Check official EasyRPG environment variables
-        let env_vars = ["RPG2K3_RTP_PATH", "RPG2K_RTP_PATH", "RPG_RTP_PATH"];
-        for var in &env_vars {
+        Self::detect_standard_rtp_path_for(None)
+    }
+
+    /// Same as `detect_standard_rtp_path`, but when `is_2003` is known,
+    /// candidates for that RPG Maker version (2003 vs 2000) are checked
+    /// first before falling back to the other version's locations.
+    pub fn detect_standard_rtp_path_for(is_2003: Option<bool>) -> Option<PathBuf> {
+        // 1. Check official EasyRPG environment variables, version-matched first
+        let env_vars: &[&str] = match is_2003 {
+            Some(true) => &["RPG2K3_RTP_PATH", "RPG_RTP_PATH", "RPG2K_RTP_PATH"],
+            Some(false) => &["RPG2K_RTP_PATH", "RPG_RTP_PATH", "RPG2K3_RTP_PATH"],
+            None => &["RPG2K3_RTP_PATH", "RPG2K_RTP_PATH", "RPG_RTP_PATH"],
+        };
+        for var in env_vars {
             if let Ok(val) = std::env::var(var) {
                 for candidate in val.split(';').chain(val.split(':')) {
                     let p = PathBuf::from(candidate.trim());
@@ -124,33 +144,74 @@ impl AppPersistentData {
             }
         }
 
-        // 2. Check standard Windows Program Files / Common Files installation paths
-        let standard_windows_paths = [
-            r"C:\Program Files (x86)\Common Files\Enterbrain\RPG2003\RTP",
-            r"C:\Program Files (x86)\Common Files\ASCII\RPG2000\RTP",
-            r"C:\Program Files\Common Files\Enterbrain\RPG2003\RTP",
-            r"C:\Program Files\Common Files\ASCII\RPG2000\RTP",
-            r"D:\programacion\RTP",
+        // 2. Legacy Windows Program Files / Common Files installers (pre-KADOKAWA)
+        let legacy_2003: [PathBuf; 2] = [
+            r"C:\Program Files (x86)\Common Files\Enterbrain\RPG2003\RTP".into(),
+            r"C:\Program Files\Common Files\Enterbrain\RPG2003\RTP".into(),
+        ];
+        let legacy_2000: [PathBuf; 2] = [
+            r"C:\Program Files (x86)\Common Files\ASCII\RPG2000\RTP".into(),
+            r"C:\Program Files\Common Files\ASCII\RPG2000\RTP".into(),
         ];
 
-        for path_str in &standard_windows_paths {
-            let p = PathBuf::from(path_str);
-            if p.exists() && p.is_dir() {
-                return Some(p);
+        // 3. Current KADOKAWA Steam RTP layout under the user's roaming profile
+        let mut kadokawa_2000 = Vec::new();
+        let mut kadokawa_2003 = Vec::new();
+        if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
+            let kadokawa = appdata.join("KADOKAWA").join("Common");
+            kadokawa_2000.push(kadokawa.join("RPG Maker 2000 RTP"));
+            kadokawa_2003.push(kadokawa.join("RPG Maker 2003 RTP"));
+        }
+
+        // Old-to-new within each version, matching version checked before the other
+        let (mut ordered, other): (Vec<PathBuf>, Vec<PathBuf>) = match is_2003 {
+            Some(true) => (
+                legacy_2003.into_iter().chain(kadokawa_2003).collect(),
+                legacy_2000.into_iter().chain(kadokawa_2000).collect(),
+            ),
+            Some(false) => (
+                legacy_2000.into_iter().chain(kadokawa_2000).collect(),
+                legacy_2003.into_iter().chain(kadokawa_2003).collect(),
+            ),
+            None => (
+                legacy_2003
+                    .into_iter()
+                    .chain(legacy_2000)
+                    .chain(kadokawa_2000)
+                    .chain(kadokawa_2003)
+                    .collect(),
+                Vec::new(),
+            ),
+        };
+        ordered.extend(other);
+
+        for path in &ordered {
+            if path.exists() && path.is_dir() {
+                return Some(path.clone());
             }
         }
 
         None
     }
 
+    /// Returns the RTP path the editor should actually use: a user-chosen
+    /// path (via the RTP folder picker) always supersedes auto-detection,
+    /// as long as it still exists on disk.
     pub fn get_effective_rtp_path(&self) -> Option<PathBuf> {
+        self.get_effective_rtp_path_for(None)
+    }
+
+    /// Same as `get_effective_rtp_path`, but prefers auto-detecting the RTP
+    /// that matches the currently loaded project's version (RM2000/RM2003)
+    /// when no user-chosen path is set.
+    pub fn get_effective_rtp_path_for(&self, is_2003: Option<bool>) -> Option<PathBuf> {
         if let Some(custom) = &self.rtp_path {
             let p = PathBuf::from(custom);
             if p.exists() {
                 return Some(p);
             }
         }
-        Self::detect_standard_rtp_path()
+        Self::detect_standard_rtp_path_for(is_2003)
     }
 
     pub fn config_path() -> Option<PathBuf> {
@@ -386,6 +447,16 @@ impl EditorAppState {
             DbCategory::System => (1, self.system_dirty),
             DbCategory::Terms => (1, self.terms_dirty),
         }
+    }
+
+    /// Resets all project-scoped state back to the "no project loaded" state,
+    /// without touching the persisted app config (theme, locale, recent
+    /// projects, RTP path, etc). Used by the "Close Project" menu action so
+    /// the editor can return to a blank slate without a full restart.
+    pub fn close_project(&mut self) {
+        let config = std::mem::replace(&mut self.config, AppPersistentData::default());
+        *self = Self::default();
+        self.config = config;
     }
 
     pub fn load_project_from(&mut self, path_str: String) {

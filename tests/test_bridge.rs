@@ -185,6 +185,61 @@ mod tests {
     }
 
     #[test]
+    fn test_xml_import_endpoints() {
+        // Uses a scratch project (not the shared TestGame fixtures) since
+        // import mutates the project's files in place.
+        let tmp = std::env::temp_dir().join(format!(
+            "test_xml_import_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "XmlImportTest".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = false;
+        let proj_dir = dialog.create_project().expect("scratch project creation should succeed");
+        let proj_path = proj_dir.to_string_lossy().to_string();
+
+        let tmp_dir = std::env::temp_dir();
+        let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        let db_xml = tmp_dir.join(format!("test_db_import_{unique}.edb"));
+        let tree_xml = tmp_dir.join(format!("test_tree_import_{unique}.emt"));
+        let map_xml = tmp_dir.join(format!("test_map_import_{unique}.emu"));
+
+        // Export -> re-import each format and confirm the round trip
+        // succeeds and the backup file (.bak) was created.
+        lcf_bridge::export_database_to_xml(&proj_path, &db_xml).expect("LDB export should succeed");
+        let ldb_bak = proj_dir.join("RPG_RT.ldb.bak");
+        let _ = std::fs::remove_file(&ldb_bak); // start clean in case a prior run left one
+        let res = lcf_bridge::import_database_from_xml(&proj_path, &db_xml);
+        assert!(res.is_ok(), "LDB XML import should succeed: {:?}", res);
+        assert!(ldb_bak.exists(), "importing should back up the original RPG_RT.ldb");
+        let loaded = lcf_bridge::load_project(&proj_path);
+        assert!(loaded.valid, "project must still load after LDB import");
+
+        lcf_bridge::export_tree_to_xml(&proj_path, &tree_xml).expect("LMT export should succeed");
+        let lmt_bak = proj_dir.join("RPG_RT.lmt.bak");
+        let _ = std::fs::remove_file(&lmt_bak);
+        let res = lcf_bridge::import_tree_from_xml(&proj_path, &tree_xml);
+        assert!(res.is_ok(), "LMT XML import should succeed: {:?}", res);
+        assert!(lmt_bak.exists(), "importing should back up the original RPG_RT.lmt");
+        let loaded = lcf_bridge::load_project(&proj_path);
+        assert!(loaded.valid, "project must still load after LMT import");
+        assert_eq!(loaded.maps.len(), 1, "map tree must still have its 1 map after import");
+
+        lcf_bridge::export_map_to_xml(&proj_path, 1, &map_xml).expect("LMU export should succeed");
+        let map_bak = proj_dir.join("Map0001.lmu.bak");
+        let _ = std::fs::remove_file(&map_bak);
+        let res = lcf_bridge::import_map_from_xml(&proj_path, 1, &map_xml);
+        assert!(res.is_ok(), "LMU XML import should succeed: {:?}", res);
+        assert!(map_bak.exists(), "importing should back up the original Map0001.lmu");
+
+        let _ = std::fs::remove_file(&db_xml);
+        let _ = std::fs::remove_file(&tree_xml);
+        let _ = std::fs::remove_file(&map_xml);
+        let _ = std::fs::remove_dir_all(&proj_dir);
+    }
+
+    #[test]
     fn test_stat_growth_curves() {
         use easy_editor::views::database::actors::{generate_growth_curve, GrowthCurvePreset};
 

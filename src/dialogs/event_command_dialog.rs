@@ -445,7 +445,7 @@ impl EventCommandDialogState {
                                 ui.horizontal(|ui| {
                                     ui.label("BGM Name:");
                                     let mut dummy_dirty = false;
-                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_bgm_combo", &mut self.string_val, "Music", None, &mut dummy_dirty);
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_bgm_combo", &mut self.string_val, "Music", None, &mut dummy_dirty, None);
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Volume (%):");
@@ -458,7 +458,7 @@ impl EventCommandDialogState {
                                 ui.horizontal(|ui| {
                                     ui.label("Sound (SE) Name:");
                                     let mut dummy_dirty = false;
-                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_se_combo", &mut self.string_val, "Sound", None, &mut dummy_dirty);
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_se_combo", &mut self.string_val, "Sound", None, &mut dummy_dirty, None);
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Volume (%):");
@@ -493,7 +493,7 @@ impl EventCommandDialogState {
                                 ui.horizontal(|ui| {
                                     ui.label("Picture Graphic:");
                                     let mut dummy_dirty = false;
-                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_picture_combo", &mut self.string_val, "Picture", None, &mut dummy_dirty);
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_picture_combo", &mut self.string_val, "Picture", None, &mut dummy_dirty, None);
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("X:"); ui.add(egui::DragValue::new(&mut self.param1).range(0..=640));

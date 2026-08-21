@@ -1,11 +1,11 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Seek, Write};
 use std::path::Path;
 use crate::error::LcfError;
 use crate::reader::LcfReader;
 use crate::types::{EngineVersion, TreeMap};
 use crate::writer::LcfWriter;
-use crate::xml::XmlWriter;
+use crate::xml::{XmlReader, XmlWriter};
 
 pub const LMT_HEADER: &str = "LcfMapTree";
 
@@ -58,5 +58,19 @@ impl LmtReader {
         tmap.write_xml(&mut writer)?;
         writer.end_element("LMT")?;
         Ok(())
+    }
+
+    pub fn load_xml<P: AsRef<Path>>(path: P) -> Result<TreeMap, LcfError> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Self::load_xml_from_reader(reader)
+    }
+
+    pub fn load_xml_from_reader<R: BufRead>(stream: R) -> Result<TreeMap, LcfError> {
+        let mut reader = XmlReader::new(stream);
+        reader.expect_root()?; // <LMT>
+        let tmap = TreeMap::read_xml(&mut reader)?;
+        reader.consume_wrapper_end()?; // </LMT>
+        Ok(tmap)
     }
 }

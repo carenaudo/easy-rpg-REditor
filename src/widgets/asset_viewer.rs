@@ -9,6 +9,14 @@ pub struct AssetPreviewCache {
 }
 
 impl AssetPreviewCache {
+    /// Drops every cached texture, forcing the next `get_or_load` call for
+    /// each asset to re-read it from disk. Call this whenever project
+    /// files may have changed out from under the cache - e.g. after an XML
+    /// import replaces a chipset/charset reference.
+    pub fn clear(&mut self) {
+        self.textures.clear();
+    }
+
     fn find_file_in_dir(dir: &Path, category: &str, file_name: &str) -> Option<PathBuf> {
         let cat_dir = dir.join(category);
         let extensions = ["png", "xyz", "bmp", "jpg", "jpeg", "PNG", "XYZ", "BMP"];

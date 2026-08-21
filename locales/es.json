@@ -27,7 +27,8 @@
     "shift_map": "Desplazar Mapa...",
     "sound_test": "Prueba de Sonido...",
     "project_health": "Salud del Proyecto...",
-    "rtp": "Carpeta RTP..."
+    "rtp": "Carpeta RTP...",
+    "close_project": "Cerrar Proyecto"
   },
   "views": {
     "maps": "Mapas",

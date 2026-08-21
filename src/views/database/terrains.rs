@@ -22,6 +22,7 @@ impl TerrainsView {
         picker: &mut AssetPickerState,
         cache: &mut AssetPreviewCache,
         dirty: &mut bool,
+        audio: Option<&crate::audio::AudioPlayer>,
     ) {
         if terrains.is_empty() {
             ui.label("No terrains in database.");
@@ -134,7 +135,7 @@ impl TerrainsView {
                                     ui.end_row();
 
                                     ui.label("Footstep SE:");
-                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "terrain_footstep_se", &mut t.footstep_name, "Sound", project_path, dirty);
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "terrain_footstep_se", &mut t.footstep_name, "Sound", project_path, dirty, audio);
                                     ui.end_row();
 
                                     ui.label("Battle Backdrop:");

@@ -84,10 +84,18 @@ impl<W: Write> XmlWriter<W> {
         Ok(())
     }
 
-    pub fn write_node_string(&mut self, name: &str, val: &str) -> Result<(), LcfError> {
+    pub fn write_node_f64(&mut self, name: &str, val: f64) -> Result<(), LcfError> {
         self.new_line()?;
         self.do_indent()?;
-        write!(self.writer, "<{}>", name)?;
+        write!(self.writer, "<{}>{}</{}>", name, val, name)?;
+        self.new_line()?;
+        Ok(())
+    }
+
+    /// Writes `val`, entity-escaped, with no surrounding tag or indentation
+    /// of its own - for use inside an element the caller has already
+    /// opened (e.g. a sparse `<item id="N">` in a `Vec<DBString>`).
+    fn write_text_escaped(&mut self, val: &str) -> Result<(), LcfError> {
         for ch in val.chars() {
             match ch {
                 '<' => self.writer.write_all(b"&lt;")?,
@@ -102,6 +110,14 @@ impl<W: Write> XmlWriter<W> {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub fn write_node_string(&mut self, name: &str, val: &str) -> Result<(), LcfError> {
+        self.new_line()?;
+        self.do_indent()?;
+        write!(self.writer, "<{}>", name)?;
+        self.write_text_escaped(val)?;
         write!(self.writer, "</{}>", name)?;
         self.new_line()?;
         Ok(())
@@ -109,6 +125,13 @@ impl<W: Write> XmlWriter<W> {
 
     pub fn write_node_dbstring(&mut self, name: &str, val: &DBString) -> Result<(), LcfError> {
         self.write_node_string(name, val.as_str())
+    }
+
+    /// Writes just the escaped text content of a `DBString`, with no tag of
+    /// its own, matching `RawStruct<DBString>::WriteXml` (`dbstring_struct.cpp`)
+    /// which is always called inside a tag the caller already opened.
+    pub fn write_node_dbstring_value(&mut self, val: &DBString) -> Result<(), LcfError> {
+        self.write_text_escaped(val.as_str())
     }
 
 
@@ -163,11 +186,56 @@ impl<W: Write> XmlWriter<W> {
         Ok(())
     }
 
-    pub fn write_node_rect(&mut self, name: &str, rect: &Rect) -> Result<(), LcfError> {
+    pub fn write_node_vector_u32(&mut self, name: &str, val: &[u32]) -> Result<(), LcfError> {
         self.new_line()?;
         self.do_indent()?;
-        write!(self.writer, "<{}>{} {} {} {}</{}>", name, rect.l, rect.t, rect.r, rect.b, name)?;
+        write!(self.writer, "<{}>", name)?;
+        let mut first = true;
+        for &item in val {
+            if !first {
+                write!(self.writer, " ")?;
+            }
+            first = false;
+            write!(self.writer, "{}", item)?;
+        }
+        write!(self.writer, "</{}>", name)?;
         self.new_line()?;
+        Ok(())
+    }
+
+    /// Writes a `bool` (or `DBBitArray`) vector as a single space-separated
+    /// `T`/`F` text node, matching liblcf's `XmlWriter::WriteVector` over
+    /// `std::vector<bool>` (see `writer_xml.cpp`), not per-item elements.
+    pub fn write_node_vector_bool(&mut self, name: &str, val: &[bool]) -> Result<(), LcfError> {
+        self.new_line()?;
+        self.do_indent()?;
+        write!(self.writer, "<{}>", name)?;
+        let mut first = true;
+        for &item in val {
+            if !first {
+                write!(self.writer, " ")?;
+            }
+            first = false;
+            write!(self.writer, "{}", if item { "T" } else { "F" })?;
+        }
+        write!(self.writer, "</{}>", name)?;
+        self.new_line()?;
+        Ok(())
+    }
+
+    /// Writes a `Rect`-typed field as `<field><Rect><l>../t../r../b..</Rect></field>`,
+    /// matching liblcf's double-wrap: the field-name tag from
+    /// `TypedField::WriteXml`, wrapping `RawStruct<rpg::Rect>::WriteXml`'s
+    /// own `<Rect>` tag with nested `l`/`t`/`r`/`b` elements (`lmt_rect.cpp`).
+    pub fn write_node_rect(&mut self, name: &str, rect: &Rect) -> Result<(), LcfError> {
+        self.begin_element(name)?;
+        self.begin_element("Rect")?;
+        self.write_node_int("l", rect.l)?;
+        self.write_node_int("t", rect.t)?;
+        self.write_node_int("r", rect.r)?;
+        self.write_node_int("b", rect.b)?;
+        self.end_element("Rect")?;
+        self.end_element(name)?;
         Ok(())
     }
 }

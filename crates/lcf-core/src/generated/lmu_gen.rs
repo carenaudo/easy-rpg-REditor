@@ -95,6 +95,36 @@ impl Event {
         writer.end_element("Event")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "x" => obj.x = reader.read_node_int()? as i32,
+                    "y" => obj.y = reader.read_node_int()? as i32,
+                    "pages" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.pages.push(EventPage::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -276,6 +306,47 @@ impl EventPage {
         writer.end_element("EventPage")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "condition" => obj.condition = match reader.next_child()? { Some(inner) => { let v = EventPageCondition::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => EventPageCondition::default() },
+                    "character_name" => obj.character_name = reader.read_node_dbstring()?,
+                    "character_index" => obj.character_index = reader.read_node_int()? as i32,
+                    "character_direction" => obj.character_direction = reader.read_node_int()? as i32,
+                    "character_pattern" => obj.character_pattern = reader.read_node_int()? as i32,
+                    "translucent" => obj.translucent = reader.read_node_bool()?,
+                    "move_type" => obj.move_type = reader.read_node_int()? as i32,
+                    "move_frequency" => obj.move_frequency = reader.read_node_int()? as i32,
+                    "trigger" => obj.trigger = reader.read_node_int()? as i32,
+                    "layer" => obj.layer = reader.read_node_int()? as i32,
+                    "overlap_forbidden" => obj.overlap_forbidden = reader.read_node_bool()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "move_speed" => obj.move_speed = reader.read_node_int()? as i32,
+                    "move_route" => obj.move_route = match reader.next_child()? { Some(inner) => { let v = MoveRoute::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => MoveRoute::default() },
+                    "event_commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.event_commands.push(EventCommand::read_xml_fields(reader)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -404,6 +475,34 @@ impl EventPageCondition {
         writer.write_node_int("compare_operator", self.compare_operator as i32)?;
         writer.end_element("EventPageCondition")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "flags" => obj.flags = reader.read_node_int()? as i32,
+                    "switch_a_id" => obj.switch_a_id = reader.read_node_int()? as i32,
+                    "switch_b_id" => obj.switch_b_id = reader.read_node_int()? as i32,
+                    "variable_id" => obj.variable_id = reader.read_node_int()? as i32,
+                    "variable_value" => obj.variable_value = reader.read_node_int()? as i32,
+                    "item_id" => obj.item_id = reader.read_node_int()? as i32,
+                    "actor_id" => obj.actor_id = reader.read_node_int()? as i32,
+                    "timer_sec" => obj.timer_sec = reader.read_node_int()? as i32,
+                    "timer2_sec" => obj.timer2_sec = reader.read_node_int()? as i32,
+                    "compare_operator" => obj.compare_operator = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -741,6 +840,8 @@ impl Map {
         writer.write_node_bool("generator_floor_c", self.generator_floor_c)?;
         writer.write_node_bool("generator_extra_b", self.generator_extra_b)?;
         writer.write_node_bool("generator_extra_c", self.generator_extra_c)?;
+        writer.write_node_vector_u32("generator_x", &self.generator_x)?;
+        writer.write_node_vector_u32("generator_y", &self.generator_y)?;
         writer.write_node_vector_i16("generator_tile_ids", &self.generator_tile_ids)?;
         writer.write_node_vector_i16("lower_layer", &self.lower_layer)?;
         writer.write_node_vector_i16("upper_layer", &self.upper_layer)?;
@@ -751,6 +852,63 @@ impl Map {
         writer.write_node_int("save_count", self.save_count as i32)?;
         writer.end_element("Map")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "chipset_id" => obj.chipset_id = reader.read_node_int()? as i32,
+                    "width" => obj.width = reader.read_node_int()? as i32,
+                    "height" => obj.height = reader.read_node_int()? as i32,
+                    "scroll_type" => obj.scroll_type = reader.read_node_int()? as i32,
+                    "parallax_flag" => obj.parallax_flag = reader.read_node_bool()?,
+                    "parallax_name" => obj.parallax_name = reader.read_node_dbstring()?,
+                    "parallax_loop_x" => obj.parallax_loop_x = reader.read_node_bool()?,
+                    "parallax_loop_y" => obj.parallax_loop_y = reader.read_node_bool()?,
+                    "parallax_auto_loop_x" => obj.parallax_auto_loop_x = reader.read_node_bool()?,
+                    "parallax_sx" => obj.parallax_sx = reader.read_node_int()? as i32,
+                    "parallax_auto_loop_y" => obj.parallax_auto_loop_y = reader.read_node_bool()?,
+                    "parallax_sy" => obj.parallax_sy = reader.read_node_int()? as i32,
+                    "generator_flag" => obj.generator_flag = reader.read_node_bool()?,
+                    "generator_mode" => obj.generator_mode = reader.read_node_int()? as i32,
+                    "top_level" => obj.top_level = reader.read_node_bool()?,
+                    "generator_tiles" => obj.generator_tiles = reader.read_node_int()? as i32,
+                    "generator_width" => obj.generator_width = reader.read_node_int()? as i32,
+                    "generator_height" => obj.generator_height = reader.read_node_int()? as i32,
+                    "generator_surround" => obj.generator_surround = reader.read_node_bool()?,
+                    "generator_upper_wall" => obj.generator_upper_wall = reader.read_node_bool()?,
+                    "generator_floor_b" => obj.generator_floor_b = reader.read_node_bool()?,
+                    "generator_floor_c" => obj.generator_floor_c = reader.read_node_bool()?,
+                    "generator_extra_b" => obj.generator_extra_b = reader.read_node_bool()?,
+                    "generator_extra_c" => obj.generator_extra_c = reader.read_node_bool()?,
+                    "generator_x" => obj.generator_x = reader.read_node_vector_u32()?,
+                    "generator_y" => obj.generator_y = reader.read_node_vector_u32()?,
+                    "generator_tile_ids" => obj.generator_tile_ids = reader.read_node_vector_i16()?,
+                    "lower_layer" => obj.lower_layer = reader.read_node_vector_i16()?,
+                    "upper_layer" => obj.upper_layer = reader.read_node_vector_i16()?,
+                    "events" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.events.push(Event::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "save_count_2k3e" => obj.save_count_2k3e = reader.read_node_int()? as i32,
+                    "save_count" => obj.save_count = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -829,6 +987,34 @@ impl MoveRoute {
         writer.write_node_bool("skippable", self.skippable)?;
         writer.end_element("MoveRoute")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "move_commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.move_commands.push(MoveCommand::read_xml_fields(reader)?),
+                            }
+                        }
+                    },
+                    "repeat" => obj.repeat = reader.read_node_bool()?,
+                    "skippable" => obj.skippable = reader.read_node_bool()?,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 

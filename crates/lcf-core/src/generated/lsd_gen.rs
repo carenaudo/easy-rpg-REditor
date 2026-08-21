@@ -249,6 +249,68 @@ impl Save {
         writer.end_element("Save")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "title" => obj.title = match reader.next_child()? { Some(inner) => { let v = SaveTitle::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveTitle::default() },
+                    "system" => obj.system = match reader.next_child()? { Some(inner) => { let v = SaveSystem::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveSystem::default() },
+                    "screen" => obj.screen = match reader.next_child()? { Some(inner) => { let v = SaveScreen::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveScreen::default() },
+                    "pictures" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.pictures.push(SavePicture::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "party_location" => obj.party_location = match reader.next_child()? { Some(inner) => { let v = SavePartyLocation::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SavePartyLocation::default() },
+                    "boat_location" => obj.boat_location = match reader.next_child()? { Some(inner) => { let v = SaveVehicleLocation::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveVehicleLocation::default() },
+                    "ship_location" => obj.ship_location = match reader.next_child()? { Some(inner) => { let v = SaveVehicleLocation::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveVehicleLocation::default() },
+                    "airship_location" => obj.airship_location = match reader.next_child()? { Some(inner) => { let v = SaveVehicleLocation::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveVehicleLocation::default() },
+                    "actors" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.actors.push(SaveActor::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "inventory" => obj.inventory = match reader.next_child()? { Some(inner) => { let v = SaveInventory::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveInventory::default() },
+                    "targets" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.targets.push(SaveTarget::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "map_info" => obj.map_info = match reader.next_child()? { Some(inner) => { let v = SaveMapInfo::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveMapInfo::default() },
+                    "panorama" => obj.panorama = match reader.next_child()? { Some(inner) => { let v = SavePanorama::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SavePanorama::default() },
+                    "foreground_event_execstate" => obj.foreground_event_execstate = match reader.next_child()? { Some(inner) => { let v = SaveEventExecState::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveEventExecState::default() },
+                    "common_events" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.common_events.push(SaveCommonEvent::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "easyrpg_data" => obj.easyrpg_data = match reader.next_child()? { Some(inner) => { let v = SaveEasyRpgData::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveEasyRpgData::default() },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -550,6 +612,54 @@ impl SaveActor {
         writer.end_element("SaveActor")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "title" => obj.title = reader.read_node_dbstring()?,
+                    "sprite_name" => obj.sprite_name = reader.read_node_dbstring()?,
+                    "sprite_id" => obj.sprite_id = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "face_name" => obj.face_name = reader.read_node_dbstring()?,
+                    "face_id" => obj.face_id = reader.read_node_int()? as i32,
+                    "level" => obj.level = reader.read_node_int()? as i32,
+                    "exp" => obj.exp = reader.read_node_int()? as i32,
+                    "hp_mod" => obj.hp_mod = reader.read_node_int()? as i32,
+                    "sp_mod" => obj.sp_mod = reader.read_node_int()? as i32,
+                    "attack_mod" => obj.attack_mod = reader.read_node_int()? as i32,
+                    "defense_mod" => obj.defense_mod = reader.read_node_int()? as i32,
+                    "spirit_mod" => obj.spirit_mod = reader.read_node_int()? as i32,
+                    "agility_mod" => obj.agility_mod = reader.read_node_int()? as i32,
+                    "skills" => obj.skills = reader.read_node_vector_i16()?,
+                    "equipped" => obj.equipped = reader.read_node_vector_i16()?,
+                    "current_hp" => obj.current_hp = reader.read_node_int()? as i32,
+                    "current_sp" => obj.current_sp = reader.read_node_int()? as i32,
+                    "battle_commands" => obj.battle_commands = reader.read_node_vector_i32()?,
+                    "status" => obj.status = reader.read_node_vector_i16()?,
+                    "changed_battle_commands" => obj.changed_battle_commands = reader.read_node_bool()?,
+                    "class_id" => obj.class_id = reader.read_node_int()? as i32,
+                    "row" => obj.row = reader.read_node_int()? as i32,
+                    "two_weapon" => obj.two_weapon = reader.read_node_bool()?,
+                    "lock_equipment" => obj.lock_equipment = reader.read_node_bool()?,
+                    "auto_battle" => obj.auto_battle = reader.read_node_bool()?,
+                    "super_guard" => obj.super_guard = reader.read_node_bool()?,
+                    "battler_animation" => obj.battler_animation = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -603,6 +713,26 @@ impl SaveCommonEvent {
         writer.end_element("parallel_event_execstate")?;
         writer.end_element("SaveCommonEvent")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "parallel_event_execstate" => obj.parallel_event_execstate = match reader.next_child()? { Some(inner) => { let v = SaveEventExecState::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveEventExecState::default() },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -689,6 +819,34 @@ impl SaveEasyRpgData {
         writer.end_element("windows")?;
         writer.end_element("SaveEasyRpgData")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "version" => obj.version = reader.read_node_int()? as i32,
+                    "codepage" => obj.codepage = reader.read_node_int()? as i32,
+                    "windows" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.windows.push(SaveEasyRpgWindow::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -805,6 +963,32 @@ impl SaveEasyRpgText {
         writer.end_element("SaveEasyRpgText")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "text" => obj.text = reader.read_node_dbstring()?,
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "font_name" => obj.font_name = reader.read_node_dbstring()?,
+                    "font_size" => obj.font_size = reader.read_node_int()? as i32,
+                    "letter_spacing" => obj.letter_spacing = reader.read_node_int()? as i32,
+                    "line_spacing" => obj.line_spacing = reader.read_node_int()? as i32,
+                    "flags" => obj.flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -916,6 +1100,38 @@ impl SaveEasyRpgWindow {
         writer.write_node_int("flags", self.flags as i32)?;
         writer.end_element("SaveEasyRpgWindow")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "texts" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.texts.push(SaveEasyRpgText::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "width" => obj.width = reader.read_node_int()? as i32,
+                    "height" => obj.height = reader.read_node_int()? as i32,
+                    "system_name" => obj.system_name = reader.read_node_dbstring()?,
+                    "message_stretch" => obj.message_stretch = reader.read_node_int()? as i32,
+                    "flags" => obj.flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -1077,6 +1293,43 @@ impl SaveEventExecFrame {
         writer.write_node_int("easyrpg_runtime_flags", self.easyrpg_runtime_flags as i32)?;
         writer.end_element("SaveEventExecFrame")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "commands" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.commands.push(EventCommand::read_xml_fields(reader)?),
+                            }
+                        }
+                    },
+                    "current_command" => obj.current_command = reader.read_node_int()? as i32,
+                    "event_id" => obj.event_id = reader.read_node_int()? as i32,
+                    "triggered_by_decision_key" => obj.triggered_by_decision_key = reader.read_node_bool()?,
+                    "subcommand_path" => obj.subcommand_path = reader.read_node_vector_u8()?,
+                    "maniac_event_info" => obj.maniac_event_info = reader.read_node_int()? as i32,
+                    "maniac_event_id" => obj.maniac_event_id = reader.read_node_int()? as i32,
+                    "maniac_event_page_id" => obj.maniac_event_page_id = reader.read_node_int()? as i32,
+                    "maniac_loop_info_size" => obj.maniac_loop_info_size = reader.read_node_int()? as i32,
+                    "maniac_loop_info" => obj.maniac_loop_info = reader.read_node_vector_i32()?,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -1372,6 +1625,57 @@ impl SaveEventExecState {
         writer.end_element("SaveEventExecState")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "stack" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.stack.push(SaveEventExecFrame::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "show_message" => obj.show_message = reader.read_node_bool()?,
+                    "abort_on_escape" => obj.abort_on_escape = reader.read_node_bool()?,
+                    "wait_movement" => obj.wait_movement = reader.read_node_bool()?,
+                    "keyinput_wait" => obj.keyinput_wait = reader.read_node_bool()?,
+                    "keyinput_variable" => obj.keyinput_variable = reader.read_node_int()? as u8,
+                    "keyinput_all_directions" => obj.keyinput_all_directions = reader.read_node_bool()?,
+                    "keyinput_decision" => obj.keyinput_decision = reader.read_node_int()? as i32,
+                    "keyinput_cancel" => obj.keyinput_cancel = reader.read_node_int()? as i32,
+                    "keyinput_2kshift_2k3numbers" => obj.keyinput_2kshift_2k3numbers = reader.read_node_int()? as i32,
+                    "keyinput_2kdown_2k3operators" => obj.keyinput_2kdown_2k3operators = reader.read_node_int()? as i32,
+                    "keyinput_2kleft_2k3shift" => obj.keyinput_2kleft_2k3shift = reader.read_node_int()? as i32,
+                    "keyinput_2kright" => obj.keyinput_2kright = reader.read_node_int()? as i32,
+                    "keyinput_2kup" => obj.keyinput_2kup = reader.read_node_int()? as i32,
+                    "wait_time" => obj.wait_time = reader.read_node_int()? as i32,
+                    "keyinput_time_variable" => obj.keyinput_time_variable = reader.read_node_int()? as i32,
+                    "keyinput_2k3down" => obj.keyinput_2k3down = reader.read_node_int()? as i32,
+                    "keyinput_2k3left" => obj.keyinput_2k3left = reader.read_node_int()? as i32,
+                    "keyinput_2k3right" => obj.keyinput_2k3right = reader.read_node_int()? as i32,
+                    "keyinput_2k3up" => obj.keyinput_2k3up = reader.read_node_int()? as i32,
+                    "keyinput_timed" => obj.keyinput_timed = reader.read_node_bool()?,
+                    "wait_key_enter" => obj.wait_key_enter = reader.read_node_bool()?,
+                    "easyrpg_active" => obj.easyrpg_active = reader.read_node_bool()?,
+                    "easyrpg_string" => obj.easyrpg_string = reader.read_node_dbstring()?,
+                    "easyrpg_parameters" => obj.easyrpg_parameters = reader.read_node_vector_i32()?,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1579,6 +1883,43 @@ impl SaveInventory {
         writer.write_node_int("steps", self.steps as i32)?;
         writer.end_element("SaveInventory")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "party" => obj.party = reader.read_node_vector_i16()?,
+                    "item_ids" => obj.item_ids = reader.read_node_vector_i16()?,
+                    "item_counts" => obj.item_counts = reader.read_node_vector_u8()?,
+                    "item_usage" => obj.item_usage = reader.read_node_vector_u8()?,
+                    "gold" => obj.gold = reader.read_node_int()? as i32,
+                    "timer1_frames" => obj.timer1_frames = reader.read_node_int()? as i32,
+                    "timer1_active" => obj.timer1_active = reader.read_node_bool()?,
+                    "timer1_visible" => obj.timer1_visible = reader.read_node_bool()?,
+                    "timer1_battle" => obj.timer1_battle = reader.read_node_bool()?,
+                    "timer2_frames" => obj.timer2_frames = reader.read_node_int()? as i32,
+                    "timer2_active" => obj.timer2_active = reader.read_node_bool()?,
+                    "timer2_visible" => obj.timer2_visible = reader.read_node_bool()?,
+                    "timer2_battle" => obj.timer2_battle = reader.read_node_bool()?,
+                    "battles" => obj.battles = reader.read_node_int()? as i32,
+                    "defeats" => obj.defeats = reader.read_node_int()? as i32,
+                    "escapes" => obj.escapes = reader.read_node_int()? as i32,
+                    "victories" => obj.victories = reader.read_node_int()? as i32,
+                    "turns" => obj.turns = reader.read_node_int()? as i32,
+                    "steps" => obj.steps = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -2017,6 +2358,7 @@ impl SaveMapEvent {
         writer.write_node_int("flash_red", self.flash_red as i32)?;
         writer.write_node_int("flash_green", self.flash_green as i32)?;
         writer.write_node_int("flash_blue", self.flash_blue as i32)?;
+        writer.write_node_f64("flash_current_level", self.flash_current_level)?;
         writer.write_node_int("flash_time_left", self.flash_time_left as i32)?;
         writer.write_node_bool("waiting_execution", self.waiting_execution)?;
         writer.write_node_int("original_move_route_index", self.original_move_route_index as i32)?;
@@ -2030,6 +2372,72 @@ impl SaveMapEvent {
         writer.write_node_int("easyrpg_runtime_flags", self.easyrpg_runtime_flags as i32)?;
         writer.end_element("SaveMapEvent")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "active" => obj.active = reader.read_node_bool()?,
+                    "map_id" => obj.map_id = reader.read_node_int()? as i32,
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "direction" => obj.direction = reader.read_node_int()? as i32,
+                    "facing" => obj.facing = reader.read_node_int()? as i32,
+                    "anim_frame" => obj.anim_frame = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "remaining_step" => obj.remaining_step = reader.read_node_int()? as i32,
+                    "move_frequency" => obj.move_frequency = reader.read_node_int()? as i32,
+                    "layer" => obj.layer = reader.read_node_int()? as i32,
+                    "overlap_forbidden" => obj.overlap_forbidden = reader.read_node_bool()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "lock_facing" => obj.lock_facing = reader.read_node_bool()?,
+                    "move_speed" => obj.move_speed = reader.read_node_int()? as i32,
+                    "move_route" => obj.move_route = match reader.next_child()? { Some(inner) => { let v = MoveRoute::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => MoveRoute::default() },
+                    "move_route_overwrite" => obj.move_route_overwrite = reader.read_node_bool()?,
+                    "move_route_index" => obj.move_route_index = reader.read_node_int()? as i32,
+                    "move_route_finished" => obj.move_route_finished = reader.read_node_bool()?,
+                    "sprite_hidden" => obj.sprite_hidden = reader.read_node_bool()?,
+                    "move_route_through" => obj.move_route_through = reader.read_node_bool()?,
+                    "anim_paused" => obj.anim_paused = reader.read_node_int()? as i32,
+                    "through" => obj.through = reader.read_node_bool()?,
+                    "stop_count" => obj.stop_count = reader.read_node_int()? as i32,
+                    "anim_count" => obj.anim_count = reader.read_node_int()? as i32,
+                    "max_stop_count" => obj.max_stop_count = reader.read_node_int()? as i32,
+                    "jumping" => obj.jumping = reader.read_node_bool()?,
+                    "begin_jump_x" => obj.begin_jump_x = reader.read_node_int()? as i32,
+                    "begin_jump_y" => obj.begin_jump_y = reader.read_node_int()? as i32,
+                    "pause" => obj.pause = reader.read_node_bool()?,
+                    "flying" => obj.flying = reader.read_node_bool()?,
+                    "sprite_name" => obj.sprite_name = reader.read_node_dbstring()?,
+                    "sprite_id" => obj.sprite_id = reader.read_node_int()? as i32,
+                    "processed" => obj.processed = reader.read_node_bool()?,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_current_level" => obj.flash_current_level = reader.read_node_f64()?,
+                    "flash_time_left" => obj.flash_time_left = reader.read_node_int()? as i32,
+                    "waiting_execution" => obj.waiting_execution = reader.read_node_bool()?,
+                    "original_move_route_index" => obj.original_move_route_index = reader.read_node_int()? as i32,
+                    "triggered_by_decision_key" => obj.triggered_by_decision_key = reader.read_node_bool()?,
+                    "parallel_event_execstate" => obj.parallel_event_execstate = match reader.next_child()? { Some(inner) => { let v = SaveEventExecState::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => SaveEventExecState::default() },
+                    "easyrpg_move_failure_count" => obj.easyrpg_move_failure_count = reader.read_node_int()? as i32,
+                    "easyrpg_clone_map_id" => obj.easyrpg_clone_map_id = reader.read_node_int()? as u32,
+                    "easyrpg_clone_event_id" => obj.easyrpg_clone_event_id = reader.read_node_int()? as u32,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -2436,6 +2844,7 @@ impl SaveMapEventBase {
         writer.write_node_int("flash_red", self.flash_red as i32)?;
         writer.write_node_int("flash_green", self.flash_green as i32)?;
         writer.write_node_int("flash_blue", self.flash_blue as i32)?;
+        writer.write_node_f64("flash_current_level", self.flash_current_level)?;
         writer.write_node_int("flash_time_left", self.flash_time_left as i32)?;
         writer.write_node_int("easyrpg_move_failure_count", self.easyrpg_move_failure_count as i32)?;
         writer.write_node_int("easyrpg_clone_map_id", self.easyrpg_clone_map_id as i32)?;
@@ -2443,6 +2852,67 @@ impl SaveMapEventBase {
         writer.write_node_int("easyrpg_runtime_flags", self.easyrpg_runtime_flags as i32)?;
         writer.end_element("SaveMapEventBase")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "active" => obj.active = reader.read_node_bool()?,
+                    "map_id" => obj.map_id = reader.read_node_int()? as i32,
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "direction" => obj.direction = reader.read_node_int()? as i32,
+                    "facing" => obj.facing = reader.read_node_int()? as i32,
+                    "anim_frame" => obj.anim_frame = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "remaining_step" => obj.remaining_step = reader.read_node_int()? as i32,
+                    "move_frequency" => obj.move_frequency = reader.read_node_int()? as i32,
+                    "layer" => obj.layer = reader.read_node_int()? as i32,
+                    "overlap_forbidden" => obj.overlap_forbidden = reader.read_node_bool()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "lock_facing" => obj.lock_facing = reader.read_node_bool()?,
+                    "move_speed" => obj.move_speed = reader.read_node_int()? as i32,
+                    "move_route" => obj.move_route = match reader.next_child()? { Some(inner) => { let v = MoveRoute::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => MoveRoute::default() },
+                    "move_route_overwrite" => obj.move_route_overwrite = reader.read_node_bool()?,
+                    "move_route_index" => obj.move_route_index = reader.read_node_int()? as i32,
+                    "move_route_finished" => obj.move_route_finished = reader.read_node_bool()?,
+                    "sprite_hidden" => obj.sprite_hidden = reader.read_node_bool()?,
+                    "move_route_through" => obj.move_route_through = reader.read_node_bool()?,
+                    "anim_paused" => obj.anim_paused = reader.read_node_int()? as i32,
+                    "through" => obj.through = reader.read_node_bool()?,
+                    "stop_count" => obj.stop_count = reader.read_node_int()? as i32,
+                    "anim_count" => obj.anim_count = reader.read_node_int()? as i32,
+                    "max_stop_count" => obj.max_stop_count = reader.read_node_int()? as i32,
+                    "jumping" => obj.jumping = reader.read_node_bool()?,
+                    "begin_jump_x" => obj.begin_jump_x = reader.read_node_int()? as i32,
+                    "begin_jump_y" => obj.begin_jump_y = reader.read_node_int()? as i32,
+                    "pause" => obj.pause = reader.read_node_bool()?,
+                    "flying" => obj.flying = reader.read_node_bool()?,
+                    "sprite_name" => obj.sprite_name = reader.read_node_dbstring()?,
+                    "sprite_id" => obj.sprite_id = reader.read_node_int()? as i32,
+                    "processed" => obj.processed = reader.read_node_bool()?,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_current_level" => obj.flash_current_level = reader.read_node_f64()?,
+                    "flash_time_left" => obj.flash_time_left = reader.read_node_int()? as i32,
+                    "easyrpg_move_failure_count" => obj.easyrpg_move_failure_count = reader.read_node_int()? as i32,
+                    "easyrpg_clone_map_id" => obj.easyrpg_clone_map_id = reader.read_node_int()? as u32,
+                    "easyrpg_clone_event_id" => obj.easyrpg_clone_event_id = reader.read_node_int()? as u32,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -2623,6 +3093,45 @@ impl SaveMapInfo {
         writer.end_element("SaveMapInfo")?;
         Ok(())
     }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "encounter_steps" => obj.encounter_steps = reader.read_node_int()? as i32,
+                    "chipset_id" => obj.chipset_id = reader.read_node_int()? as i32,
+                    "events" => {
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => obj.events.push(SaveMapEvent::read_xml_fields(reader, item_tag.id.unwrap_or(0), is_2k3)?),
+                            }
+                        }
+                    },
+                    "lower_tiles" => obj.lower_tiles = reader.read_node_vector_u8()?,
+                    "upper_tiles" => obj.upper_tiles = reader.read_node_vector_u8()?,
+                    "parallax_name" => obj.parallax_name = reader.read_node_dbstring()?,
+                    "parallax_horz" => obj.parallax_horz = reader.read_node_bool()?,
+                    "parallax_vert" => obj.parallax_vert = reader.read_node_bool()?,
+                    "parallax_horz_auto" => obj.parallax_horz_auto = reader.read_node_bool()?,
+                    "parallax_horz_speed" => obj.parallax_horz_speed = reader.read_node_int()? as i32,
+                    "parallax_vert_auto" => obj.parallax_vert_auto = reader.read_node_bool()?,
+                    "parallax_vert_speed" => obj.parallax_vert_speed = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -2683,6 +3192,26 @@ impl SavePanorama {
         writer.write_node_int("pan_y", self.pan_y as i32)?;
         writer.end_element("SavePanorama")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "pan_x" => obj.pan_x = reader.read_node_int()? as i32,
+                    "pan_y" => obj.pan_y = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3233,6 +3762,7 @@ impl SavePartyLocation {
         writer.write_node_int("flash_red", self.flash_red as i32)?;
         writer.write_node_int("flash_green", self.flash_green as i32)?;
         writer.write_node_int("flash_blue", self.flash_blue as i32)?;
+        writer.write_node_f64("flash_current_level", self.flash_current_level)?;
         writer.write_node_int("flash_time_left", self.flash_time_left as i32)?;
         writer.write_node_bool("boarding", self.boarding)?;
         writer.write_node_bool("aboard", self.aboard)?;
@@ -3250,12 +3780,93 @@ impl SavePartyLocation {
         writer.write_node_bool("encounter_calling", self.encounter_calling)?;
         writer.write_node_int("map_save_count", self.map_save_count as i32)?;
         writer.write_node_int("database_save_count", self.database_save_count as i32)?;
+        writer.write_node_f64("maniac_horizontal_pan_speed", self.maniac_horizontal_pan_speed)?;
+        writer.write_node_f64("maniac_vertical_pan_speed", self.maniac_vertical_pan_speed)?;
         writer.write_node_int("easyrpg_move_failure_count", self.easyrpg_move_failure_count as i32)?;
         writer.write_node_int("easyrpg_clone_map_id", self.easyrpg_clone_map_id as i32)?;
         writer.write_node_int("easyrpg_clone_event_id", self.easyrpg_clone_event_id as i32)?;
         writer.write_node_int("easyrpg_runtime_flags", self.easyrpg_runtime_flags as i32)?;
         writer.end_element("SavePartyLocation")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "active" => obj.active = reader.read_node_bool()?,
+                    "map_id" => obj.map_id = reader.read_node_int()? as i32,
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "direction" => obj.direction = reader.read_node_int()? as i32,
+                    "facing" => obj.facing = reader.read_node_int()? as i32,
+                    "anim_frame" => obj.anim_frame = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "remaining_step" => obj.remaining_step = reader.read_node_int()? as i32,
+                    "move_frequency" => obj.move_frequency = reader.read_node_int()? as i32,
+                    "layer" => obj.layer = reader.read_node_int()? as i32,
+                    "overlap_forbidden" => obj.overlap_forbidden = reader.read_node_bool()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "lock_facing" => obj.lock_facing = reader.read_node_bool()?,
+                    "move_speed" => obj.move_speed = reader.read_node_int()? as i32,
+                    "move_route" => obj.move_route = match reader.next_child()? { Some(inner) => { let v = MoveRoute::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => MoveRoute::default() },
+                    "move_route_overwrite" => obj.move_route_overwrite = reader.read_node_bool()?,
+                    "move_route_index" => obj.move_route_index = reader.read_node_int()? as i32,
+                    "move_route_finished" => obj.move_route_finished = reader.read_node_bool()?,
+                    "sprite_hidden" => obj.sprite_hidden = reader.read_node_bool()?,
+                    "move_route_through" => obj.move_route_through = reader.read_node_bool()?,
+                    "anim_paused" => obj.anim_paused = reader.read_node_int()? as i32,
+                    "through" => obj.through = reader.read_node_bool()?,
+                    "stop_count" => obj.stop_count = reader.read_node_int()? as i32,
+                    "anim_count" => obj.anim_count = reader.read_node_int()? as i32,
+                    "max_stop_count" => obj.max_stop_count = reader.read_node_int()? as i32,
+                    "jumping" => obj.jumping = reader.read_node_bool()?,
+                    "begin_jump_x" => obj.begin_jump_x = reader.read_node_int()? as i32,
+                    "begin_jump_y" => obj.begin_jump_y = reader.read_node_int()? as i32,
+                    "pause" => obj.pause = reader.read_node_bool()?,
+                    "flying" => obj.flying = reader.read_node_bool()?,
+                    "sprite_name" => obj.sprite_name = reader.read_node_dbstring()?,
+                    "sprite_id" => obj.sprite_id = reader.read_node_int()? as i32,
+                    "processed" => obj.processed = reader.read_node_bool()?,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_current_level" => obj.flash_current_level = reader.read_node_f64()?,
+                    "flash_time_left" => obj.flash_time_left = reader.read_node_int()? as i32,
+                    "boarding" => obj.boarding = reader.read_node_bool()?,
+                    "aboard" => obj.aboard = reader.read_node_bool()?,
+                    "vehicle" => obj.vehicle = reader.read_node_int()? as i32,
+                    "unboarding" => obj.unboarding = reader.read_node_bool()?,
+                    "preboard_move_speed" => obj.preboard_move_speed = reader.read_node_int()? as i32,
+                    "menu_calling" => obj.menu_calling = reader.read_node_bool()?,
+                    "pan_state" => obj.pan_state = reader.read_node_int()? as i32,
+                    "pan_current_x" => obj.pan_current_x = reader.read_node_int()? as i32,
+                    "pan_current_y" => obj.pan_current_y = reader.read_node_int()? as i32,
+                    "pan_finish_x" => obj.pan_finish_x = reader.read_node_int()? as i32,
+                    "pan_finish_y" => obj.pan_finish_y = reader.read_node_int()? as i32,
+                    "pan_speed" => obj.pan_speed = reader.read_node_int()? as i32,
+                    "total_encounter_rate" => obj.total_encounter_rate = reader.read_node_int()? as i32,
+                    "encounter_calling" => obj.encounter_calling = reader.read_node_bool()?,
+                    "map_save_count" => obj.map_save_count = reader.read_node_int()? as i32,
+                    "database_save_count" => obj.database_save_count = reader.read_node_int()? as i32,
+                    "maniac_horizontal_pan_speed" => obj.maniac_horizontal_pan_speed = reader.read_node_f64()?,
+                    "maniac_vertical_pan_speed" => obj.maniac_vertical_pan_speed = reader.read_node_f64()?,
+                    "easyrpg_move_failure_count" => obj.easyrpg_move_failure_count = reader.read_node_int()? as i32,
+                    "easyrpg_clone_map_id" => obj.easyrpg_clone_map_id = reader.read_node_int()? as u32,
+                    "easyrpg_clone_event_id" => obj.easyrpg_clone_event_id = reader.read_node_int()? as u32,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3652,9 +4263,21 @@ impl SavePicture {
     pub fn write_xml<W: std::io::Write>(&self, writer: &mut crate::xml::XmlWriter<W>) -> Result<(), crate::error::LcfError> {
         writer.begin_element_with_id("SavePicture", self.id)?;
         writer.write_node_dbstring("name", &self.name)?;
+        writer.write_node_f64("start_x", self.start_x)?;
+        writer.write_node_f64("start_y", self.start_y)?;
+        writer.write_node_f64("current_x", self.current_x)?;
+        writer.write_node_f64("current_y", self.current_y)?;
         writer.write_node_bool("fixed_to_map", self.fixed_to_map)?;
+        writer.write_node_f64("current_magnify", self.current_magnify)?;
+        writer.write_node_f64("current_top_trans", self.current_top_trans)?;
         writer.write_node_bool("use_transparent_color", self.use_transparent_color)?;
+        writer.write_node_f64("current_red", self.current_red)?;
+        writer.write_node_f64("current_green", self.current_green)?;
+        writer.write_node_f64("current_blue", self.current_blue)?;
+        writer.write_node_f64("current_sat", self.current_sat)?;
         writer.write_node_int("effect_mode", self.effect_mode as i32)?;
+        writer.write_node_f64("current_effect_power", self.current_effect_power)?;
+        writer.write_node_f64("current_bot_trans", self.current_bot_trans)?;
         writer.write_node_int("spritesheet_cols", self.spritesheet_cols as i32)?;
         writer.write_node_int("spritesheet_rows", self.spritesheet_rows as i32)?;
         writer.write_node_int("spritesheet_frame", self.spritesheet_frame as i32)?;
@@ -3664,6 +4287,8 @@ impl SavePicture {
         writer.write_node_int("map_layer", self.map_layer as i32)?;
         writer.write_node_int("battle_layer", self.battle_layer as i32)?;
         writer.write_node_int("flags", self.flags as i32)?;
+        writer.write_node_f64("finish_x", self.finish_x)?;
+        writer.write_node_f64("finish_y", self.finish_y)?;
         writer.write_node_int("finish_magnify", self.finish_magnify as i32)?;
         writer.write_node_int("finish_top_trans", self.finish_top_trans as i32)?;
         writer.write_node_int("finish_bot_trans", self.finish_bot_trans as i32)?;
@@ -3673,14 +4298,79 @@ impl SavePicture {
         writer.write_node_int("finish_sat", self.finish_sat as i32)?;
         writer.write_node_int("finish_effect_power", self.finish_effect_power as i32)?;
         writer.write_node_int("time_left", self.time_left as i32)?;
+        writer.write_node_f64("current_rotation", self.current_rotation)?;
         writer.write_node_int("current_waver", self.current_waver as i32)?;
         writer.write_node_int("easyrpg_flip", self.easyrpg_flip as i32)?;
         writer.write_node_int("easyrpg_blend_mode", self.easyrpg_blend_mode as i32)?;
         writer.write_node_int("easyrpg_type", self.easyrpg_type as i32)?;
+        writer.write_node_f64("maniac_current_magnify_height", self.maniac_current_magnify_height)?;
         writer.write_node_vector_u8("maniac_image_data", &self.maniac_image_data)?;
         writer.write_node_int("maniac_finish_magnify_height", self.maniac_finish_magnify_height as i32)?;
         writer.end_element("SavePicture")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "name" => obj.name = reader.read_node_dbstring()?,
+                    "start_x" => obj.start_x = reader.read_node_f64()?,
+                    "start_y" => obj.start_y = reader.read_node_f64()?,
+                    "current_x" => obj.current_x = reader.read_node_f64()?,
+                    "current_y" => obj.current_y = reader.read_node_f64()?,
+                    "fixed_to_map" => obj.fixed_to_map = reader.read_node_bool()?,
+                    "current_magnify" => obj.current_magnify = reader.read_node_f64()?,
+                    "current_top_trans" => obj.current_top_trans = reader.read_node_f64()?,
+                    "use_transparent_color" => obj.use_transparent_color = reader.read_node_bool()?,
+                    "current_red" => obj.current_red = reader.read_node_f64()?,
+                    "current_green" => obj.current_green = reader.read_node_f64()?,
+                    "current_blue" => obj.current_blue = reader.read_node_f64()?,
+                    "current_sat" => obj.current_sat = reader.read_node_f64()?,
+                    "effect_mode" => obj.effect_mode = reader.read_node_int()? as i32,
+                    "current_effect_power" => obj.current_effect_power = reader.read_node_f64()?,
+                    "current_bot_trans" => obj.current_bot_trans = reader.read_node_f64()?,
+                    "spritesheet_cols" => obj.spritesheet_cols = reader.read_node_int()? as i32,
+                    "spritesheet_rows" => obj.spritesheet_rows = reader.read_node_int()? as i32,
+                    "spritesheet_frame" => obj.spritesheet_frame = reader.read_node_int()? as i32,
+                    "spritesheet_speed" => obj.spritesheet_speed = reader.read_node_int()? as i32,
+                    "frames" => obj.frames = reader.read_node_int()? as i32,
+                    "spritesheet_play_once" => obj.spritesheet_play_once = reader.read_node_bool()?,
+                    "map_layer" => obj.map_layer = reader.read_node_int()? as i32,
+                    "battle_layer" => obj.battle_layer = reader.read_node_int()? as i32,
+                    "flags" => obj.flags = reader.read_node_int()? as i32,
+                    "finish_x" => obj.finish_x = reader.read_node_f64()?,
+                    "finish_y" => obj.finish_y = reader.read_node_f64()?,
+                    "finish_magnify" => obj.finish_magnify = reader.read_node_int()? as i32,
+                    "finish_top_trans" => obj.finish_top_trans = reader.read_node_int()? as i32,
+                    "finish_bot_trans" => obj.finish_bot_trans = reader.read_node_int()? as i32,
+                    "finish_red" => obj.finish_red = reader.read_node_int()? as i32,
+                    "finish_green" => obj.finish_green = reader.read_node_int()? as i32,
+                    "finish_blue" => obj.finish_blue = reader.read_node_int()? as i32,
+                    "finish_sat" => obj.finish_sat = reader.read_node_int()? as i32,
+                    "finish_effect_power" => obj.finish_effect_power = reader.read_node_int()? as i32,
+                    "time_left" => obj.time_left = reader.read_node_int()? as i32,
+                    "current_rotation" => obj.current_rotation = reader.read_node_f64()?,
+                    "current_waver" => obj.current_waver = reader.read_node_int()? as i32,
+                    "easyrpg_flip" => obj.easyrpg_flip = reader.read_node_int()? as i32,
+                    "easyrpg_blend_mode" => obj.easyrpg_blend_mode = reader.read_node_int()? as i32,
+                    "easyrpg_type" => obj.easyrpg_type = reader.read_node_int()? as i32,
+                    "maniac_current_magnify_height" => obj.maniac_current_magnify_height = reader.read_node_f64()?,
+                    "maniac_image_data" => obj.maniac_image_data = reader.read_node_vector_u8()?,
+                    "maniac_finish_magnify_height" => obj.maniac_finish_magnify_height = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -3966,11 +4656,16 @@ impl SaveScreen {
         writer.write_node_int("tint_finish_green", self.tint_finish_green as i32)?;
         writer.write_node_int("tint_finish_blue", self.tint_finish_blue as i32)?;
         writer.write_node_int("tint_finish_sat", self.tint_finish_sat as i32)?;
+        writer.write_node_f64("tint_current_red", self.tint_current_red)?;
+        writer.write_node_f64("tint_current_green", self.tint_current_green)?;
+        writer.write_node_f64("tint_current_blue", self.tint_current_blue)?;
+        writer.write_node_f64("tint_current_sat", self.tint_current_sat)?;
         writer.write_node_int("tint_time_left", self.tint_time_left as i32)?;
         writer.write_node_bool("flash_continuous", self.flash_continuous)?;
         writer.write_node_int("flash_red", self.flash_red as i32)?;
         writer.write_node_int("flash_green", self.flash_green as i32)?;
         writer.write_node_int("flash_blue", self.flash_blue as i32)?;
+        writer.write_node_f64("flash_current_level", self.flash_current_level)?;
         writer.write_node_int("flash_time_left", self.flash_time_left as i32)?;
         writer.write_node_bool("shake_continuous", self.shake_continuous)?;
         writer.write_node_int("shake_strength", self.shake_strength as i32)?;
@@ -3989,6 +4684,54 @@ impl SaveScreen {
         writer.write_node_int("weather_strength", self.weather_strength as i32)?;
         writer.end_element("SaveScreen")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "tint_finish_red" => obj.tint_finish_red = reader.read_node_int()? as i32,
+                    "tint_finish_green" => obj.tint_finish_green = reader.read_node_int()? as i32,
+                    "tint_finish_blue" => obj.tint_finish_blue = reader.read_node_int()? as i32,
+                    "tint_finish_sat" => obj.tint_finish_sat = reader.read_node_int()? as i32,
+                    "tint_current_red" => obj.tint_current_red = reader.read_node_f64()?,
+                    "tint_current_green" => obj.tint_current_green = reader.read_node_f64()?,
+                    "tint_current_blue" => obj.tint_current_blue = reader.read_node_f64()?,
+                    "tint_current_sat" => obj.tint_current_sat = reader.read_node_f64()?,
+                    "tint_time_left" => obj.tint_time_left = reader.read_node_int()? as i32,
+                    "flash_continuous" => obj.flash_continuous = reader.read_node_bool()?,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_current_level" => obj.flash_current_level = reader.read_node_f64()?,
+                    "flash_time_left" => obj.flash_time_left = reader.read_node_int()? as i32,
+                    "shake_continuous" => obj.shake_continuous = reader.read_node_bool()?,
+                    "shake_strength" => obj.shake_strength = reader.read_node_int()? as i32,
+                    "shake_speed" => obj.shake_speed = reader.read_node_int()? as i32,
+                    "shake_position" => obj.shake_position = reader.read_node_int()? as i32,
+                    "shake_position_y" => obj.shake_position_y = reader.read_node_int()? as i32,
+                    "shake_time_left" => obj.shake_time_left = reader.read_node_int()? as i32,
+                    "pan_x" => obj.pan_x = reader.read_node_int()? as i32,
+                    "pan_y" => obj.pan_y = reader.read_node_int()? as i32,
+                    "battleanim_id" => obj.battleanim_id = reader.read_node_int()? as i32,
+                    "battleanim_target" => obj.battleanim_target = reader.read_node_int()? as i32,
+                    "battleanim_frame" => obj.battleanim_frame = reader.read_node_int()? as i32,
+                    "battleanim_active" => obj.battleanim_active = reader.read_node_bool()?,
+                    "battleanim_global" => obj.battleanim_global = reader.read_node_bool()?,
+                    "weather" => obj.weather = reader.read_node_int()? as i32,
+                    "weather_strength" => obj.weather_strength = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4595,9 +5338,7 @@ impl SaveSystem {
         writer.write_node_dbstring("graphics_name", &self.graphics_name)?;
         writer.write_node_int("message_stretch", self.message_stretch as i32)?;
         writer.write_node_int("font_id", self.font_id as i32)?;
-        writer.begin_element("switches")?;
-        for &item in &self.switches { writer.write_node_bool("bool", item)?; }
-        writer.end_element("switches")?;
+        writer.write_node_vector_bool("switches", &self.switches)?;
         writer.write_node_vector_i32("variables", &self.variables)?;
         writer.write_node_int("message_transparent", self.message_transparent as i32)?;
         writer.write_node_int("message_position", self.message_position as i32)?;
@@ -4696,7 +5437,7 @@ impl SaveSystem {
         writer.write_node_int("save_slot", self.save_slot as i32)?;
         writer.write_node_int("atb_mode", self.atb_mode as i32)?;
         writer.begin_element("maniac_strings")?;
-        for item in &self.maniac_strings { writer.write_node_dbstring("string", item)?; }
+        for (idx, item) in self.maniac_strings.iter().enumerate() { if !item.as_str().is_empty() { writer.begin_element_with_id("item", (idx + 1) as i32)?; writer.write_node_dbstring_value(item)?; writer.end_element("item")?; } }
         writer.end_element("maniac_strings")?;
         writer.write_node_int("maniac_message_window_width", self.maniac_message_window_width as i32)?;
         writer.write_node_int("maniac_message_window_height", self.maniac_message_window_height as i32)?;
@@ -4719,6 +5460,115 @@ impl SaveSystem {
         writer.write_node_int("maniac_message_spacing_line", self.maniac_message_spacing_line as i32)?;
         writer.end_element("SaveSystem")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "scene" => obj.scene = reader.read_node_int()? as i32,
+                    "frame_count" => obj.frame_count = reader.read_node_int()? as i32,
+                    "graphics_name" => obj.graphics_name = reader.read_node_dbstring()?,
+                    "message_stretch" => obj.message_stretch = reader.read_node_int()? as i32,
+                    "font_id" => obj.font_id = reader.read_node_int()? as i32,
+                    "switches" => obj.switches = reader.read_node_vector_bool()?,
+                    "variables" => obj.variables = reader.read_node_vector_i32()?,
+                    "message_transparent" => obj.message_transparent = reader.read_node_int()? as i32,
+                    "message_position" => obj.message_position = reader.read_node_int()? as i32,
+                    "message_prevent_overlap" => obj.message_prevent_overlap = reader.read_node_int()? as i32,
+                    "message_continue_events" => obj.message_continue_events = reader.read_node_int()? as i32,
+                    "face_name" => obj.face_name = reader.read_node_dbstring()?,
+                    "face_id" => obj.face_id = reader.read_node_int()? as i32,
+                    "face_right" => obj.face_right = reader.read_node_bool()?,
+                    "face_flip" => obj.face_flip = reader.read_node_bool()?,
+                    "event_message_active" => obj.event_message_active = reader.read_node_bool()?,
+                    "music_stopping" => obj.music_stopping = reader.read_node_bool()?,
+                    "title_music" => obj.title_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "battle_music" => obj.battle_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "battle_end_music" => obj.battle_end_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "inn_music" => obj.inn_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "current_music" => obj.current_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "before_vehicle_music" => obj.before_vehicle_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "before_battle_music" => obj.before_battle_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "stored_music" => obj.stored_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "boat_music" => obj.boat_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "ship_music" => obj.ship_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "airship_music" => obj.airship_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "gameover_music" => obj.gameover_music = match reader.next_child()? { Some(inner) => { let v = Music::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Music::default() },
+                    "cursor_se" => obj.cursor_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "decision_se" => obj.decision_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "cancel_se" => obj.cancel_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "buzzer_se" => obj.buzzer_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "battle_se" => obj.battle_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "escape_se" => obj.escape_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_attack_se" => obj.enemy_attack_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_damaged_se" => obj.enemy_damaged_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "actor_damaged_se" => obj.actor_damaged_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "dodge_se" => obj.dodge_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "enemy_death_se" => obj.enemy_death_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "item_se" => obj.item_se = match reader.next_child()? { Some(inner) => { let v = Sound::read_xml_fields(reader)?; reader.consume_wrapper_end()?; v }, None => Sound::default() },
+                    "transition_out" => obj.transition_out = reader.read_node_int()? as i8,
+                    "transition_in" => obj.transition_in = reader.read_node_int()? as i8,
+                    "battle_start_fadeout" => obj.battle_start_fadeout = reader.read_node_int()? as i8,
+                    "battle_start_fadein" => obj.battle_start_fadein = reader.read_node_int()? as i8,
+                    "battle_end_fadeout" => obj.battle_end_fadeout = reader.read_node_int()? as i8,
+                    "battle_end_fadein" => obj.battle_end_fadein = reader.read_node_int()? as i8,
+                    "teleport_allowed" => obj.teleport_allowed = reader.read_node_bool()?,
+                    "escape_allowed" => obj.escape_allowed = reader.read_node_bool()?,
+                    "save_allowed" => obj.save_allowed = reader.read_node_bool()?,
+                    "menu_allowed" => obj.menu_allowed = reader.read_node_bool()?,
+                    "background" => obj.background = reader.read_node_dbstring()?,
+                    "save_count" => obj.save_count = reader.read_node_int()? as i32,
+                    "save_slot" => obj.save_slot = reader.read_node_int()? as i32,
+                    "atb_mode" => obj.atb_mode = reader.read_node_int()? as i32,
+                    "maniac_strings" => {
+                        let mut v: Vec<crate::types::DBString> = Vec::new();
+                        loop {
+                            match reader.next_child()? {
+                                None => break,
+                                Some(item_tag) => {
+                                    let text = reader.read_node_string()?;
+                                    let id = item_tag.id.unwrap_or(0) as usize;
+                                    if id >= 1 {
+                                        if id > v.len() { v.resize(id, crate::types::DBString::default()); }
+                                        v[id - 1] = crate::types::DBString::new(text);
+                                    }
+                                }
+                            }
+                        }
+                        obj.maniac_strings = v;
+                    },
+                    "maniac_message_window_width" => obj.maniac_message_window_width = reader.read_node_int()? as i32,
+                    "maniac_message_window_height" => obj.maniac_message_window_height = reader.read_node_int()? as i32,
+                    "maniac_message_font_name" => obj.maniac_message_font_name = reader.read_node_dbstring()?,
+                    "maniac_message_font_size" => obj.maniac_message_font_size = reader.read_node_int()? as i32,
+                    "maniac_message_hook_flags" => obj.maniac_message_hook_flags = reader.read_node_int()? as i32,
+                    "maniac_message_face_width" => obj.maniac_message_face_width = reader.read_node_int()? as i32,
+                    "maniac_message_face_height" => obj.maniac_message_face_height = reader.read_node_int()? as i32,
+                    "maniac_message_hook_common_event_id" => obj.maniac_message_hook_common_event_id = reader.read_node_int()? as i32,
+                    "maniac_message_hook_callback_system_variable" => obj.maniac_message_hook_callback_system_variable = reader.read_node_int()? as i32,
+                    "maniac_message_hook_callback_system_string_variable" => obj.maniac_message_hook_callback_system_string_variable = reader.read_node_int()? as i32,
+                    "maniac_message_hook_callback_user_variable" => obj.maniac_message_hook_callback_user_variable = reader.read_node_int()? as i32,
+                    "maniac_message_hook_callback_user_string_variable" => obj.maniac_message_hook_callback_user_string_variable = reader.read_node_int()? as i32,
+                    "maniac_battle_origin" => obj.maniac_battle_origin = reader.read_node_int()? as i32,
+                    "maniac_frameskip" => obj.maniac_frameskip = reader.read_node_int()? as i32,
+                    "maniac_picture_limit" => obj.maniac_picture_limit = reader.read_node_int()? as i32,
+                    "maniac_options" => obj.maniac_options = reader.read_node_vector_u8()?,
+                    "maniac_joypad_bindings" => obj.maniac_joypad_bindings = reader.read_node_vector_u8()?,
+                    "maniac_message_spacing_char" => obj.maniac_message_spacing_char = reader.read_node_int()? as i32,
+                    "maniac_message_spacing_line" => obj.maniac_message_spacing_line = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4809,6 +5659,30 @@ impl SaveTarget {
         writer.write_node_int("switch_id", self.switch_id as i32)?;
         writer.end_element("SaveTarget")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        obj.id = id;
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "map_id" => obj.map_id = reader.read_node_int()? as i32,
+                    "map_x" => obj.map_x = reader.read_node_int()? as i32,
+                    "map_y" => obj.map_y = reader.read_node_int()? as i32,
+                    "switch_on" => obj.switch_on = reader.read_node_bool()?,
+                    "switch_id" => obj.switch_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -4946,6 +5820,7 @@ impl SaveTitle {
     }
     pub fn write_xml<W: std::io::Write>(&self, writer: &mut crate::xml::XmlWriter<W>) -> Result<(), crate::error::LcfError> {
         writer.begin_element("SaveTitle")?;
+        writer.write_node_f64("timestamp", self.timestamp)?;
         writer.write_node_dbstring("hero_name", &self.hero_name)?;
         writer.write_node_int("hero_level", self.hero_level as i32)?;
         writer.write_node_int("hero_hp", self.hero_hp as i32)?;
@@ -4959,6 +5834,36 @@ impl SaveTitle {
         writer.write_node_int("face4_id", self.face4_id as i32)?;
         writer.end_element("SaveTitle")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "timestamp" => obj.timestamp = reader.read_node_f64()?,
+                    "hero_name" => obj.hero_name = reader.read_node_dbstring()?,
+                    "hero_level" => obj.hero_level = reader.read_node_int()? as i32,
+                    "hero_hp" => obj.hero_hp = reader.read_node_int()? as i32,
+                    "face1_name" => obj.face1_name = reader.read_node_dbstring()?,
+                    "face1_id" => obj.face1_id = reader.read_node_int()? as i32,
+                    "face2_name" => obj.face2_name = reader.read_node_dbstring()?,
+                    "face2_id" => obj.face2_id = reader.read_node_int()? as i32,
+                    "face3_name" => obj.face3_name = reader.read_node_dbstring()?,
+                    "face3_id" => obj.face3_id = reader.read_node_int()? as i32,
+                    "face4_name" => obj.face4_name = reader.read_node_dbstring()?,
+                    "face4_id" => obj.face4_id = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 
@@ -5405,6 +6310,7 @@ impl SaveVehicleLocation {
         writer.write_node_int("flash_red", self.flash_red as i32)?;
         writer.write_node_int("flash_green", self.flash_green as i32)?;
         writer.write_node_int("flash_blue", self.flash_blue as i32)?;
+        writer.write_node_f64("flash_current_level", self.flash_current_level)?;
         writer.write_node_int("flash_time_left", self.flash_time_left as i32)?;
         writer.write_node_int("vehicle", self.vehicle as i32)?;
         writer.write_node_int("remaining_ascent", self.remaining_ascent as i32)?;
@@ -5417,6 +6323,72 @@ impl SaveVehicleLocation {
         writer.write_node_int("easyrpg_runtime_flags", self.easyrpg_runtime_flags as i32)?;
         writer.end_element("SaveVehicleLocation")?;
         Ok(())
+    }
+    pub fn read_xml<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        match reader.next_child()? {
+            Some(tag) => Self::read_xml_fields(reader, tag.id.unwrap_or(0), is_2k3),
+            None => Ok(Self::default_for_engine(is_2k3)),
+        }
+    }
+    pub fn read_xml_fields<R: std::io::BufRead>(reader: &mut crate::xml::XmlReader<R>, id: i32, is_2k3: bool) -> Result<Self, crate::error::LcfError> {
+        let mut obj = Self::default_for_engine(is_2k3);
+        loop {
+            match reader.next_child()? {
+                None => break,
+                Some(tag) => match tag.name.as_str() {
+                    "active" => obj.active = reader.read_node_bool()?,
+                    "map_id" => obj.map_id = reader.read_node_int()? as i32,
+                    "position_x" => obj.position_x = reader.read_node_int()? as i32,
+                    "position_y" => obj.position_y = reader.read_node_int()? as i32,
+                    "direction" => obj.direction = reader.read_node_int()? as i32,
+                    "facing" => obj.facing = reader.read_node_int()? as i32,
+                    "anim_frame" => obj.anim_frame = reader.read_node_int()? as i32,
+                    "transparency" => obj.transparency = reader.read_node_int()? as i32,
+                    "remaining_step" => obj.remaining_step = reader.read_node_int()? as i32,
+                    "move_frequency" => obj.move_frequency = reader.read_node_int()? as i32,
+                    "layer" => obj.layer = reader.read_node_int()? as i32,
+                    "overlap_forbidden" => obj.overlap_forbidden = reader.read_node_bool()?,
+                    "animation_type" => obj.animation_type = reader.read_node_int()? as i32,
+                    "lock_facing" => obj.lock_facing = reader.read_node_bool()?,
+                    "move_speed" => obj.move_speed = reader.read_node_int()? as i32,
+                    "move_route" => obj.move_route = match reader.next_child()? { Some(inner) => { let v = MoveRoute::read_xml_fields(reader, inner.id.unwrap_or(0), is_2k3)?; reader.consume_wrapper_end()?; v }, None => MoveRoute::default() },
+                    "move_route_overwrite" => obj.move_route_overwrite = reader.read_node_bool()?,
+                    "move_route_index" => obj.move_route_index = reader.read_node_int()? as i32,
+                    "move_route_finished" => obj.move_route_finished = reader.read_node_bool()?,
+                    "sprite_hidden" => obj.sprite_hidden = reader.read_node_bool()?,
+                    "move_route_through" => obj.move_route_through = reader.read_node_bool()?,
+                    "anim_paused" => obj.anim_paused = reader.read_node_int()? as i32,
+                    "through" => obj.through = reader.read_node_bool()?,
+                    "stop_count" => obj.stop_count = reader.read_node_int()? as i32,
+                    "anim_count" => obj.anim_count = reader.read_node_int()? as i32,
+                    "max_stop_count" => obj.max_stop_count = reader.read_node_int()? as i32,
+                    "jumping" => obj.jumping = reader.read_node_bool()?,
+                    "begin_jump_x" => obj.begin_jump_x = reader.read_node_int()? as i32,
+                    "begin_jump_y" => obj.begin_jump_y = reader.read_node_int()? as i32,
+                    "pause" => obj.pause = reader.read_node_bool()?,
+                    "flying" => obj.flying = reader.read_node_bool()?,
+                    "sprite_name" => obj.sprite_name = reader.read_node_dbstring()?,
+                    "sprite_id" => obj.sprite_id = reader.read_node_int()? as i32,
+                    "processed" => obj.processed = reader.read_node_bool()?,
+                    "flash_red" => obj.flash_red = reader.read_node_int()? as i32,
+                    "flash_green" => obj.flash_green = reader.read_node_int()? as i32,
+                    "flash_blue" => obj.flash_blue = reader.read_node_int()? as i32,
+                    "flash_current_level" => obj.flash_current_level = reader.read_node_f64()?,
+                    "flash_time_left" => obj.flash_time_left = reader.read_node_int()? as i32,
+                    "vehicle" => obj.vehicle = reader.read_node_int()? as i32,
+                    "remaining_ascent" => obj.remaining_ascent = reader.read_node_int()? as i32,
+                    "remaining_descent" => obj.remaining_descent = reader.read_node_int()? as i32,
+                    "orig_sprite_name" => obj.orig_sprite_name = reader.read_node_dbstring()?,
+                    "orig_sprite_id" => obj.orig_sprite_id = reader.read_node_int()? as i32,
+                    "easyrpg_move_failure_count" => obj.easyrpg_move_failure_count = reader.read_node_int()? as i32,
+                    "easyrpg_clone_map_id" => obj.easyrpg_clone_map_id = reader.read_node_int()? as u32,
+                    "easyrpg_clone_event_id" => obj.easyrpg_clone_event_id = reader.read_node_int()? as u32,
+                    "easyrpg_runtime_flags" => obj.easyrpg_runtime_flags = reader.read_node_int()? as i32,
+                    _ => reader.skip_to_end()?,
+                },
+            }
+        }
+        Ok(obj)
     }
 }
 

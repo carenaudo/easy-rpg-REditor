@@ -2,9 +2,28 @@ use eframe::egui;
 use rfd::FileDialog;
 use crate::lcf_bridge;
 
+/// What changed in the open project after a successful import, so the
+/// caller (`EditorApp`) knows what to reload. Consumed once via
+/// `XmlIoDialogState::take_import()`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum XmlImportKind {
+    /// `RPG_RT.ldb` was replaced - reload the whole project.
+    Database,
+    /// `RPG_RT.lmt` was replaced - reload the whole project (map list may
+    /// have changed).
+    Tree,
+    /// The given map id's `.lmu` was replaced - reload just that map.
+    Map(i32),
+    /// A save slot file was replaced - reload just that slot.
+    Save,
+}
+
 pub struct XmlIoDialogState {
     pub is_open: bool,
     pub status_message: Option<Result<String, String>>,
+    /// Set by a successful import; the caller should call `take_import()`
+    /// once per frame and reload accordingly.
+    pending_import: Option<XmlImportKind>,
 }
 
 impl Default for XmlIoDialogState {
@@ -12,6 +31,7 @@ impl Default for XmlIoDialogState {
         Self {
             is_open: false,
             status_message: None,
+            pending_import: None,
         }
     }
 }
@@ -20,6 +40,13 @@ impl XmlIoDialogState {
     pub fn open(&mut self) {
         self.is_open = true;
         self.status_message = None;
+    }
+
+    /// Returns and clears the most recent successful import, if any -
+    /// callers should check this after every `show()` call and reload the
+    /// affected project data.
+    pub fn take_import(&mut self) -> Option<XmlImportKind> {
+        self.pending_import.take()
     }
 
     pub fn show(&mut self, ctx: &egui::Context, project_path: Option<&str>, active_map_id: Option<i32>) {
@@ -33,7 +60,7 @@ impl XmlIoDialogState {
             .open(&mut is_open)
             .collapsible(false)
             .resizable(true)
-            .default_size([460.0, 320.0])
+            .default_size([460.0, 420.0])
             .show(ctx, |ui| {
                 if let Some(proj) = project_path {
                     ui.label(format!("Project: {}", proj));
@@ -77,6 +104,63 @@ impl XmlIoDialogState {
                                     match lcf_bridge::export_save_to_xml(proj, "Save01.lsd", &path) {
                                         Ok(()) => self.status_message = Some(Ok(format!("Save exported to {:?}", path.file_name().unwrap()))),
                                         Err(e) => self.status_message = Some(Err(format!("Export failed: {e}"))),
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    ui.separator();
+                    ui.heading("Import XML");
+                    ui.label("Importing replaces the matching project file in place. The original is backed up once (e.g. RPG_RT.ldb.bak) before it's overwritten.");
+                    ui.horizontal(|ui| {
+                        if ui.button("Import Database from XML (LDB)").clicked() {
+                            if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "edb"]).pick_file() {
+                                match lcf_bridge::import_database_from_xml(proj, &path) {
+                                    Ok(()) => {
+                                        self.status_message = Some(Ok(format!("Database imported from {:?}", path.file_name().unwrap())));
+                                        self.pending_import = Some(XmlImportKind::Database);
+                                    }
+                                    Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
+                                }
+                            }
+                        }
+
+                        if ui.button("Import Map Tree from XML (LMT)").clicked() {
+                            if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "emt"]).pick_file() {
+                                match lcf_bridge::import_tree_from_xml(proj, &path) {
+                                    Ok(()) => {
+                                        self.status_message = Some(Ok(format!("Map tree imported from {:?}", path.file_name().unwrap())));
+                                        self.pending_import = Some(XmlImportKind::Tree);
+                                    }
+                                    Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
+                                }
+                            }
+                        }
+                    });
+
+                    if let Some(map_id) = active_map_id {
+                        ui.horizontal(|ui| {
+                            if ui.button(format!("Import Current Map #{:04} from XML (LMU)", map_id)).clicked() {
+                                if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "emu"]).pick_file() {
+                                    match lcf_bridge::import_map_from_xml(proj, map_id, &path) {
+                                        Ok(()) => {
+                                            self.status_message = Some(Ok(format!("Map imported from {:?}", path.file_name().unwrap())));
+                                            self.pending_import = Some(XmlImportKind::Map(map_id));
+                                        }
+                                        Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
+                                    }
+                                }
+                            }
+
+                            if ui.button("Import Save01.lsd from XML (LSD)").clicked() {
+                                if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "esd"]).pick_file() {
+                                    match lcf_bridge::import_save_from_xml(proj, "Save01.lsd", &path) {
+                                        Ok(()) => {
+                                            self.status_message = Some(Ok(format!("Save imported from {:?}", path.file_name().unwrap())));
+                                            self.pending_import = Some(XmlImportKind::Save);
+                                        }
+                                        Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
                                     }
                                 }
                             }

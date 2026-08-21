@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use crate::error::LcfError;
 use crate::generated::lsd_gen::Save;
@@ -7,7 +7,7 @@ use crate::reader::LcfReader;
 use crate::reader_util::ReaderUtil;
 use crate::types::EngineVersion;
 use crate::writer::LcfWriter;
-use crate::xml::XmlWriter;
+use crate::xml::{XmlReader, XmlWriter};
 
 pub const LSD_HEADER: &str = "LcfSaveData";
 
@@ -83,5 +83,21 @@ impl LsdReader {
         save.write_xml(&mut writer)?;
         writer.end_element("LSD")?;
         Ok(())
+    }
+
+    pub fn load_xml<P: AsRef<Path>>(path: P) -> Result<Save, LcfError> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Self::load_xml_from_reader(reader)
+    }
+
+    pub fn load_xml_from_reader<R: BufRead>(stream: R) -> Result<Save, LcfError> {
+        let mut reader = XmlReader::new(stream);
+        reader.expect_root()?; // <LSD>
+        // Like LDB, engine version isn't known upfront; is_2k3 only
+        // affects defaults for fields a well-formed export never omits.
+        let save = Save::read_xml(&mut reader, false)?;
+        reader.consume_wrapper_end()?; // </LSD>
+        Ok(save)
     }
 }

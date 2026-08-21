@@ -37,7 +37,7 @@ impl MapPropertiesDialogState {
         }
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, project_path: Option<&str>) -> Option<bool> {
+    pub fn show(&mut self, ctx: &egui::Context, project_path: Option<&str>, audio: Option<&crate::audio::AudioPlayer>) -> Option<bool> {
         if !self.is_open {
             return None;
         }
@@ -162,13 +162,13 @@ impl MapPropertiesDialogState {
                                     if self.props.music_type == 1 {
                                         ui.label("BGM Name:");
                                         let mut dummy_dirty = false;
-                                        crate::widgets::resource_dropdown::resource_combo_box(ui, "map_props_bgm_combo", &mut self.props.music_name, "Music", project_path, &mut dummy_dirty);
+                                        crate::widgets::resource_dropdown::resource_combo_box(ui, "map_props_bgm_combo", &mut self.props.music_name, "Music", project_path, &mut dummy_dirty, audio);
                                         ui.end_row();
                                     }
 
                                     ui.label("Panorama Graphic:");
                                     let mut dummy_dirty2 = false;
-                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "map_props_panorama_combo", &mut self.props.parallax_name, "Panorama", project_path, &mut dummy_dirty2);
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "map_props_panorama_combo", &mut self.props.parallax_name, "Panorama", project_path, &mut dummy_dirty2, audio);
                                     ui.end_row();
 
                                     ui.label("Panorama Loops:");

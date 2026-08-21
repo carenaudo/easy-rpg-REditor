@@ -11,6 +11,7 @@ pub fn show_system_form(
     cache: &mut AssetPreviewCache,
     actors: &[ActorInfo],
     dirty: &mut bool,
+    audio: Option<&crate::audio::AudioPlayer>,
 ) {
     let is_dark = ui.visuals().dark_mode;
     ui.horizontal_wrapped(|ui| {
@@ -233,19 +234,19 @@ pub fn show_system_form(
                         .spacing([12.0, 6.0])
                         .show(ui, |ui| {
                             ui.label("Title Screen BGM:");
-                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_title", &mut sys.title_music_name, "Music", project_path, dirty);
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_title", &mut sys.title_music_name, "Music", project_path, dirty, audio);
                             ui.end_row();
 
                             ui.label("Battle BGM:");
-                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_battle", &mut sys.battle_music_name, "Music", project_path, dirty);
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_battle", &mut sys.battle_music_name, "Music", project_path, dirty, audio);
                             ui.end_row();
 
                             ui.label("Victory ME:");
-                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_victory", &mut sys.victory_music_name, "Music", project_path, dirty);
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_victory", &mut sys.victory_music_name, "Music", project_path, dirty, audio);
                             ui.end_row();
 
                             ui.label("Game Over ME:");
-                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_gameover", &mut sys.gameover_music_name, "Music", project_path, dirty);
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_gameover", &mut sys.gameover_music_name, "Music", project_path, dirty, audio);
                             ui.end_row();
                         });
 

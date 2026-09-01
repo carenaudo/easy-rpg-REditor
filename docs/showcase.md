@@ -43,16 +43,16 @@ A visual tour and user guide for **EasyRPG REditor**, a desktop-native map and d
 The main workspace provides a clean, responsive layout with a top menu bar, quick-action toolbar, collapsible map tree on the left, live tileset palette, and a scrollable, zoomable map canvas with high-performance rendering.
 
 ### Tile Editing Mode (F5 / F6)
-In **Tiles Mode** (Lower Layer `F5`, Upper Layer `F6`), you can paint tiles directly onto the map canvas with full undo/redo (`Ctrl+Z` / `Ctrl+Y`). 
+In **Tiles Mode** (Lower Layer `F5`, Upper Layer `F6`), you can paint tiles onto the map canvas with undo/redo support (`Ctrl+Z` / `Ctrl+Y`), similar to the original RPG Maker editor. 
 * **Drawing Tools**: Pen, Rectangle, Ellipse, Flood Fill, and Eyedropper (`Alt+Click` or Middle-Click).
-* **Display Overlays**: Toggle grid lines, passability markers, inactive layer dimming, and event markers.
+* **Display Overlays**: Optional grid lines, passability markers, inactive layer dimming, and event markers for enhanced visibility.
 
 ![Map Editor - Tiles Mode](images/mainwindow-tiles.png)
 
 ---
 
 ### Event Editing Mode (F7)
-In **Events Mode** (`F7`), all map events are rendered with their active character graphic (from CharSet) or event ID badge.
+In **Events Mode** (`F7`), map events are displayed with their character graphic (from CharSet) or event ID badge.
 * Double-clicking an event opens the Event Editor.
 * Double-clicking an empty tile creates a new event at that coordinate.
 
@@ -61,32 +61,32 @@ In **Events Mode** (`F7`), all map events are rendered with their active charact
 ---
 
 ### Right-Click Context Menu & Quick Templates
-Right-clicking anywhere on the map canvas while in **Events Mode** opens a context menu:
-* **Empty Tile**: Options for *New Event Here*, *Paste Event*, *Set Starting Position (Party / Boat)*, and **Quick Event Templates** (Doors with automatic map transfers, Treasure Chests with item/gold rewards, Inns, Map Transitions, Save Points, and Recovery Springs).
-* **Occupied Tile**: Direct actions for *Edit Event*, *Delete*, *Cut*, and *Copy*. Prevents creating overlapping events on the same tile.
+Right-clicking on the map canvas while in **Events Mode** opens a context menu:
+* **Empty Tile**: Options for *New Event Here*, *Paste Event*, *Set Starting Position (Party / Boat)*, and **Quick Event Templates** (Doors with map transfers, Treasure Chests with item/gold rewards, Inns, Map Transitions, Save Points, and Recovery Springs).
+* **Occupied Tile**: Options for *Edit Event*, *Delete*, *Cut*, and *Copy*. The editor respects existing events on the same tile.
 
 ![Map Right-Click Menu](images/map-rightbutton.png)
 
 ---
 
 ### Drag-and-Drop Event Repositioning
-You can directly grab any event with the primary mouse button and drag it to a new location.
-* Live position feedback coordinates are displayed.
-* **Collision Safety**: If dropped onto a tile already occupied by another event, it automatically snaps back to its original coordinates to prevent stacking.
+Events can be repositioned by dragging them with the primary mouse button.
+* Position feedback coordinates are shown during dragging.
+* **Collision Handling**: If dropped onto a tile with another event, the event returns to its original position to maintain proper spacing.
 
 ![Map Drag and Drop Events](images/map-drag-events.png)
 
 ---
 
 ### Map Tree & Hierarchy
-The left sidebar organizes your maps in a hierarchical tree. Right-clicking any map item reveals options to create child maps, duplicate existing maps, shift map layers, edit properties, or delete maps.
+The left sidebar displays your maps in a hierarchical tree structure. Right-clicking any map item offers options to create child maps, duplicate maps, adjust map order, edit properties, or delete maps.
 
 ![Map Tree Context Menu](images/main-maps.png)
 
 ---
 
 ### Map Properties
-Configure map dimensions, assign chipsets, define scroll wrapping, set custom background music (BGM) and background parallax images, and specify random encounter step rates along with monster troop formation tables.
+Edit map dimensions, select chipsets, configure scroll behavior, set background music (BGM) and parallax backgrounds, and adjust encounter rates and monster troop formations.
 
 ![Map Properties](images/main-properties.png)
 
@@ -94,12 +94,12 @@ Configure map dimensions, assign chipsets, define scroll wrapping, set custom ba
 
 ## Database Suite & Engine Compatibility (2000 vs 2003)
 
-The Database (`F9`) provides access to every component of your game's data structure, featuring **Adaptive Engine Visibility** that tailors available tabs and fields to your project's engine version.
+The Database (`F9`) provides access to your game's data, with **Adaptive Engine Visibility** that adjusts available tabs and fields based on your project's engine version.
 
 ### Adaptive Engine Modes (2000 vs 2003)
-The editor automatically detects whether a project is **RPG Maker 2000** or **RPG Maker 2003** and adapts the UI:
-* In **RPG Maker 2000** mode, 2003-only features (such as the *Classes* category, Actor Special Combat Traits, Battler Animation IDs, Skill SP percentages, and System2 graphics) are hidden to prevent saving incompatible data.
-* In **RPG Maker 2003** mode, full side-view battle parameters, classes, and battle commands are enabled.
+The editor detects your project's engine version (**RPG Maker 2000** or **RPG Maker 2003**) and adjusts the interface:
+* In **RPG Maker 2000** mode, 2003-only features (such as *Classes*, Actor Special Combat Traits, Battler Animation IDs, Skill SP percentages, and System2 graphics) are not displayed.
+* In **RPG Maker 2003** mode, additional options like side-view battle parameters, classes, and battle commands are available.
 
 | RPG Maker 2000 Mode | RPG Maker 2003 Mode |
 | :---: | :---: |
@@ -108,7 +108,7 @@ The editor automatically detects whether a project is **RPG Maker 2000** or **RP
 ---
 
 ### Actors & Classes
-Customize party members with initial/max levels, animated CharSet previews, FaceSet previews, starting equipment, and interactive parameter stat growth curves (Max HP, Max SP, Attack, Defense, Spirit, Agility). In RPG Maker 2003 mode, configure hero classes, battle commands, dual-wielding, and combat traits.
+Configure party members with initial/max levels, CharSet and FaceSet previews, starting equipment, and parameter growth curves (Max HP, Max SP, Attack, Defense, Spirit, Agility). In RPG Maker 2003 mode, you can also assign classes, battle commands, dual-wielding, and combat traits.
 
 | Actor General Settings | Actor Parameter Growth Curves |
 | :---: | :---: |
@@ -121,7 +121,7 @@ Customize party members with initial/max levels, animated CharSet previews, Face
 ---
 
 ### Skills & Items
-Define offensive magic, restorative skills, consumables, weapons, and armor with custom cost calculations (flat SP or % Max SP in 2003), range scopes, animation links, and attribute modifiers.
+Create offensive magic, restorative skills, consumables, weapons, and armor with cost calculations (flat SP or % Max SP in 2003), range options, animation effects, and attribute adjustments.
 
 | Skills | Items Overview |
 | :---: | :---: |
@@ -134,7 +134,7 @@ Define offensive magic, restorative skills, consumables, weapons, and armor with
 ---
 
 ### Enemies & Battle Troops
-Set up monster stats, gold/experience payouts, item drops, and behavioral action conditions (turn counts, HP thresholds, switch triggers). Assemble enemies into Troops with custom battle background positioning and page-based battle events.
+Configure monster stats, gold/experience payouts, item drops, and action conditions (turn counts, HP thresholds, switch triggers). Organize enemies into Troops with battle background positioning and page-based battle events.
 
 | Enemies | Battle Troops & Formations |
 | :---: | :---: |
@@ -143,7 +143,7 @@ Set up monster stats, gold/experience payouts, item drops, and behavioral action
 ---
 
 ### Attributes & Status Effects
-Fine-tune elemental/weapon damage multipliers (Rank A through E) and status ailments with turn-based duration, stat penalties, message text, and recovery conditions.
+Adjust elemental and weapon damage multipliers (Rank A through E) and configure status ailments with duration, stat effects, messages, and recovery conditions.
 
 | Attribute Elements | States & Status Effects |
 | :---: | :---: |
@@ -152,14 +152,14 @@ Fine-tune elemental/weapon damage multipliers (Rank A through E) and status ailm
 ---
 
 ### Battle Animations
-Build frame-by-frame visual effects using sprite sheets with live preview playback. Position animation cells, configure scale and flash effects, and synchronize sound effects with frame playback.
+Create frame-by-frame visual effects from sprite sheets with preview playback. Position animation cells, adjust scale and flash effects, and align sound effects with frames.
 
 ![Database - Battle Animations](images/db-animations.png)
 
 ---
 
 ### Chipsets & Passability
-Configure tileset graphics (supporting PNG, BMP, and XYZ formats), assign terrain IDs, and define passability flags (Allow, Block, Star/Overlay, Counter) as well as directional passage blocks (Up, Down, Left, Right) for both lower and upper layers.
+Select tileset graphics (PNG, BMP, and XYZ formats supported), assign terrain IDs, and set passability flags (Allow, Block, Star/Overlay, Counter) and directional blocks (Up, Down, Left, Right) for each layer.
 
 | Chipset Graphics & Terrain | Basic Passability Flags | Directional Block Flags |
 | :---: | :---: | :---: |
@@ -168,14 +168,14 @@ Configure tileset graphics (supporting PNG, BMP, and XYZ formats), assign terrai
 ---
 
 ### Terrain Settings
-Configure terrain attributes including movement damage, encounter multipliers, special backgrounds, and vehicle passability (Boat, Ship, Airship).
+Set terrain properties such as movement damage, encounter rates, backgrounds, and vehicle passability (Boat, Ship, Airship).
 
 ![Database - Terrain](images/db-terrain.png)
 
 ---
 
 ### Global Switches & Variables
-Organize global flags and numeric variables with quick naming and batch search/range management.
+Manage global flags and numeric variables with naming and batch search/range tools.
 
 | Global Switches | Global Variables |
 | :---: | :---: |
@@ -184,7 +184,7 @@ Organize global flags and numeric variables with quick naming and batch search/r
 ---
 
 ### System Settings & Terms
-Configure starting party members, system windowskins, vehicle sprites, screen transitions, sound effects (SE), and background music (BGM). Customize standard UI labels and system vocabulary (full 153-field coverage).
+Set starting party members, windowskins, vehicle graphics, screen transitions, and sound/music settings. Customize UI text and vocabulary (153 fields).
 
 | System Settings | Terms & Vocabulary |
 | :---: | :---: |
@@ -195,14 +195,14 @@ Configure starting party members, system windowskins, vehicle sprites, screen tr
 ## Event Creation & Scripting
 
 ### Map Event Editor
-The Event Editor gives full control over multi-page map events. Each page supports custom starting conditions (switches, variables, items), movement patterns and frequencies, trigger types (Action Button, Player Touch, Event Touch, Auto Start, Parallel Process), and a complete event command list.
+Edit multi-page map events with customizable conditions (switches, variables, items), movement patterns and frequencies, trigger types (Action Button, Player Touch, Event Touch, Auto Start, Parallel Process), and event commands.
 
 ![Event Editor](images/event-editor.png)
 
 ---
 
 ### Common Events
-Manage global background scripts, parallel processes, and reusable subroutines with switch triggers and conditions directly within the database.
+Create global events, parallel processes, and reusable routines with switch triggers and conditions in the database.
 
 ![Common Events](images/db-events.png)
 
@@ -211,56 +211,56 @@ Manage global background scripts, parallel processes, and reusable subroutines w
 ## Project Tools, Audio & Utilities
 
 ### Resource Manager & Asset Viewer
-Browse, import, export, and delete project assets across CharSet, ChipSet, FaceSet, Battle, Title, GameOver, Panorama, Monster, Music, Sound, and System folders. Features live image previews with transparency checkerboards and in-app audio playback.
+Manage project assets (CharSet, ChipSet, FaceSet, Battle, Title, GameOver, Panorama, Monster, Music, Sound, and System folders) with import, export, and delete options. Preview images with transparency checkerboards and preview audio files.
 
 ![Resource Manager](images/menu-assets.png)
 
 ---
 
 ### Sound Test & Jukebox
-Test background music (BGM), background sounds (BGS), and sound effects (SE) with playback controls, volume sliders, pitch modulation, and loop testing.
+Preview background music (BGM), background sounds (BGS), and sound effects (SE) with playback controls, volume adjustment, pitch options, and loop testing.
 
 ![Sound Test Jukebox](images/jukebox.png)
 
 ---
 
 ### MIDI & Audio Configuration
-Configure the cross-platform MIDI software synthesizer powered by `rustysynth`. The editor can auto-detect standard SoundFonts (`.sf2` files) in system and RTP directories or let you load custom soundfont files for authentic RPG Maker 2000/2003 soundtrack reproduction across Windows, Linux, and macOS.
+Configure MIDI playback with the `rustysynth` software synthesizer, supporting standard SoundFont files (`.sf2`). The editor can detect SoundFonts in system and RTP directories, or you can select custom files for RPG Maker 2000/2003 audio playback on Windows, Linux, and macOS.
 
 ![MIDI Configuration](images/midi-config.png)
 
 ---
 
 ### XML Import/Export Utility
-Export the Database (`RPG_RT.ldb`), Map Tree (`RPG_RT.lmt`), individual Maps (`MapXXXX.lmu`), or Save Files (`SaveXX.lsd`) into human-readable, liblcf-compatible XML for debugging, diffing, and inspecting project internals - then import an edited XML file back in to replace the matching project file in place (the original is backed up first).
+Export Database (`RPG_RT.ldb`), Map Tree (`RPG_RT.lmt`), Maps (`MapXXXX.lmu`), and Save Files (`SaveXX.lsd`) to human-readable XML for review, comparison, and analysis. Import edited XML files back to update project files (with automatic backup).
 
 ![XML Export Tool](images/xml-export.png)
 
 ---
 
 ### Project Health Analyzer
-Scan your project for broken references, missing asset files, invalid switch/variable references, and unreachable maps to identify integrity issues before playtesting. Also detects Maniac Patch usage - a badge appears in the Database view when signals are found (an `EasyRPG.ini` patch flag, Maniac string variables, extended Terms, or battle-trigger common events), and this dialog's scan lists every Maniac event command found across maps, common events, and troop battle events, with its exact location.
+Check your project for broken references, missing assets, invalid switch/variable references, and unreachable maps. Also detects Maniac Patch indicators (patch flags, Maniac variables, extended Terms, or special common events) and lists Maniac commands found in maps, common events, and troop battles with their locations.
 
 ![Project Health Analyzer](images/health.png)
 
 ---
 
 ### New Project Creation
-Quickly initialize a new project scaffold from built-in starter templates for RPG Maker 2000 or RPG Maker 2003.
+Create new projects using starter templates for RPG Maker 2000 or RPG Maker 2003.
 
 ![New Project Creation](images/new-game.png)
 
 ---
 
 ### RTP Path Configuration
-Auto-detect or configure the location of the EasyRPG RTP (or standard RPG Maker 2000/2003 RTP) so default assets, chipsets, and audio are resolved seamlessly.
+Set or auto-detect the EasyRPG RTP (or standard RPG Maker 2000/2003 RTP) location so assets and audio are found properly.
 
 ![RTP Configuration](images/main-rtp.png)
 
 ---
 
 ### Themes & Internationalization
-Personalize the editor with high-contrast, dark, light, and custom color themes, or switch between 8 available UI languages.
+Customize the interface with various color themes (high-contrast, dark, light, and custom options) and choose from 8 available UI languages.
 
 | Color Themes | Language Selector |
 | :---: | :---: |

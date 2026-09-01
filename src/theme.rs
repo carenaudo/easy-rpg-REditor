@@ -216,23 +216,31 @@ pub mod colors {
     pub fn event_command(code: i32, is_dark: bool) -> egui::Color32 {
         if is_dark {
             match code {
-                10110..=10150 => egui::Color32::from_rgb(250, 204, 21), // Messages & Choices (Gold)
-                12010..=12400 => egui::Color32::from_rgb(56, 189, 248), // Flow control & Branches (Cyan)
-                10210..=10230 => egui::Color32::from_rgb(74, 222, 128), // Switches & Variables (Green)
-                10610..=10630 | 11310..=11340 => egui::Color32::from_rgb(251, 146, 60), // Movement & Teleport (Orange)
+                10110..=10150 | 20140..=20141 => egui::Color32::from_rgb(250, 204, 21), // Messages & Choices (Gold)
+                12010..=12410 | 22010..=22210 => egui::Color32::from_rgb(56, 189, 248), // Flow control & Branches (Cyan)
+                10210..=10330 | 11610 => egui::Color32::from_rgb(74, 222, 128), // Switches, Variables & Progression (Green)
+                10410..=10490 => egui::Color32::from_rgb(45, 212, 191), // Character Stats, Skills, HP/SP, Equip (Teal)
+                10610..=10690 => egui::Color32::from_rgb(251, 191, 36), // Hero Customization & Graphics (Amber)
+                10810..=10870 | 11310..=11410 | 11810..=11840 => egui::Color32::from_rgb(251, 146, 60), // Movement & Teleport (Orange)
+                10910..=10920 | 11710..=11750 => egui::Color32::from_rgb(163, 230, 53), // Map Environment & Terrain (Lime)
+                11010..=11210 => egui::Color32::from_rgb(167, 139, 250), // Screen & Picture Effects (Violet)
                 11510..=11560 => egui::Color32::from_rgb(232, 121, 249), // Audio & Music (Magenta)
-                10710..=10740 | 11010..=11040 => egui::Color32::from_rgb(248, 113, 113), // Battle & Combat (Red)
-                3001..=3032 => egui::Color32::from_rgb(200, 140, 255), // Maniac Patch (Purple) - matches the accent used elsewhere for Maniac UI
+                10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 => egui::Color32::from_rgb(248, 113, 113), // Battle & Scenes (Red)
+                3001..=3032 => egui::Color32::from_rgb(200, 140, 255), // Maniac Patch (Purple)
                 _ => egui::Color32::from_rgb(226, 232, 240),
             }
         } else {
             match code {
-                10110..=10150 => egui::Color32::from_rgb(180, 120, 0), // Messages & Choices (Dark Gold)
-                12010..=12400 => egui::Color32::from_rgb(2, 132, 199), // Flow control & Branches (Dark Cyan)
-                10210..=10230 => egui::Color32::from_rgb(22, 163, 74), // Switches & Variables (Dark Green)
-                10610..=10630 | 11310..=11340 => egui::Color32::from_rgb(195, 90, 10), // Movement & Teleport (Dark Orange)
+                10110..=10150 | 20140..=20141 => egui::Color32::from_rgb(180, 120, 0), // Messages & Choices (Dark Gold)
+                12010..=12410 | 22010..=22210 => egui::Color32::from_rgb(2, 132, 199), // Flow control & Branches (Dark Cyan)
+                10210..=10330 | 11610 => egui::Color32::from_rgb(22, 163, 74), // Switches, Variables & Progression (Dark Green)
+                10410..=10490 => egui::Color32::from_rgb(13, 148, 136), // Character Stats, Skills, HP/SP, Equip (Dark Teal)
+                10610..=10690 => egui::Color32::from_rgb(217, 119, 6), // Hero Customization & Graphics (Dark Amber)
+                10810..=10870 | 11310..=11410 | 11810..=11840 => egui::Color32::from_rgb(195, 90, 10), // Movement & Teleport (Dark Orange)
+                10910..=10920 | 11710..=11750 => egui::Color32::from_rgb(101, 163, 13), // Map Environment & Terrain (Dark Lime)
+                11010..=11210 => egui::Color32::from_rgb(124, 58, 237), // Screen & Picture Effects (Dark Violet)
                 11510..=11560 => egui::Color32::from_rgb(147, 40, 160), // Audio & Music (Dark Magenta)
-                10710..=10740 | 11010..=11040 => egui::Color32::from_rgb(210, 35, 35), // Battle & Combat (Dark Red)
+                10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 => egui::Color32::from_rgb(210, 35, 35), // Battle & Scenes (Dark Red)
                 3001..=3032 => egui::Color32::from_rgb(147, 51, 178), // Maniac Patch (Dark Purple)
                 _ => egui::Color32::from_rgb(30, 45, 65),
             }

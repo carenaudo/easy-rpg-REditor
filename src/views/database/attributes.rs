@@ -17,7 +17,16 @@ pub fn show_attribute_form(ui: &mut egui::Ui, attr: &mut AttributeInfo, dirty: &
             ui.end_row();
 
             ui.label("Type:");
-            ui.label(&attr.attribute_type);
+            egui::ComboBox::from_id_salt("attr_type_combo")
+                .selected_text(if attr.attribute_type == "Magic" { "Magic / Elemental" } else { "Physical / Weapon" })
+                .show_ui(ui, |ui| {
+                    if ui.selectable_value(&mut attr.attribute_type, "Physical".to_string(), "Physical / Weapon").clicked() {
+                        *dirty = true;
+                    }
+                    if ui.selectable_value(&mut attr.attribute_type, "Magic".to_string(), "Magic / Elemental").clicked() {
+                        *dirty = true;
+                    }
+                });
             ui.end_row();
 
             ui.label("A Rate (%):");

@@ -1,7 +1,14 @@
 use eframe::egui;
 use crate::lcf_bridge::{skill_scope_label, skill_type_label, SkillInfo};
 
-pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, is_2003: bool, dirty: &mut bool) {
+pub fn show_skill_form(
+    ui: &mut egui::Ui,
+    skill: &mut SkillInfo,
+    is_2003: bool,
+    dirty: &mut bool,
+    project_path: Option<&str>,
+    audio: Option<&crate::audio::AudioPlayer>,
+) {
     let type_name = skill_type_label(skill.skill_type);
     let scope_name = skill_scope_label(skill.scope);
 
@@ -91,6 +98,50 @@ pub fn show_skill_form(ui: &mut egui::Ui, skill: &mut SkillInfo, is_2003: bool, 
 
                             ui.label("Description:");
                             if ui.add(egui::TextEdit::singleline(&mut skill.description).desired_width(260.0)).changed() { *dirty = true; }
+                            ui.end_row();
+                        });
+
+                    ui.separator();
+                    ui.heading("💬 Battle Messages & Audio");
+                    egui::Grid::new("skill_messages_grid")
+                        .num_columns(2)
+                        .spacing([12.0, 6.0])
+                        .show(ui, |ui| {
+                            ui.label("Using Line 1:");
+                            if ui.add(egui::TextEdit::singleline(&mut skill.using_message1).hint_text("%s uses skill!")).changed() { *dirty = true; }
+                            ui.end_row();
+
+                            ui.label("Using Line 2:");
+                            if ui.add(egui::TextEdit::singleline(&mut skill.using_message2)).changed() { *dirty = true; }
+                            ui.end_row();
+
+                            ui.label("Failure Style:");
+                            egui::ComboBox::from_id_salt("skill_failure_style_combo")
+                                .selected_text(match skill.failure_message {
+                                    0 => "Normal",
+                                    1 => "Dodged",
+                                    2 => "Unaffected",
+                                    3 => "No Effect",
+                                    _ => "Default",
+                                })
+                                .show_ui(ui, |ui| {
+                                    if ui.selectable_value(&mut skill.failure_message, 0, "Normal").clicked() { *dirty = true; }
+                                    if ui.selectable_value(&mut skill.failure_message, 1, "Dodged").clicked() { *dirty = true; }
+                                    if ui.selectable_value(&mut skill.failure_message, 2, "Unaffected").clicked() { *dirty = true; }
+                                    if ui.selectable_value(&mut skill.failure_message, 3, "No Effect").clicked() { *dirty = true; }
+                                });
+                            ui.end_row();
+
+                            ui.label("Sound Effect (SE):");
+                            crate::widgets::resource_dropdown::resource_combo_box(
+                                ui,
+                                "skill_se_combo",
+                                &mut skill.sound_effect_name,
+                                "Sound",
+                                project_path,
+                                dirty,
+                                audio,
+                            );
                             ui.end_row();
                         });
 

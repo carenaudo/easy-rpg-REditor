@@ -248,6 +248,77 @@ pub fn show_system_form(
                             ui.label("Game Over ME:");
                             crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_gameover", &mut sys.gameover_music_name, "Music", project_path, dirty, audio);
                             ui.end_row();
+
+                            ui.label("Inn ME:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_me_inn", &mut sys.inn_music_name, "Music", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Boat BGM:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_boat", &mut sys.boat_music_name, "Music", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Ship BGM:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_ship", &mut sys.ship_music_name, "Music", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Airship BGM:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_bgm_airship", &mut sys.airship_music_name, "Music", project_path, dirty, audio);
+                            ui.end_row();
+                        });
+
+                    ui.separator();
+                    ui.heading("🔊 System Sound Effects (SE)");
+                    egui::Grid::new("system_sfx_grid")
+                        .num_columns(2)
+                        .spacing([12.0, 6.0])
+                        .show(ui, |ui| {
+                            ui.label("Cursor Move:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_cursor", &mut sys.cursor_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Decision / OK:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_decision", &mut sys.decision_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Cancel / Back:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_cancel", &mut sys.cancel_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Buzzer / Error:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_buzzer", &mut sys.buzzer_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Battle Start:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_battle", &mut sys.battle_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Escape:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_escape", &mut sys.escape_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Enemy Attack:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_enemy_atk", &mut sys.enemy_attack_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Enemy Damaged:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_enemy_dmg", &mut sys.enemy_damaged_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Hero Damaged:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_actor_dmg", &mut sys.actor_damaged_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Dodge / Evade:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_dodge", &mut sys.dodge_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Enemy Collapse / Defeat:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_enemy_death", &mut sys.enemy_death_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
+
+                            ui.label("Item Use:");
+                            crate::widgets::resource_dropdown::resource_combo_box(ui, "sys_se_item", &mut sys.item_sound_name, "Sound", project_path, dirty, audio);
+                            ui.end_row();
                         });
 
                     ui.separator();

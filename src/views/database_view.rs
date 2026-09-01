@@ -26,6 +26,8 @@ pub struct DatabaseViewState {
     pub asset_picker: AssetPickerState,
     pub cmd_dialog: EventCommandDialogState,
     pub item_filter: String,
+    pub resize_dialog_open: bool,
+    pub resize_target_count: usize,
 }
 
 impl Default for DatabaseViewState {
@@ -51,6 +53,8 @@ impl Default for DatabaseViewState {
             asset_picker: AssetPickerState::default(),
             cmd_dialog: EventCommandDialogState::default(),
             item_filter: String::new(),
+            resize_dialog_open: false,
+            resize_target_count: 20,
         }
     }
 }
@@ -102,7 +106,7 @@ impl DatabaseViewState {
                         }
                     } else {
                         let insert_pos = self.selected_common_event_cmd.map(|i| i + 1).unwrap_or(ce.commands.len());
-                        ce.commands.insert(insert_pos, cmd);
+                        crate::lcf_bridge::insert_event_command_with_scaffolding(&mut ce.commands, insert_pos, cmd);
                         self.selected_common_event_cmd = Some(insert_pos);
                     }
                     app.common_events_dirty = true;
@@ -116,7 +120,7 @@ impl DatabaseViewState {
                             }
                         } else {
                             let insert_pos = self.troop_view_state.selected_cmd_idx.map(|i| i + 1).unwrap_or(page.commands.len());
-                            page.commands.insert(insert_pos, cmd);
+                            crate::lcf_bridge::insert_event_command_with_scaffolding(&mut page.commands, insert_pos, cmd);
                             self.troop_view_state.selected_cmd_idx = Some(insert_pos);
                         }
                         app.troops_dirty = true;
@@ -237,7 +241,7 @@ impl DatabaseViewState {
                     ui.group(|ui| {
                         ui.set_width(master_width);
 
-                    // Add / Duplicate Bar
+                    // Add / Duplicate / Delete / Resize Bar
                     ui.horizontal(|ui| {
                         if ui.small_button("➕ Add").clicked() {
                             match app.db_category {
@@ -264,6 +268,21 @@ impl DatabaseViewState {
                                     app.skills.push(crate::lcf_bridge::SkillInfo { id: new_id, name: format!("Skill {:04}", new_id), ..Default::default() });
                                     self.selected_skill = app.skills.len() - 1;
                                     app.skills_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Attributes => {
+                                    let new_id = (app.attributes.len() + 1) as i32;
+                                    app.attributes.push(crate::lcf_bridge::AttributeInfo {
+                                        id: new_id,
+                                        name: format!("Element {:04}", new_id),
+                                        attribute_type: "Physical".to_string(),
+                                        a_rate: 300,
+                                        b_rate: 200,
+                                        c_rate: 100,
+                                        d_rate: 50,
+                                        e_rate: 0,
+                                    });
+                                    self.selected_attribute = app.attributes.len() - 1;
+                                    app.attributes_dirty = true;
                                 }
                                 crate::app_state::DbCategory::Enemies => {
                                     let new_id = (app.enemies.len() + 1) as i32;
@@ -348,6 +367,17 @@ impl DatabaseViewState {
                                         app.skills_dirty = true;
                                     }
                                 }
+                                crate::app_state::DbCategory::Attributes => {
+                                    if let Some(src) = app.attributes.get(self.selected_attribute).cloned() {
+                                        let new_id = (app.attributes.len() + 1) as i32;
+                                        let mut dup = src;
+                                        dup.id = new_id;
+                                        dup.name = format!("{} (Copy)", dup.name);
+                                        app.attributes.push(dup);
+                                        self.selected_attribute = app.attributes.len() - 1;
+                                        app.attributes_dirty = true;
+                                    }
+                                }
                                 crate::app_state::DbCategory::Enemies => {
                                     if let Some(src) = app.enemies.get(self.selected_enemy).cloned() {
                                         let new_id = (app.enemies.len() + 1) as i32;
@@ -393,6 +423,103 @@ impl DatabaseViewState {
                                     }
                                 }
                                 _ => {}
+                            }
+                        }
+
+                        if ui.small_button("🗑 Del").clicked() {
+                            match app.db_category {
+                                crate::app_state::DbCategory::Actors => {
+                                    if app.actors.len() > 1 && self.selected_actor < app.actors.len() {
+                                        app.actors.remove(self.selected_actor);
+                                        for (i, a) in app.actors.iter_mut().enumerate() { a.id = (i + 1) as i32; }
+                                        if self.selected_actor >= app.actors.len() { self.selected_actor = app.actors.len() - 1; }
+                                        app.actors_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Classes => {
+                                    if app.classes.len() > 1 && self.selected_class < app.classes.len() {
+                                        app.classes.remove(self.selected_class);
+                                        for (i, c) in app.classes.iter_mut().enumerate() { c.id = (i + 1) as i32; }
+                                        if self.selected_class >= app.classes.len() { self.selected_class = app.classes.len() - 1; }
+                                        app.classes_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Items => {
+                                    if app.items.len() > 1 && self.selected_item < app.items.len() {
+                                        app.items.remove(self.selected_item);
+                                        for (i, it) in app.items.iter_mut().enumerate() { it.id = (i + 1) as i32; }
+                                        if self.selected_item >= app.items.len() { self.selected_item = app.items.len() - 1; }
+                                        app.items_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Skills => {
+                                    if app.skills.len() > 1 && self.selected_skill < app.skills.len() {
+                                        app.skills.remove(self.selected_skill);
+                                        for (i, sk) in app.skills.iter_mut().enumerate() { sk.id = (i + 1) as i32; }
+                                        if self.selected_skill >= app.skills.len() { self.selected_skill = app.skills.len() - 1; }
+                                        app.skills_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Attributes => {
+                                    if app.attributes.len() > 1 && self.selected_attribute < app.attributes.len() {
+                                        app.attributes.remove(self.selected_attribute);
+                                        for (i, at) in app.attributes.iter_mut().enumerate() { at.id = (i + 1) as i32; }
+                                        if self.selected_attribute >= app.attributes.len() { self.selected_attribute = app.attributes.len() - 1; }
+                                        app.attributes_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Enemies => {
+                                    if app.enemies.len() > 1 && self.selected_enemy < app.enemies.len() {
+                                        app.enemies.remove(self.selected_enemy);
+                                        for (i, e) in app.enemies.iter_mut().enumerate() { e.id = (i + 1) as i32; }
+                                        if self.selected_enemy >= app.enemies.len() { self.selected_enemy = app.enemies.len() - 1; }
+                                        app.enemies_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Troops => {
+                                    if app.troops.len() > 1 && self.selected_troop < app.troops.len() {
+                                        app.troops.remove(self.selected_troop);
+                                        for (i, tr) in app.troops.iter_mut().enumerate() { tr.id = (i + 1) as i32; }
+                                        if self.selected_troop >= app.troops.len() { self.selected_troop = app.troops.len() - 1; }
+                                        app.troops_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::CommonEvents => {
+                                    if app.common_events.len() > 1 && self.selected_common_event < app.common_events.len() {
+                                        app.common_events.remove(self.selected_common_event);
+                                        for (i, ce) in app.common_events.iter_mut().enumerate() { ce.id = (i + 1) as i32; }
+                                        if self.selected_common_event >= app.common_events.len() { self.selected_common_event = app.common_events.len() - 1; }
+                                        app.common_events_dirty = true;
+                                    }
+                                }
+                                crate::app_state::DbCategory::Chipsets => {
+                                    if app.chipsets.len() > 1 && self.chipsets_view.selected_idx < app.chipsets.len() {
+                                        app.chipsets.remove(self.chipsets_view.selected_idx);
+                                        for (i, cs) in app.chipsets.iter_mut().enumerate() { cs.id = (i + 1) as i32; }
+                                        if self.chipsets_view.selected_idx >= app.chipsets.len() { self.chipsets_view.selected_idx = app.chipsets.len() - 1; }
+                                        app.chipsets_dirty = true;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if ui.small_button("📏 Max...").on_hover_text("Batch resize database array capacity").clicked() {
+                            let current_len = match app.db_category {
+                                crate::app_state::DbCategory::Actors => app.actors.len(),
+                                crate::app_state::DbCategory::Classes => app.classes.len(),
+                                crate::app_state::DbCategory::Items => app.items.len(),
+                                crate::app_state::DbCategory::Skills => app.skills.len(),
+                                crate::app_state::DbCategory::Attributes => app.attributes.len(),
+                                crate::app_state::DbCategory::Enemies => app.enemies.len(),
+                                crate::app_state::DbCategory::Troops => app.troops.len(),
+                                crate::app_state::DbCategory::CommonEvents => app.common_events.len(),
+                                crate::app_state::DbCategory::Chipsets => app.chipsets.len(),
+                                _ => 0,
+                            };
+                            if current_len > 0 {
+                                self.resize_target_count = current_len;
+                                self.resize_dialog_open = true;
                             }
                         }
                     });
@@ -573,7 +700,14 @@ impl DatabaseViewState {
                             }
                             crate::app_state::DbCategory::Skills => {
                                 if let Some(skill) = app.skills.get_mut(self.selected_skill) {
-                                    skills::show_skill_form(ui, skill, app.is_2003, &mut app.skills_dirty);
+                                    skills::show_skill_form(
+                                        ui,
+                                        skill,
+                                        app.is_2003,
+                                        &mut app.skills_dirty,
+                                        app.project_path.as_deref(),
+                                        audio,
+                                    );
                                 }
                             }
                     crate::app_state::DbCategory::Attributes => {
@@ -583,7 +717,7 @@ impl DatabaseViewState {
                     }
                     crate::app_state::DbCategory::Enemies => {
                         if let Some(enemy) = app.enemies.get_mut(self.selected_enemy) {
-                            enemies::show_enemy_form(ui, enemy, proj.as_deref(), &mut self.asset_picker, asset_cache, &mut app.enemies_dirty);
+                            enemies::show_enemy_form(ui, enemy, &app.states, &app.attributes, proj.as_deref(), &mut self.asset_picker, asset_cache, &mut app.enemies_dirty);
                         }
                     }
                     crate::app_state::DbCategory::Troops => {
@@ -614,6 +748,132 @@ impl DatabaseViewState {
             });
         });
     });
+
+        // Render Batch Resize Capacity Modal
+        if self.resize_dialog_open {
+            let mut open = self.resize_dialog_open;
+            egui::Window::new("Resize Database Capacity")
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(false)
+                .show(ui.ctx(), |ui| {
+                    ui.label("Set total number of entries (1..5000):");
+                    ui.add(egui::DragValue::new(&mut self.resize_target_count).range(1..=5000));
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("OK").clicked() {
+                            let target = self.resize_target_count.clamp(1, 5000);
+                            match app.db_category {
+                                crate::app_state::DbCategory::Actors => {
+                                    while app.actors.len() < target {
+                                        let id = (app.actors.len() + 1) as i32;
+                                        app.actors.push(crate::lcf_bridge::ActorInfo { id, name: format!("Hero {:04}", id), ..Default::default() });
+                                    }
+                                    app.actors.truncate(target);
+                                    if self.selected_actor >= app.actors.len() { self.selected_actor = app.actors.len() - 1; }
+                                    app.actors_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Classes => {
+                                    while app.classes.len() < target {
+                                        let id = (app.classes.len() + 1) as i32;
+                                        app.classes.push(crate::lcf_bridge::ClassInfo { id, name: format!("Class {:04}", id), ..Default::default() });
+                                    }
+                                    app.classes.truncate(target);
+                                    if self.selected_class >= app.classes.len() { self.selected_class = app.classes.len() - 1; }
+                                    app.classes_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Items => {
+                                    while app.items.len() < target {
+                                        let id = (app.items.len() + 1) as i32;
+                                        app.items.push(crate::lcf_bridge::ItemInfo { id, name: format!("Item {:04}", id), ..Default::default() });
+                                    }
+                                    app.items.truncate(target);
+                                    if self.selected_item >= app.items.len() { self.selected_item = app.items.len() - 1; }
+                                    app.items_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Skills => {
+                                    while app.skills.len() < target {
+                                        let id = (app.skills.len() + 1) as i32;
+                                        app.skills.push(crate::lcf_bridge::SkillInfo { id, name: format!("Skill {:04}", id), ..Default::default() });
+                                    }
+                                    app.skills.truncate(target);
+                                    if self.selected_skill >= app.skills.len() { self.selected_skill = app.skills.len() - 1; }
+                                    app.skills_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Attributes => {
+                                    while app.attributes.len() < target {
+                                        let id = (app.attributes.len() + 1) as i32;
+                                        app.attributes.push(crate::lcf_bridge::AttributeInfo {
+                                            id,
+                                            name: format!("Element {:04}", id),
+                                            attribute_type: "Physical".to_string(),
+                                            a_rate: 300,
+                                            b_rate: 200,
+                                            c_rate: 100,
+                                            d_rate: 50,
+                                            e_rate: 0,
+                                        });
+                                    }
+                                    app.attributes.truncate(target);
+                                    if self.selected_attribute >= app.attributes.len() { self.selected_attribute = app.attributes.len() - 1; }
+                                    app.attributes_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Enemies => {
+                                    while app.enemies.len() < target {
+                                        let id = (app.enemies.len() + 1) as i32;
+                                        app.enemies.push(crate::lcf_bridge::EnemyInfo { id, name: format!("Enemy {:04}", id), ..Default::default() });
+                                    }
+                                    app.enemies.truncate(target);
+                                    if self.selected_enemy >= app.enemies.len() { self.selected_enemy = app.enemies.len() - 1; }
+                                    app.enemies_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Troops => {
+                                    while app.troops.len() < target {
+                                        let id = (app.troops.len() + 1) as i32;
+                                        app.troops.push(crate::lcf_bridge::TroopInfo { id, name: format!("Troop {:04}", id), ..Default::default() });
+                                    }
+                                    app.troops.truncate(target);
+                                    if self.selected_troop >= app.troops.len() { self.selected_troop = app.troops.len() - 1; }
+                                    app.troops_dirty = true;
+                                }
+                                crate::app_state::DbCategory::CommonEvents => {
+                                    while app.common_events.len() < target {
+                                        let id = (app.common_events.len() + 1) as i32;
+                                        app.common_events.push(crate::lcf_bridge::CommonEventInfo { id, name: format!("Common Event {:04}", id), ..Default::default() });
+                                    }
+                                    app.common_events.truncate(target);
+                                    if self.selected_common_event >= app.common_events.len() { self.selected_common_event = app.common_events.len() - 1; }
+                                    app.common_events_dirty = true;
+                                }
+                                crate::app_state::DbCategory::Chipsets => {
+                                    while app.chipsets.len() < target {
+                                        let id = (app.chipsets.len() + 1) as i32;
+                                        app.chipsets.push(crate::lcf_bridge::ChipsetInfo {
+                                            id,
+                                            name: format!("ChipSet {:04}", id),
+                                            chipset_name: "World".to_string(),
+                                            terrain_data: vec![1; 162],
+                                            passable_data_lower: vec![15; 162],
+                                            passable_data_upper: vec![15; 144],
+                                            animation_type: 0,
+                                            animation_speed: 0,
+                                        });
+                                    }
+                                    app.chipsets.truncate(target);
+                                    if self.chipsets_view.selected_idx >= app.chipsets.len() { self.chipsets_view.selected_idx = app.chipsets.len() - 1; }
+                                    app.chipsets_dirty = true;
+                                }
+                                _ => {}
+                            }
+                            self.resize_dialog_open = false;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            self.resize_dialog_open = false;
+                        }
+                    });
+                });
+            self.resize_dialog_open = open;
+        }
 }
 }
 

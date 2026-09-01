@@ -367,8 +367,8 @@ impl MapViewState {
                 trigger: 0, // Action button
                 layer: 1,
                 commands: vec![
-                    EventCommandInfo { code: 11140, string: "Open1".to_string(), ..Default::default() },
-                    EventCommandInfo { code: 10610, parameters: vec![target_map, target_x, target_y], ..Default::default() },
+                    EventCommandInfo { code: 11550, string: "Open1".to_string(), ..Default::default() },
+                    EventCommandInfo { code: 10810, parameters: vec![target_map, target_x, target_y], ..Default::default() },
                 ],
                 ..Default::default()
             }],
@@ -395,7 +395,7 @@ impl MapViewState {
                     trigger: 0,
                     layer: 1,
                     commands: vec![
-                        EventCommandInfo { code: 11140, string: "Chest1".to_string(), ..Default::default() },
+                        EventCommandInfo { code: 11550, string: "Chest1".to_string(), ..Default::default() },
                         EventCommandInfo { code: 10310, parameters: vec![0, 0, 50], ..Default::default() },
                         EventCommandInfo { code: 10110, string: "Found 50 Gold!".to_string(), ..Default::default() },
                         EventCommandInfo { code: 10210, parameters: vec![1, 0, 0], ..Default::default() },
@@ -435,10 +435,10 @@ impl MapViewState {
                 layer: 1,
                 commands: vec![
                     EventCommandInfo { code: 10110, string: "Welcome to the Inn! Stay for 10 Gold?".to_string(), ..Default::default() },
-                    EventCommandInfo { code: 10130, string: "Yes/No".to_string(), ..Default::default() },
+                    EventCommandInfo { code: 10140, string: "Yes/No".to_string(), ..Default::default() },
                     EventCommandInfo { code: 10310, parameters: vec![1, 0, 10], ..Default::default() },
-                    EventCommandInfo { code: 11110, string: "Inn".to_string(), ..Default::default() },
-                    EventCommandInfo { code: 11030, parameters: vec![20], ..Default::default() },
+                    EventCommandInfo { code: 11510, string: "Inn".to_string(), ..Default::default() },
+                    EventCommandInfo { code: 11410, parameters: vec![20], ..Default::default() },
                     EventCommandInfo { code: 10110, string: "Have a safe journey!".to_string(), ..Default::default() },
                 ],
                 ..Default::default()
@@ -463,7 +463,7 @@ impl MapViewState {
                 trigger: 1, // Player touch
                 layer: 0, // Below player
                 commands: vec![
-                    EventCommandInfo { code: 10610, parameters: vec![target_map, target_x, target_y], ..Default::default() },
+                    EventCommandInfo { code: 10810, parameters: vec![target_map, target_x, target_y], ..Default::default() },
                 ],
                 ..Default::default()
             }],
@@ -490,11 +490,11 @@ impl MapViewState {
                 layer: 1, // Same level
                 commands: vec![
                     EventCommandInfo { code: 10110, string: "Would you like to save your game?".to_string(), ..Default::default() },
-                    EventCommandInfo { code: 10130, string: "Yes/No".to_string(), ..Default::default() },
-                    EventCommandInfo { code: 20130, parameters: vec![0], ..Default::default() }, // Choice 1: Yes
-                    EventCommandInfo { code: 11430, ..Default::default() }, // Open Save Menu
-                    EventCommandInfo { code: 20130, parameters: vec![1], ..Default::default() }, // Choice 2: No
-                    EventCommandInfo { code: 20132, ..Default::default() }, // End Choices
+                    EventCommandInfo { code: 10140, string: "Yes/No".to_string(), ..Default::default() },
+                    EventCommandInfo { code: 20140, parameters: vec![0], ..Default::default() }, // Choice 1: Yes
+                    EventCommandInfo { code: 11910, ..Default::default() }, // Open Save Menu
+                    EventCommandInfo { code: 20140, parameters: vec![1], ..Default::default() }, // Choice 2: No
+                    EventCommandInfo { code: 20141, ..Default::default() }, // End Choices
                 ],
                 ..Default::default()
             }],
@@ -520,8 +520,8 @@ impl MapViewState {
                 trigger: 0, // Action Button
                 layer: 1, // Same level
                 commands: vec![
-                    EventCommandInfo { code: 10730, parameters: vec![31, 31, 31, 20, 10], ..Default::default() }, // Flash screen white
-                    EventCommandInfo { code: 10420, parameters: vec![0], ..Default::default() }, // Recover All Entire Party
+                    EventCommandInfo { code: 11040, parameters: vec![31, 31, 31, 20, 10], ..Default::default() }, // Flash screen white
+                    EventCommandInfo { code: 10490, parameters: vec![0], ..Default::default() }, // Recover All Entire Party
                     EventCommandInfo { code: 10110, string: "The soothing spring waters have restored your party's HP and SP!".to_string(), ..Default::default() },
                 ],
                 ..Default::default()
@@ -1034,16 +1034,17 @@ impl MapViewState {
                             }
 
                             if self.copied_event.is_some() && ui.button(format!("📋 {}", rust_i18n::t!("map.paste_event"))).clicked() {
-                                self.layer_mode = MapLayerMode::Events;
-                                self.show_events = true;
-                                let mut pasted = self.copied_event.clone().unwrap();
-                                pasted.id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
-                                pasted.x = tile_x;
-                                pasted.y = tile_y;
-                                let idx = self.events.len();
-                                self.events.push(pasted.clone());
-                                self.undo_stack.push(MapEditAction::EventAdd { index: idx, event: pasted });
-                                self.events_dirty = true;
+                                if let Some(mut pasted) = self.copied_event.clone() {
+                                    self.layer_mode = MapLayerMode::Events;
+                                    self.show_events = true;
+                                    pasted.id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
+                                    pasted.x = tile_x;
+                                    pasted.y = tile_y;
+                                    let idx = self.events.len();
+                                    self.events.push(pasted.clone());
+                                    self.undo_stack.push(MapEditAction::EventAdd { index: idx, event: pasted });
+                                    self.events_dirty = true;
+                                }
                                 ui.close();
                             }
                         }

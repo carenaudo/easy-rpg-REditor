@@ -159,18 +159,109 @@ impl SaveViewState {
                             }
                         });
 
-                    if !slot.info.inventory.is_empty() {
-                        ui.separator();
+                    ui.separator();
+                    ui.horizontal(|ui| {
                         ui.heading(format!("Inventory Items ({})", slot.info.inventory.len()));
-                        egui::ScrollArea::vertical()
-                            .id_salt("save_inventory_items")
-                            .max_height(140.0)
-                            .show(ui, |ui| {
-                            for (item_id, count) in &slot.info.inventory {
-                                ui.label(format!("Item #{:04}: x{}", item_id, count));
-                            }
+                        if ui.small_button("➕ Add Item").clicked() {
+                            slot.info.inventory.push((1, 1));
+                            slot.dirty = true;
+                        }
+                    });
+
+                    let mut remove_item_idx = None;
+                    egui::ScrollArea::vertical()
+                        .id_salt("save_inventory_items_scroll")
+                        .max_height(140.0)
+                        .show(ui, |ui| {
+                            egui::Grid::new("save_inventory_grid")
+                                .num_columns(4)
+                                .spacing([12.0, 4.0])
+                                .show(ui, |ui| {
+                                    ui.label("Item ID");
+                                    ui.label("Count");
+                                    ui.label("");
+                                    ui.label("");
+                                    ui.end_row();
+
+                                    for (idx, (item_id, count)) in slot.info.inventory.iter_mut().enumerate() {
+                                        if ui.add(egui::DragValue::new(item_id).range(1..=5000).prefix("#")).changed() {
+                                            slot.dirty = true;
+                                        }
+                                        if ui.add(egui::DragValue::new(count).range(1..=99).prefix("x")).changed() {
+                                            slot.dirty = true;
+                                        }
+                                        if ui.small_button("🗑").clicked() {
+                                            remove_item_idx = Some(idx);
+                                        }
+                                        ui.end_row();
+                                    }
+                                });
                         });
+
+                    if let Some(idx) = remove_item_idx {
+                        if idx < slot.info.inventory.len() {
+                            slot.info.inventory.remove(idx);
+                            slot.dirty = true;
+                        }
                     }
+
+                    ui.separator();
+                    ui.collapsing(format!("⚡ Save Switches ({})", slot.info.switches.len()), |ui| {
+                        if slot.info.switches.is_empty() {
+                            ui.label("(No switch states in save)");
+                        } else {
+                            egui::ScrollArea::vertical()
+                                .id_salt("save_switches_scroll")
+                                .max_height(180.0)
+                                .show(ui, |ui| {
+                                    egui::Grid::new("save_switches_grid")
+                                        .num_columns(4)
+                                        .spacing([8.0, 4.0])
+                                        .show(ui, |ui| {
+                                            for (idx, sw) in slot.info.switches.iter_mut().enumerate() {
+                                                let sw_num = idx + 1;
+                                                let label = format!("{:04}: {}", sw_num, if *sw { "ON" } else { "OFF" });
+                                                if ui.checkbox(sw, label).changed() {
+                                                    slot.dirty = true;
+                                                }
+                                                if (idx + 1) % 4 == 0 {
+                                                    ui.end_row();
+                                                }
+                                            }
+                                        });
+                                });
+                        }
+                    });
+
+                    ui.separator();
+                    ui.collapsing(format!("🔢 Save Variables ({})", slot.info.variables.len()), |ui| {
+                        if slot.info.variables.is_empty() {
+                            ui.label("(No variable states in save)");
+                        } else {
+                            egui::ScrollArea::vertical()
+                                .id_salt("save_variables_scroll")
+                                .max_height(180.0)
+                                .show(ui, |ui| {
+                                    egui::Grid::new("save_variables_grid")
+                                        .num_columns(4)
+                                        .spacing([8.0, 4.0])
+                                        .show(ui, |ui| {
+                                            for (idx, var) in slot.info.variables.iter_mut().enumerate() {
+                                                let var_num = idx + 1;
+                                                ui.horizontal(|ui| {
+                                                    ui.label(format!("{:04}:", var_num));
+                                                    if ui.add(egui::DragValue::new(var).range(-9999999..=9999999)).changed() {
+                                                        slot.dirty = true;
+                                                    }
+                                                });
+                                                if (idx + 1) % 2 == 0 {
+                                                    ui.end_row();
+                                                }
+                                            }
+                                        });
+                                });
+                        }
+                    });
                 }
             });
         });

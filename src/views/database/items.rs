@@ -88,6 +88,20 @@ pub fn show_item_form(ui: &mut egui::Ui, item: &mut ItemInfo, dirty: &mut bool) 
                                 ui.label("Max SP:");
                                 if ui.add(egui::DragValue::new(&mut item.max_sp_points).range(-9999..=9999)).changed() { *dirty = true; }
                                 ui.end_row();
+
+                                if item.item_type == 1 {
+                                    ui.label("Hit Rate (%):");
+                                    if ui.add(egui::DragValue::new(&mut item.hit).range(0..=100)).changed() { *dirty = true; }
+                                    ui.label("Critical Chance (%):");
+                                    if ui.add(egui::DragValue::new(&mut item.critical_hit).range(0..=100)).changed() { *dirty = true; }
+                                    ui.end_row();
+
+                                    ui.label("SP Cost:");
+                                    if ui.add(egui::DragValue::new(&mut item.sp_cost).range(0..=999)).on_hover_text("SP consumed per normal attack").changed() { *dirty = true; }
+                                    ui.label("");
+                                    ui.label("");
+                                    ui.end_row();
+                                }
                             });
                     }
 

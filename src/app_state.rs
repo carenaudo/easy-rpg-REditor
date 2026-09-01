@@ -72,6 +72,8 @@ pub struct AppPersistentData {
     pub rtp_path: Option<String>,
     #[serde(default)]
     pub soundfont_path: Option<String>,
+    #[serde(default)]
+    pub player_path: Option<String>,
 }
 
 impl Default for AppPersistentData {
@@ -106,6 +108,7 @@ impl Default for AppPersistentData {
             last_project: None,
             rtp_path: rtp,
             soundfont_path: sf,
+            player_path: None,
         }
     }
 }

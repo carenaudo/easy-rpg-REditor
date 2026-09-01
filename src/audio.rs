@@ -83,7 +83,8 @@ impl Source for MidiSource {
     }
 
     fn sample_rate(&self) -> std::num::NonZero<u32> {
-        std::num::NonZero::new(self.sample_rate).unwrap()
+        std::num::NonZero::new(self.sample_rate)
+            .unwrap_or_else(|| std::num::NonZero::new(44100).expect("44100 is non-zero"))
     }
 
     fn total_duration(&self) -> Option<Duration> {
@@ -115,7 +116,7 @@ impl SoundFontManager {
         let mut reader = BufReader::new(file);
         let sf = Arc::new(SoundFont::new(&mut reader).map_err(|e| format!("Invalid SoundFont file {}: {e:?}", path.display()))?);
 
-        let mut state = self.inner.write().unwrap();
+        let mut state = self.inner.write().unwrap_or_else(|e| e.into_inner());
         state.soundfont = Some(Arc::clone(&sf));
         state.path = Some(path.to_path_buf());
         state.error = None;
@@ -124,30 +125,30 @@ impl SoundFontManager {
 
     /// Unloads any currently active SoundFont.
     pub fn unload(&self) {
-        let mut state = self.inner.write().unwrap();
+        let mut state = self.inner.write().unwrap_or_else(|e| e.into_inner());
         state.soundfont = None;
         state.path = None;
         state.error = None;
     }
 
     pub fn get_soundfont(&self) -> Option<Arc<SoundFont>> {
-        self.inner.read().unwrap().soundfont.clone()
+        self.inner.read().unwrap_or_else(|e| e.into_inner()).soundfont.clone()
     }
 
     pub fn get_path(&self) -> Option<PathBuf> {
-        self.inner.read().unwrap().path.clone()
+        self.inner.read().unwrap_or_else(|e| e.into_inner()).path.clone()
     }
 
     pub fn is_loaded(&self) -> bool {
-        self.inner.read().unwrap().soundfont.is_some()
+        self.inner.read().unwrap_or_else(|e| e.into_inner()).soundfont.is_some()
     }
 
     pub fn get_last_error(&self) -> Option<String> {
-        self.inner.read().unwrap().error.clone()
+        self.inner.read().unwrap_or_else(|e| e.into_inner()).error.clone()
     }
 
     pub fn set_last_error(&self, err: Option<String>) {
-        self.inner.write().unwrap().error = err;
+        self.inner.write().unwrap_or_else(|e| e.into_inner()).error = err;
     }
 
     /// Searches custom settings, project/RTP folders, and standard OS directories for an `.sf2` soundfont file.

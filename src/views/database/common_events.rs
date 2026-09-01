@@ -24,15 +24,19 @@ pub fn show_common_event_form(
         ui.label("Trigger:");
         egui::ComboBox::from_id_salt(format!("ce_trigger_{}", ce.id))
             .selected_text(match ce.trigger {
-                0 => "Call (Explicit)",
-                1 => "AutoStart (Map)",
-                2 => "Parallel Process (Map)",
-                _ => "Call",
+                3 => "AutoStart (Map)",
+                4 => "Parallel Process (Map)",
+                5 => "Call (Explicit)",
+                6 => "Battle Start (Maniac)",
+                7 => "Battle Parallel (Maniac)",
+                _ => "Call (Explicit)",
             })
             .show_ui(ui, |ui| {
-                if ui.selectable_value(&mut ce.trigger, 0, "Call (Explicit)").clicked() { *dirty = true; }
-                if ui.selectable_value(&mut ce.trigger, 1, "AutoStart (Map)").clicked() { *dirty = true; }
-                if ui.selectable_value(&mut ce.trigger, 2, "Parallel Process (Map)").clicked() { *dirty = true; }
+                if ui.selectable_value(&mut ce.trigger, 5, "Call (Explicit)").clicked() { *dirty = true; }
+                if ui.selectable_value(&mut ce.trigger, 3, "AutoStart (Map)").clicked() { *dirty = true; }
+                if ui.selectable_value(&mut ce.trigger, 4, "Parallel Process (Map)").clicked() { *dirty = true; }
+                if ui.selectable_value(&mut ce.trigger, 6, "Battle Start (Maniac)").clicked() { *dirty = true; }
+                if ui.selectable_value(&mut ce.trigger, 7, "Battle Parallel (Maniac)").clicked() { *dirty = true; }
             });
 
         ui.separator();

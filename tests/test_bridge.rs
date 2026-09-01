@@ -403,7 +403,7 @@ mod tests {
 
         let mut page = TroopPageInfo {
             id: 1,
-            commands: vec![cmd(11510, 0), cmd(10110, 1), cmd(21510, 0), cmd(10310, 0)],
+            commands: vec![cmd(12010, 0), cmd(10110, 1), cmd(22010, 0), cmd(10310, 0)],
             ..Default::default()
         };
         let mut state = TroopViewState::default();
@@ -418,7 +418,7 @@ mod tests {
         let idx = state.selected_cmd_idx.unwrap();
         page.commands.swap(idx, idx + 1);
         state.selected_cmd_idx = Some(idx + 1);
-        assert_eq!(page.commands[1].code, 21510);
+        assert_eq!(page.commands[1].code, 22010);
         assert_eq!(page.commands[2].code, 10110);
         assert_eq!(state.selected_cmd_idx, Some(2));
 
@@ -433,7 +433,7 @@ mod tests {
         // when the removed index is now out of range.
         page.commands.remove(1);
         assert_eq!(page.commands.len(), 3);
-        assert_eq!(page.commands.iter().map(|c| c.code).collect::<Vec<_>>(), vec![11510, 21510, 10310]);
+        assert_eq!(page.commands.iter().map(|c| c.code).collect::<Vec<_>>(), vec![12010, 22010, 10310]);
 
         // Delete until empty: selection clears to None.
         state.selected_cmd_idx = Some(0);
@@ -670,6 +670,7 @@ mod tests {
             actor_id: 1,
             timer_flag: true,
             timer_sec: 150, // 2m 30s
+            ..Default::default()
         };
         assert!(cond.actor_flag);
         assert_eq!(cond.actor_id, 1);
@@ -692,6 +693,7 @@ mod tests {
             move_speed: 3,
             condition: cond,
             commands: Vec::new(),
+            ..Default::default()
         };
         assert_eq!(page.animation_type, 1);
         assert!(page.overlap_forbidden);
@@ -750,8 +752,8 @@ mod tests {
         assert_eq!(save_ev.y, 7);
         assert!(save_ev.name.starts_with("SavePoint_"));
         assert_eq!(save_ev.pages.len(), 1);
-        // Verify Save Menu command (11430) exists in generated script
-        assert!(save_ev.pages[0].commands.iter().any(|c| c.code == 11430));
+        // Verify Save Menu command (11910) exists in generated script
+        assert!(save_ev.pages[0].commands.iter().any(|c| c.code == 11910));
 
         // Generate Quick Recovery Spring
         map_view.create_quick_recovery(12, 14);
@@ -760,8 +762,8 @@ mod tests {
         assert_eq!(fountain_ev.x, 12);
         assert_eq!(fountain_ev.y, 14);
         assert!(fountain_ev.name.starts_with("Fountain_"));
-        // Verify Full Recovery command (10420) exists in generated script
-        assert!(fountain_ev.pages[0].commands.iter().any(|c| c.code == 10420));
+        // Verify Full Recovery command (10490) exists in generated script
+        assert!(fountain_ev.pages[0].commands.iter().any(|c| c.code == 10490));
     }
 
     #[test]
@@ -1273,4 +1275,315 @@ mod tests {
         // Error code check
         assert_eq!(ERR_SOUNDFONT_MISSING, "NO_SOUNDFONT");
     }
+
+    #[test]
+    fn test_event_moveroute_and_timer2_preservation() {
+        use easy_editor::lcf_bridge::{EventConditionInfo, EventInfo, EventPageInfo};
+        use lcf_core::{MoveCommand, MoveRoute};
+
+        let route = MoveRoute {
+            move_commands: vec![
+                MoveCommand { code: 1, parameter_a: 0, parameter_b: 0, parameter_c: 0, string: lcf_core::types::DBString::default() },
+                MoveCommand { code: 2, parameter_a: 0, parameter_b: 0, parameter_c: 0, string: lcf_core::types::DBString::default() },
+            ],
+            repeat: false,
+            skippable: true,
+        };
+
+        let page = EventPageInfo {
+            id: 1,
+            character_direction: 1, // Right
+            character_pattern: 2,   // Right frame
+            move_type: 6,           // Custom
+            move_route: route.clone(),
+            condition: EventConditionInfo {
+                timer2_flag: true,
+                timer2_sec: 125,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let event = EventInfo {
+            id: 1,
+            name: "NPC_Patrol".to_string(),
+            x: 10,
+            y: 15,
+            page_count: 1,
+            trigger: "Action Button".to_string(),
+            graphic: "Actor1".to_string(),
+            pages: vec![page],
+        };
+
+        // Assert move route is preserved on page struct
+        assert_eq!(event.pages[0].move_route.move_commands.len(), 2);
+        assert_eq!(event.pages[0].move_route.repeat, false);
+        assert_eq!(event.pages[0].move_route.skippable, true);
+
+        // Assert direction and pattern labels
+        assert_eq!(easy_editor::lcf_bridge::event_direction_label(event.pages[0].character_direction), "Right (→)");
+        assert_eq!(easy_editor::lcf_bridge::event_pattern_label(event.pages[0].character_pattern), "Right Frame");
+
+        // Assert timer2 is preserved
+        assert!(event.pages[0].condition.timer2_flag);
+        assert_eq!(event.pages[0].condition.timer2_sec, 125);
+    }
+
+    #[test]
+    fn test_enemy_ranks_and_system_sfx_fidelity() {
+        use easy_editor::lcf_bridge::{EnemyInfo, SystemInfo};
+
+        let enemy = EnemyInfo {
+            id: 1,
+            name: "Goblin".to_string(),
+            state_ranks: vec![0, 1, 2, 3, 4],
+            attribute_ranks: vec![2, 0, 4],
+            ..Default::default()
+        };
+
+        assert_eq!(enemy.state_ranks.len(), 5);
+        assert_eq!(enemy.state_ranks[0], 0); // Rank A
+        assert_eq!(enemy.state_ranks[4], 4); // Rank E
+        assert_eq!(enemy.attribute_ranks[1], 0); // Fire A
+
+        let sys = SystemInfo {
+            cursor_sound_name: "Cursor1".to_string(),
+            decision_sound_name: "Decision1".to_string(),
+            cancel_sound_name: "Cancel1".to_string(),
+            buzzer_sound_name: "Buzzer1".to_string(),
+            battle_sound_name: "Battle1".to_string(),
+            escape_sound_name: "Escape1".to_string(),
+            enemy_attack_sound_name: "Attack1".to_string(),
+            enemy_damaged_sound_name: "Damage1".to_string(),
+            actor_damaged_sound_name: "Damage2".to_string(),
+            dodge_sound_name: "Dodge1".to_string(),
+            enemy_death_sound_name: "Defeat1".to_string(),
+            item_sound_name: "Item1".to_string(),
+            inn_music_name: "Inn1".to_string(),
+            boat_music_name: "Boat1".to_string(),
+            ship_music_name: "Ship1".to_string(),
+            airship_music_name: "Airship1".to_string(),
+            ..Default::default()
+        };
+
+        assert_eq!(sys.battle_sound_name, "Battle1");
+        assert_eq!(sys.escape_sound_name, "Escape1");
+        assert_eq!(sys.enemy_attack_sound_name, "Attack1");
+        assert_eq!(sys.enemy_damaged_sound_name, "Damage1");
+        assert_eq!(sys.actor_damaged_sound_name, "Damage2");
+        assert_eq!(sys.dodge_sound_name, "Dodge1");
+        assert_eq!(sys.enemy_death_sound_name, "Defeat1");
+        assert_eq!(sys.item_sound_name, "Item1");
+        assert_eq!(sys.inn_music_name, "Inn1");
+        assert_eq!(sys.boat_music_name, "Boat1");
+        assert_eq!(sys.ship_music_name, "Ship1");
+        assert_eq!(sys.airship_music_name, "Airship1");
+    }
+
+    #[test]
+    fn test_event_scaffolding_and_rich_commands() {
+        use easy_editor::lcf_bridge::{
+            event_command_label, insert_event_command_with_scaffolding, EventCommandInfo,
+        };
+
+        // 1. Test Scaffolding for Conditional Branch
+        let mut cmds = Vec::new();
+        let branch_cmd = EventCommandInfo {
+            code: 12010,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![0, 5, 0], // Switch 5 is ON
+        };
+        insert_event_command_with_scaffolding(&mut cmds, 0, branch_cmd);
+        assert_eq!(cmds.len(), 3);
+        assert_eq!(cmds[0].code, 12010); // Branch
+        assert_eq!(cmds[1].code, 22010); // Else
+        assert_eq!(cmds[2].code, 22011); // End Branch
+
+        // 2. Test Scaffolding for Loop
+        let mut loop_cmds = Vec::new();
+        let loop_cmd = EventCommandInfo {
+            code: 12210,
+            indent: 1,
+            string: String::new(),
+            parameters: vec![],
+        };
+        insert_event_command_with_scaffolding(&mut loop_cmds, 0, loop_cmd);
+        assert_eq!(loop_cmds.len(), 2);
+        assert_eq!(loop_cmds[0].code, 12210); // Loop
+        assert_eq!(loop_cmds[1].code, 22210); // End Loop
+        assert_eq!(loop_cmds[1].indent, 1);
+
+        // 3. Test Scaffolding for Show Choices
+        let mut choice_cmds = Vec::new();
+        let choice_cmd = EventCommandInfo {
+            code: 10140,
+            indent: 0,
+            string: "Yes\\No".to_string(),
+            parameters: vec![0, 0, 0],
+        };
+        insert_event_command_with_scaffolding(&mut choice_cmds, 0, choice_cmd);
+        assert_eq!(choice_cmds.len(), 5);
+        assert_eq!(choice_cmds[0].code, 10140);
+        assert_eq!(choice_cmds[1].code, 20140); // Choice 1 (Yes)
+        assert_eq!(choice_cmds[2].code, 20140); // Choice 2 (No)
+        assert_eq!(choice_cmds[3].code, 20140); // Cancel
+        assert_eq!(choice_cmds[4].code, 20141); // End Choices
+
+        // 4. Test Rich Control Variables Labels
+        let cv_rand = EventCommandInfo {
+            code: 10220,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![0, 1, 1, 1, 3, 10, 50], // V[1] += Random(10..50)
+        };
+        let label_rand = event_command_label(&cv_rand);
+        assert!(label_rand.contains("Control Variables"));
+        assert!(label_rand.contains("[#0001] += Random(10..50)"));
+
+        let cv_hero = EventCommandInfo {
+            code: 10220,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![0, 2, 2, 0, 5, 1, 6], // V[2] = Hero 1 Attack
+        };
+        let label_hero = event_command_label(&cv_hero);
+        assert!(label_hero.contains("[#0002] = Hero #0001 Attack"));
+
+        // 5. Test Rich Conditional Branch Labels
+        let cb_var = EventCommandInfo {
+            code: 12010,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![1, 10, 0, 100, 1], // Branch if V[10] >= 100
+        };
+        let label_var = event_command_label(&cb_var);
+        assert!(label_var.contains("Branch if Variable [#0010] >= 100"));
+    }
+
+    #[test]
+    fn test_critical_gap_fixes_and_data_parity() {
+        use easy_editor::lcf_bridge::*;
+
+        // 1. Common Event Standard LibLCF Trigger Codes (3 = AutoStart, 4 = Parallel, 5 = Call)
+        let ce_default = CommonEventInfo::default();
+        assert_eq!(ce_default.trigger, 5); // Default to Call
+
+        let ce_auto = CommonEventInfo {
+            id: 1,
+            name: "Auto Init".to_string(),
+            trigger: 3, // AutoStart
+            switch_flag: true,
+            switch_id: 10,
+            commands: Vec::new(),
+        };
+        assert_eq!(ce_auto.trigger, 3);
+
+        let ce_parallel = CommonEventInfo {
+            id: 2,
+            name: "Weather Loop".to_string(),
+            trigger: 4, // Parallel
+            switch_flag: false,
+            switch_id: 0,
+            commands: Vec::new(),
+        };
+        assert_eq!(ce_parallel.trigger, 4);
+
+        // 2. SaveSlotInfo Switches, Variables, and Editable Inventory
+        let mut save_slot = SaveSlotInfo {
+            file_name: "Save01.lsd".to_string(),
+            hero_name: "Alex".to_string(),
+            hero_level: 50,
+            hero_hp: 2500,
+            timestamp: "2026-09-01 02:30".to_string(),
+            map_id: 1,
+            position_x: 10,
+            position_y: 15,
+            gold: 99999,
+            party: Vec::new(),
+            inventory: vec![(1, 10), (5, 2)],
+            switches: vec![false, true, true, false],
+            variables: vec![0, 42, 100, -5],
+            error: None,
+        };
+        assert_eq!(save_slot.switches.len(), 4);
+        assert!(save_slot.switches[1]);
+        assert_eq!(save_slot.variables[1], 42);
+        assert_eq!(save_slot.inventory.len(), 2);
+        // Mutate inventory & save states
+        save_slot.inventory.push((10, 99));
+        save_slot.switches[0] = true;
+        save_slot.variables[0] = 777;
+        assert_eq!(save_slot.inventory.len(), 3);
+        assert!(save_slot.switches[0]);
+        assert_eq!(save_slot.variables[0], 777);
+
+        // 3. Skill Messages & Sound Effect Fidelity
+        let skill = SkillInfo {
+            id: 1,
+            name: "Mega Flare".to_string(),
+            description: "Incinerates enemies".to_string(),
+            using_message1: "chants the incantation of ruin!".to_string(),
+            using_message2: "A pillar of flames descends!".to_string(),
+            failure_message: 1, // Dodged
+            sound_effect_name: "Fire3".to_string(),
+            power: 500,
+            hit: 95,
+            ..Default::default()
+        };
+        assert_eq!(skill.using_message1, "chants the incantation of ruin!");
+        assert_eq!(skill.sound_effect_name, "Fire3");
+        assert_eq!(skill.failure_message, 1);
+
+        // 4. Troop Page 10 Condition Triggers Bitmask
+        let cond = TroopPageConditionInfo {
+            flags: 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 | 512,
+            switch_a_id: 1,
+            switch_b_id: 2,
+            variable_id: 5,
+            variable_value: 100,
+            turn_a: 1,
+            turn_b: 2,
+            fatigue_min: 0,
+            fatigue_max: 50,
+            enemy_id: 1,
+            enemy_hp_min: 0,
+            enemy_hp_max: 25,
+            actor_id: 1,
+            actor_hp_min: 0,
+            actor_hp_max: 10,
+            turn_enemy_id: 1,
+            turn_enemy_a: 0,
+            turn_enemy_b: 1,
+            turn_actor_id: 1,
+            turn_actor_a: 0,
+            turn_actor_b: 1,
+            command_actor_id: 1,
+            command_id: 2,
+        };
+        assert_ne!(cond.flags & 1, 0); // Switch A
+        assert_ne!(cond.flags & 2, 0); // Switch B
+        assert_ne!(cond.flags & 4, 0); // Turn
+        assert_ne!(cond.flags & 8, 0); // Fatigue
+        assert_ne!(cond.flags & 16, 0); // Enemy HP
+        assert_ne!(cond.flags & 32, 0); // Actor HP
+        assert_ne!(cond.flags & 64, 0); // Turn Enemy
+        assert_ne!(cond.flags & 128, 0); // Turn Actor
+        assert_ne!(cond.flags & 256, 0); // Command Actor
+        assert_ne!(cond.flags & 512, 0); // Variable
+
+        // 5. Map Properties Battle Background
+        let map_props = MapPropertiesInfo {
+            id: 1,
+            name: "Cave of Trials".to_string(),
+            background_type: 1, // Specific backdrop
+            background_name: "Dungeon1".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(map_props.background_type, 1);
+        assert_eq!(map_props.background_name, "Dungeon1");
+    }
 }
+
+
+

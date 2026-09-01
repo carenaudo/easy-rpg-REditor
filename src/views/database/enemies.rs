@@ -1,11 +1,13 @@
 use eframe::egui;
 use crate::dialogs::asset_picker::AssetPickerState;
-use crate::lcf_bridge::{EnemyActionInfo, EnemyInfo};
+use crate::lcf_bridge::{AttributeInfo, EnemyActionInfo, EnemyInfo, StateInfo};
 use crate::widgets::asset_viewer::{draw_checkerboard, AssetPreviewCache};
 
 pub fn show_enemy_form(
     ui: &mut egui::Ui,
     enemy: &mut EnemyInfo,
+    states: &[StateInfo],
+    attributes: &[AttributeInfo],
     project_path: Option<&str>,
     picker: &mut AssetPickerState,
     cache: &mut AssetPreviewCache,
@@ -317,7 +319,105 @@ pub fn show_enemy_form(
                     }
                 }
             });
+
+            ui.separator();
+            render_ranks_table(ui, &mut enemy.state_ranks, &mut enemy.attribute_ranks, states, attributes, dirty);
         });
+}
+
+fn render_ranks_table(
+    ui: &mut egui::Ui,
+    state_ranks: &mut Vec<i32>,
+    attr_ranks: &mut Vec<i32>,
+    states: &[StateInfo],
+    attributes: &[AttributeInfo],
+    dirty: &mut bool,
+) {
+    let is_dark = ui.visuals().dark_mode;
+    let col_a = crate::theme::colors::rank_a(is_dark);
+    let col_b = crate::theme::colors::rank_b(is_dark);
+    let col_c = crate::theme::colors::rank_c(is_dark);
+    let col_d = crate::theme::colors::rank_d(is_dark);
+    let col_e = crate::theme::colors::rank_e(is_dark);
+
+    ui.group(|ui| {
+        ui.heading("Resistances & Weaknesses (State & Element Ranks)");
+        ui.columns(2, |cols| {
+            // Left: State Resistances
+            cols[0].group(|ui| {
+                ui.heading(format!("States Susceptibility ({})", states.len()));
+                if states.is_empty() {
+                    ui.label("(No states defined)");
+                } else {
+                    if state_ranks.len() < states.len() {
+                        state_ranks.resize(states.len(), 2); // Default rank C (index 2)
+                    }
+                    egui::Grid::new("enemy_state_ranks_grid")
+                        .num_columns(6)
+                        .spacing([8.0, 4.0])
+                        .show(ui, |ui| {
+                            ui.label("State");
+                            ui.colored_label(col_a, "A (100%)");
+                            ui.colored_label(col_b, "B (80%)");
+                            ui.colored_label(col_c, "C (60%)");
+                            ui.colored_label(col_d, "D (30%)");
+                            ui.colored_label(col_e, "E (0%)");
+                            ui.end_row();
+
+                            for (idx, state) in states.iter().enumerate() {
+                                ui.label(format!("{:02}: {}", state.id, state.name));
+                                if let Some(current_rank) = state_ranks.get_mut(idx) {
+                                    for r in 0..=4 {
+                                        if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
+                                            *current_rank = r;
+                                            *dirty = true;
+                                        }
+                                    }
+                                }
+                                ui.end_row();
+                            }
+                        });
+                }
+            });
+
+            // Right: Attribute / Element Resistances
+            cols[1].group(|ui| {
+                ui.heading(format!("Attribute / Element Resistances ({})", attributes.len()));
+                if attributes.is_empty() {
+                    ui.label("(No attributes defined)");
+                } else {
+                    if attr_ranks.len() < attributes.len() {
+                        attr_ranks.resize(attributes.len(), 2); // Default rank C (index 2)
+                    }
+                    egui::Grid::new("enemy_attr_ranks_grid")
+                        .num_columns(6)
+                        .spacing([8.0, 4.0])
+                        .show(ui, |ui| {
+                            ui.label("Element");
+                            ui.colored_label(col_a, "A (200%)");
+                            ui.colored_label(col_b, "B (150%)");
+                            ui.colored_label(col_c, "C (100%)");
+                            ui.colored_label(col_d, "D (50%)");
+                            ui.colored_label(col_e, "E (0%)");
+                            ui.end_row();
+
+                            for (idx, attr) in attributes.iter().enumerate() {
+                                ui.label(format!("{:02}: {}", attr.id, attr.name));
+                                if let Some(current_rank) = attr_ranks.get_mut(idx) {
+                                    for r in 0..=4 {
+                                        if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
+                                            *current_rank = r;
+                                            *dirty = true;
+                                        }
+                                    }
+                                }
+                                ui.end_row();
+                            }
+                        });
+                }
+            });
+        });
+    });
 }
 
 

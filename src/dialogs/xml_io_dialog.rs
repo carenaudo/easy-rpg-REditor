@@ -71,7 +71,7 @@ impl XmlIoDialogState {
                         if ui.button("Export Database to XML (LDB)").clicked() {
                             if let Some(path) = FileDialog::new().set_file_name("RPG_RT.edb").add_filter("XML", &["xml", "edb"]).save_file() {
                                 match lcf_bridge::export_database_to_xml(proj, &path) {
-                                    Ok(()) => self.status_message = Some(Ok(format!("Database exported to {:?}", path.file_name().unwrap()))),
+                                    Ok(()) => self.status_message = Some(Ok(format!("Database exported to {}", path.file_name().unwrap_or_default().to_string_lossy()))),
                                     Err(e) => self.status_message = Some(Err(format!("Export failed: {e}"))),
                                 }
                             }
@@ -80,7 +80,7 @@ impl XmlIoDialogState {
                         if ui.button("Export Map Tree to XML (LMT)").clicked() {
                             if let Some(path) = FileDialog::new().set_file_name("RPG_RT.emt").add_filter("XML", &["xml", "emt"]).save_file() {
                                 match lcf_bridge::export_tree_to_xml(proj, &path) {
-                                    Ok(()) => self.status_message = Some(Ok(format!("Map tree exported to {:?}", path.file_name().unwrap()))),
+                                    Ok(()) => self.status_message = Some(Ok(format!("Map tree exported to {}", path.file_name().unwrap_or_default().to_string_lossy()))),
                                     Err(e) => self.status_message = Some(Err(format!("Export failed: {e}"))),
                                 }
                             }
@@ -93,7 +93,7 @@ impl XmlIoDialogState {
                                 let default_name = format!("Map{:04}.emu", map_id);
                                 if let Some(path) = FileDialog::new().set_file_name(&default_name).add_filter("XML", &["xml", "emu"]).save_file() {
                                     match lcf_bridge::export_map_to_xml(proj, map_id, &path) {
-                                        Ok(()) => self.status_message = Some(Ok(format!("Map exported to {:?}", path.file_name().unwrap()))),
+                                        Ok(()) => self.status_message = Some(Ok(format!("Map exported to {}", path.file_name().unwrap_or_default().to_string_lossy()))),
                                         Err(e) => self.status_message = Some(Err(format!("Export failed: {e}"))),
                                     }
                                 }
@@ -102,7 +102,7 @@ impl XmlIoDialogState {
                             if ui.button("Export Save01.lsd to XML (LSD)").clicked() {
                                 if let Some(path) = FileDialog::new().set_file_name("Save01.esd").add_filter("XML", &["xml", "esd"]).save_file() {
                                     match lcf_bridge::export_save_to_xml(proj, "Save01.lsd", &path) {
-                                        Ok(()) => self.status_message = Some(Ok(format!("Save exported to {:?}", path.file_name().unwrap()))),
+                                        Ok(()) => self.status_message = Some(Ok(format!("Save exported to {}", path.file_name().unwrap_or_default().to_string_lossy()))),
                                         Err(e) => self.status_message = Some(Err(format!("Export failed: {e}"))),
                                     }
                                 }
@@ -118,7 +118,7 @@ impl XmlIoDialogState {
                             if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "edb"]).pick_file() {
                                 match lcf_bridge::import_database_from_xml(proj, &path) {
                                     Ok(()) => {
-                                        self.status_message = Some(Ok(format!("Database imported from {:?}", path.file_name().unwrap())));
+                                        self.status_message = Some(Ok(format!("Database imported from {}", path.file_name().unwrap_or_default().to_string_lossy())));
                                         self.pending_import = Some(XmlImportKind::Database);
                                     }
                                     Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
@@ -130,7 +130,7 @@ impl XmlIoDialogState {
                             if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "emt"]).pick_file() {
                                 match lcf_bridge::import_tree_from_xml(proj, &path) {
                                     Ok(()) => {
-                                        self.status_message = Some(Ok(format!("Map tree imported from {:?}", path.file_name().unwrap())));
+                                        self.status_message = Some(Ok(format!("Map tree imported from {}", path.file_name().unwrap_or_default().to_string_lossy())));
                                         self.pending_import = Some(XmlImportKind::Tree);
                                     }
                                     Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
@@ -145,7 +145,7 @@ impl XmlIoDialogState {
                                 if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "emu"]).pick_file() {
                                     match lcf_bridge::import_map_from_xml(proj, map_id, &path) {
                                         Ok(()) => {
-                                            self.status_message = Some(Ok(format!("Map imported from {:?}", path.file_name().unwrap())));
+                                            self.status_message = Some(Ok(format!("Map imported from {}", path.file_name().unwrap_or_default().to_string_lossy())));
                                             self.pending_import = Some(XmlImportKind::Map(map_id));
                                         }
                                         Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),
@@ -157,7 +157,7 @@ impl XmlIoDialogState {
                                 if let Some(path) = FileDialog::new().add_filter("XML", &["xml", "esd"]).pick_file() {
                                     match lcf_bridge::import_save_from_xml(proj, "Save01.lsd", &path) {
                                         Ok(()) => {
-                                            self.status_message = Some(Ok(format!("Save imported from {:?}", path.file_name().unwrap())));
+                                            self.status_message = Some(Ok(format!("Save imported from {}", path.file_name().unwrap_or_default().to_string_lossy())));
                                             self.pending_import = Some(XmlImportKind::Save);
                                         }
                                         Err(e) => self.status_message = Some(Err(format!("Import failed: {e}"))),

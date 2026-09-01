@@ -280,9 +280,10 @@ pub fn show_troop_form(
                 }
                 ui.horizontal_wrapped(|ui| {
                     for (t_idx, t) in terrains.iter().enumerate() {
-                        let is_allowed = troop.terrain_set.get_mut(t_idx).unwrap();
-                        if ui.checkbox(is_allowed, format!("{:02}: {}", t.id, t.name)).changed() {
-                            *dirty = true;
+                        if let Some(is_allowed) = troop.terrain_set.get_mut(t_idx) {
+                            if ui.checkbox(is_allowed, format!("{:02}: {}", t.id, t.name)).changed() {
+                                *dirty = true;
+                            }
                         }
                     }
                 });
@@ -391,6 +392,23 @@ pub fn show_troop_form(
                     state.active_page_idx = troop.pages.len() - 1;
                     *dirty = true;
                 }
+
+                if ui.small_button("📄 Duplicate Page").clicked() && !troop.pages.is_empty() {
+                    let mut dup = troop.pages[state.active_page_idx].clone();
+                    dup.id = (troop.pages.len() + 1) as i32;
+                    troop.pages.push(dup);
+                    state.active_page_idx = troop.pages.len() - 1;
+                    *dirty = true;
+                }
+
+                if troop.pages.len() > 1 && ui.small_button("🗑 Delete Page").clicked() {
+                    troop.pages.remove(state.active_page_idx);
+                    if state.active_page_idx >= troop.pages.len() {
+                        state.active_page_idx = troop.pages.len().saturating_sub(1);
+                    }
+                    state.selected_cmd_idx = None;
+                    *dirty = true;
+                }
             });
 
             if troop.pages.is_empty() {
@@ -425,6 +443,27 @@ pub fn show_troop_form(
                             if ui.add(egui::DragValue::new(&mut page.condition.switch_a_id).range(1..=5000)).changed() { *dirty = true; }
                             ui.end_row();
 
+                            let mut switch_b_flag = (page.condition.flags & 2) != 0;
+                            if ui.checkbox(&mut switch_b_flag, "Switch B ON:").changed() {
+                                if switch_b_flag { page.condition.flags |= 2; } else { page.condition.flags &= !2; }
+                                *dirty = true;
+                            }
+                            if ui.add(egui::DragValue::new(&mut page.condition.switch_b_id).range(1..=5000)).changed() { *dirty = true; }
+                            ui.end_row();
+
+                            let mut var_flag = (page.condition.flags & 512) != 0;
+                            if ui.checkbox(&mut var_flag, "Variable Condition:").changed() {
+                                if var_flag { page.condition.flags |= 512; } else { page.condition.flags &= !512; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Var #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.variable_id).range(1..=5000)).changed() { *dirty = true; }
+                                ui.label("≥");
+                                if ui.add(egui::DragValue::new(&mut page.condition.variable_value).range(-999999..=999999)).changed() { *dirty = true; }
+                            });
+                            ui.end_row();
+
                             let mut turn_flag = (page.condition.flags & 4) != 0;
                             if ui.checkbox(&mut turn_flag, "Turn Count:").changed() {
                                 if turn_flag { page.condition.flags |= 4; } else { page.condition.flags &= !4; }
@@ -438,15 +477,86 @@ pub fn show_troop_form(
                             });
                             ui.end_row();
 
+                            let mut fatigue_flag = (page.condition.flags & 8) != 0;
+                            if ui.checkbox(&mut fatigue_flag, "Fatigue Range:").changed() {
+                                if fatigue_flag { page.condition.flags |= 8; } else { page.condition.flags &= !8; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                if ui.add(egui::DragValue::new(&mut page.condition.fatigue_min).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                                ui.label("–");
+                                if ui.add(egui::DragValue::new(&mut page.condition.fatigue_max).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                            });
+                            ui.end_row();
+
                             let mut enemy_hp_flag = (page.condition.flags & 16) != 0;
                             if ui.checkbox(&mut enemy_hp_flag, "Enemy HP Range:").changed() {
                                 if enemy_hp_flag { page.condition.flags |= 16; } else { page.condition.flags &= !16; }
                                 *dirty = true;
                             }
                             ui.horizontal(|ui| {
+                                ui.label("Enemy #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.enemy_id).range(1..=8)).changed() { *dirty = true; }
                                 if ui.add(egui::DragValue::new(&mut page.condition.enemy_hp_min).range(0..=100).suffix("%")).changed() { *dirty = true; }
                                 ui.label("–");
                                 if ui.add(egui::DragValue::new(&mut page.condition.enemy_hp_max).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                            });
+                            ui.end_row();
+
+                            let mut actor_hp_flag = (page.condition.flags & 32) != 0;
+                            if ui.checkbox(&mut actor_hp_flag, "Actor HP Range:").changed() {
+                                if actor_hp_flag { page.condition.flags |= 32; } else { page.condition.flags &= !32; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Actor #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.actor_id).range(1..=4)).changed() { *dirty = true; }
+                                if ui.add(egui::DragValue::new(&mut page.condition.actor_hp_min).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                                ui.label("–");
+                                if ui.add(egui::DragValue::new(&mut page.condition.actor_hp_max).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                            });
+                            ui.end_row();
+
+                            let mut turn_enemy_flag = (page.condition.flags & 64) != 0;
+                            if ui.checkbox(&mut turn_enemy_flag, "Enemy Turn Count:").changed() {
+                                if turn_enemy_flag { page.condition.flags |= 64; } else { page.condition.flags &= !64; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Enemy #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_enemy_id).range(1..=8)).changed() { *dirty = true; }
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_enemy_a).range(0..=255)).changed() { *dirty = true; }
+                                ui.label("+");
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_enemy_b).range(0..=255)).changed() { *dirty = true; }
+                                ui.label("× X");
+                            });
+                            ui.end_row();
+
+                            let mut turn_actor_flag = (page.condition.flags & 128) != 0;
+                            if ui.checkbox(&mut turn_actor_flag, "Actor Turn Count:").changed() {
+                                if turn_actor_flag { page.condition.flags |= 128; } else { page.condition.flags &= !128; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Actor #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_actor_id).range(1..=4)).changed() { *dirty = true; }
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_actor_a).range(0..=255)).changed() { *dirty = true; }
+                                ui.label("+");
+                                if ui.add(egui::DragValue::new(&mut page.condition.turn_actor_b).range(0..=255)).changed() { *dirty = true; }
+                                ui.label("× X");
+                            });
+                            ui.end_row();
+
+                            let mut cmd_actor_flag = (page.condition.flags & 256) != 0;
+                            if ui.checkbox(&mut cmd_actor_flag, "Hero Battle Command:").changed() {
+                                if cmd_actor_flag { page.condition.flags |= 256; } else { page.condition.flags &= !256; }
+                                *dirty = true;
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Actor #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.command_actor_id).range(1..=4)).changed() { *dirty = true; }
+                                ui.label("Cmd #");
+                                if ui.add(egui::DragValue::new(&mut page.condition.command_id).range(1..=100)).changed() { *dirty = true; }
                             });
                             ui.end_row();
                         });

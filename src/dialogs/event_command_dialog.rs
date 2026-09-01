@@ -34,6 +34,7 @@ pub struct EventCommandDialogState {
     pub param3: i32,
     pub param4: i32,
     pub param5: i32,
+    pub param6: i32,
     /// Full parameter vector, kept in sync whenever a command is opened and
     /// live-mutated by every Maniac Patch editor arm (bespoke or generic).
     /// This is the actual save-time source of truth for Maniac commands and
@@ -59,6 +60,7 @@ impl Default for EventCommandDialogState {
             param3: 0,
             param4: 0,
             param5: 0,
+            param6: 0,
             raw_params: Vec::new(),
         }
     }
@@ -89,6 +91,7 @@ impl EventCommandDialogState {
         self.param3 = 0;
         self.param4 = 0;
         self.param5 = 0;
+        self.param6 = 0;
         self.raw_params = Vec::new();
     }
 
@@ -104,18 +107,19 @@ impl EventCommandDialogState {
         self.param3 = cmd.parameters.get(3).copied().unwrap_or(0);
         self.param4 = cmd.parameters.get(4).copied().unwrap_or(0);
         self.param5 = cmd.parameters.get(5).copied().unwrap_or(0);
+        self.param6 = cmd.parameters.get(6).copied().unwrap_or(0);
         // Always the full vector, never truncated - see `raw_params` doc.
         self.raw_params = cmd.parameters.clone();
 
         // Auto-detect category from code
         self.category = match cmd.code {
-            10110..=10140 => CommandCategory::Messages,
-            10210..=10330 | 11210 => CommandCategory::Progression,
-            10340..=10420 => CommandCategory::Character,
-            10610..=10630 | 11020 | 11030 => CommandCategory::Movement,
-            10710..=10910 | 11110..=11140 | 11310..=11320 => CommandCategory::AudioVisual,
-            11510..=11570 | 20130..=21520 => CommandCategory::FlowControl,
-            11410..=11440 | 11610..=11740 => CommandCategory::SystemScenes,
+            10110..=10150 => CommandCategory::Messages,
+            10210..=10330 | 11610 => CommandCategory::Progression,
+            10410..=10490 => CommandCategory::Character,
+            10810..=10870 | 11310..=11410 => CommandCategory::Movement,
+            11010..=11210 | 11510..=11560 | 11710..=11720 => CommandCategory::AudioVisual,
+            12010..=12410 | 20140..=22210 => CommandCategory::FlowControl,
+            10710..=10740 | 11810..=11960 | 12420 | 12510 => CommandCategory::SystemScenes,
             3001..=3032 => CommandCategory::Maniac,
             _ => CommandCategory::Messages,
         };
@@ -161,53 +165,53 @@ impl EventCommandDialogState {
                             match self.selected_code {
                             10110 => "10110: Show Message",
                             10120 => "10120: Message Options",
-                            10130 => "10130: Show Choices",
-                            10140 => "10140: Input Number",
+                            10140 => "10140: Show Choices",
+                            10150 => "10150: Input Number",
                             10210 => "10210: Control Switches",
                             10220 => "10220: Control Variables",
                             10310 => "10310: Change Gold",
                             10320 => "10320: Change Items",
                             10330 => "10330: Change Party Members",
-                            10340 => "10340: Change EXP",
-                            10350 => "10350: Change Level",
-                            10360 => "10360: Change Parameters",
-                            10370 => "10370: Change Skills",
-                            10380 => "10380: Change Equipment",
-                            10390 => "10390: Change HP",
-                            10400 => "10400: Change SP",
-                            10410 => "10410: Change Condition / State",
-                            10420 => "10420: Recover All",
-                            10610 => "10610: Transfer Player (Teleport)",
-                            10630 => "10630: Set Event Location",
-                            11020 => "11020: Set Move Route",
-                            11030 => "11030: Wait",
-                            11110 => "11110: Play BGM",
-                            11120 => "11120: Fade Out BGM",
-                            11140 => "11140: Play Sound Effect (SE)",
-                            10710 => "10710: Erase / Show Screen",
-                            10720 => "10720: Tint Screen",
-                            10730 => "10730: Flash Screen",
-                            10740 => "10740: Shake Screen",
-                            10760 => "10760: Weather Effects",
-                            10810 => "10810: Show Picture",
-                            10820 => "10820: Move Picture",
-                            10830 => "10830: Erase Picture",
-                            10910 => "10910: Show Battle Animation",
-                            11510 => "11510: Conditional Branch",
-                            11520 => "11520: Loop",
-                            11530 => "11530: Break Loop",
-                            11540 => "11540: Exit Event Processing",
-                            11550 => "11550: Erase Event",
-                            11560 => "11560: Call Common Event",
-                            11570 => "11570: Comment",
-                            11710 => "11710: Battle Processing",
-                            11720 => "11720: Shop Processing",
-                            11730 => "11730: Inn Processing",
-                            11740 => "11740: Hero Name Input",
-                            11430 => "11430: Open Save Menu",
-                            11440 => "11440: Open Main Menu",
-                            11610 => "11610: Game Over",
-                            11620 => "11620: Return to Title Screen",
+                            10410 => "10410: Change EXP",
+                            10420 => "10420: Change Level",
+                            10430 => "10430: Change Parameters",
+                            10440 => "10440: Change Skills",
+                            10450 => "10450: Change Equipment",
+                            10460 => "10460: Change HP",
+                            10470 => "10470: Change SP",
+                            10480 => "10480: Change Condition / State",
+                            10490 => "10490: Recover All",
+                            10810 => "10810: Transfer Player (Teleport)",
+                            10860 => "10860: Set Event Location",
+                            11330 => "11330: Set Move Route",
+                            11410 => "11410: Wait",
+                            11510 => "11510: Play BGM",
+                            11520 => "11520: Fade Out BGM",
+                            11550 => "11550: Play Sound Effect (SE)",
+                            11010 => "11010: Erase / Show Screen",
+                            11030 => "11030: Tint Screen",
+                            11040 => "11040: Flash Screen",
+                            11050 => "11050: Shake Screen",
+                            11070 => "11070: Weather Effects",
+                            11110 => "11110: Show Picture",
+                            11120 => "11120: Move Picture",
+                            11130 => "11130: Erase Picture",
+                            11210 => "11210: Show Battle Animation",
+                            12010 => "12010: Conditional Branch",
+                            12210 => "12210: Loop",
+                            12220 => "12220: Break Loop",
+                            12310 => "12310: Exit Event Processing",
+                            12320 => "12320: Erase Event",
+                            12330 => "12330: Call Common Event",
+                            12410 => "12410: Comment",
+                            10710 => "10710: Battle Processing",
+                            10720 => "10720: Shop Processing",
+                            10730 => "10730: Inn Processing",
+                            10740 => "10740: Hero Name Input",
+                            11910 => "11910: Open Save Menu",
+                            11950 => "11950: Open Main Menu",
+                            12420 => "12420: Game Over",
+                            12510 => "12510: Return to Title Screen",
                             _ => "Custom Event Command",
                             }.to_string()
                         })
@@ -216,8 +220,8 @@ impl EventCommandDialogState {
                                 CommandCategory::Messages => {
                                     ui.selectable_value(&mut self.selected_code, 10110, "Show Message");
                                     ui.selectable_value(&mut self.selected_code, 10120, "Message Options");
-                                    ui.selectable_value(&mut self.selected_code, 10130, "Show Choices");
-                                    ui.selectable_value(&mut self.selected_code, 10140, "Input Number");
+                                    ui.selectable_value(&mut self.selected_code, 10140, "Show Choices");
+                                    ui.selectable_value(&mut self.selected_code, 10150, "Input Number");
                                 }
                                 CommandCategory::Progression => {
                                     ui.selectable_value(&mut self.selected_code, 10210, "Control Switches");
@@ -227,54 +231,54 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10330, "Change Party Members");
                                 }
                                 CommandCategory::Character => {
-                                    ui.selectable_value(&mut self.selected_code, 10340, "Change EXP");
-                                    ui.selectable_value(&mut self.selected_code, 10350, "Change Level");
-                                    ui.selectable_value(&mut self.selected_code, 10360, "Change Parameters");
-                                    ui.selectable_value(&mut self.selected_code, 10370, "Change Skills");
-                                    ui.selectable_value(&mut self.selected_code, 10380, "Change Equipment");
-                                    ui.selectable_value(&mut self.selected_code, 10390, "Change HP");
-                                    ui.selectable_value(&mut self.selected_code, 10400, "Change SP");
-                                    ui.selectable_value(&mut self.selected_code, 10410, "Change Condition");
-                                    ui.selectable_value(&mut self.selected_code, 10420, "Recover All");
+                                    ui.selectable_value(&mut self.selected_code, 10410, "Change EXP");
+                                    ui.selectable_value(&mut self.selected_code, 10420, "Change Level");
+                                    ui.selectable_value(&mut self.selected_code, 10430, "Change Parameters");
+                                    ui.selectable_value(&mut self.selected_code, 10440, "Change Skills");
+                                    ui.selectable_value(&mut self.selected_code, 10450, "Change Equipment");
+                                    ui.selectable_value(&mut self.selected_code, 10460, "Change HP");
+                                    ui.selectable_value(&mut self.selected_code, 10470, "Change SP");
+                                    ui.selectable_value(&mut self.selected_code, 10480, "Change Condition");
+                                    ui.selectable_value(&mut self.selected_code, 10490, "Recover All");
                                 }
                                 CommandCategory::Movement => {
-                                    ui.selectable_value(&mut self.selected_code, 10610, "Transfer Player (Teleport)");
-                                    ui.selectable_value(&mut self.selected_code, 10630, "Set Event Location");
-                                    ui.selectable_value(&mut self.selected_code, 11020, "Set Move Route");
-                                    ui.selectable_value(&mut self.selected_code, 11030, "Wait");
+                                    ui.selectable_value(&mut self.selected_code, 10810, "Transfer Player (Teleport)");
+                                    ui.selectable_value(&mut self.selected_code, 10860, "Set Event Location");
+                                    ui.selectable_value(&mut self.selected_code, 11330, "Set Move Route");
+                                    ui.selectable_value(&mut self.selected_code, 11410, "Wait");
                                 }
                                 CommandCategory::AudioVisual => {
-                                    ui.selectable_value(&mut self.selected_code, 11110, "Play BGM");
-                                    ui.selectable_value(&mut self.selected_code, 11120, "Fade Out BGM");
-                                    ui.selectable_value(&mut self.selected_code, 11140, "Play Sound Effect (SE)");
-                                    ui.selectable_value(&mut self.selected_code, 10710, "Erase / Show Screen");
-                                    ui.selectable_value(&mut self.selected_code, 10720, "Tint Screen");
-                                    ui.selectable_value(&mut self.selected_code, 10730, "Flash Screen");
-                                    ui.selectable_value(&mut self.selected_code, 10740, "Shake Screen");
-                                    ui.selectable_value(&mut self.selected_code, 10760, "Weather Effects");
-                                    ui.selectable_value(&mut self.selected_code, 10810, "Show Picture");
-                                    ui.selectable_value(&mut self.selected_code, 10820, "Move Picture");
-                                    ui.selectable_value(&mut self.selected_code, 10830, "Erase Picture");
-                                    ui.selectable_value(&mut self.selected_code, 10910, "Show Battle Animation");
+                                    ui.selectable_value(&mut self.selected_code, 11510, "Play BGM");
+                                    ui.selectable_value(&mut self.selected_code, 11520, "Fade Out BGM");
+                                    ui.selectable_value(&mut self.selected_code, 11550, "Play Sound Effect (SE)");
+                                    ui.selectable_value(&mut self.selected_code, 11010, "Erase / Show Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11030, "Tint Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11040, "Flash Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11050, "Shake Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11070, "Weather Effects");
+                                    ui.selectable_value(&mut self.selected_code, 11110, "Show Picture");
+                                    ui.selectable_value(&mut self.selected_code, 11120, "Move Picture");
+                                    ui.selectable_value(&mut self.selected_code, 11130, "Erase Picture");
+                                    ui.selectable_value(&mut self.selected_code, 11210, "Show Battle Animation");
                                 }
                                 CommandCategory::FlowControl => {
-                                    ui.selectable_value(&mut self.selected_code, 11510, "Conditional Branch");
-                                    ui.selectable_value(&mut self.selected_code, 11520, "Loop");
-                                    ui.selectable_value(&mut self.selected_code, 11530, "Break Loop");
-                                    ui.selectable_value(&mut self.selected_code, 11540, "Exit Event Processing");
-                                    ui.selectable_value(&mut self.selected_code, 11550, "Erase Event");
-                                    ui.selectable_value(&mut self.selected_code, 11560, "Call Common Event");
-                                    ui.selectable_value(&mut self.selected_code, 11570, "Comment");
+                                    ui.selectable_value(&mut self.selected_code, 12010, "Conditional Branch");
+                                    ui.selectable_value(&mut self.selected_code, 12210, "Loop");
+                                    ui.selectable_value(&mut self.selected_code, 12220, "Break Loop");
+                                    ui.selectable_value(&mut self.selected_code, 12310, "Exit Event Processing");
+                                    ui.selectable_value(&mut self.selected_code, 12320, "Erase Event");
+                                    ui.selectable_value(&mut self.selected_code, 12330, "Call Common Event");
+                                    ui.selectable_value(&mut self.selected_code, 12410, "Comment");
                                 }
                                 CommandCategory::SystemScenes => {
-                                    ui.selectable_value(&mut self.selected_code, 11710, "Battle Processing");
-                                    ui.selectable_value(&mut self.selected_code, 11720, "Shop Processing");
-                                    ui.selectable_value(&mut self.selected_code, 11730, "Inn Processing");
-                                    ui.selectable_value(&mut self.selected_code, 11740, "Hero Name Input");
-                                    ui.selectable_value(&mut self.selected_code, 11430, "Open Save Menu");
-                                    ui.selectable_value(&mut self.selected_code, 11440, "Open Main Menu");
-                                    ui.selectable_value(&mut self.selected_code, 11610, "Game Over");
-                                    ui.selectable_value(&mut self.selected_code, 11620, "Return to Title");
+                                    ui.selectable_value(&mut self.selected_code, 10710, "Battle Processing");
+                                    ui.selectable_value(&mut self.selected_code, 10720, "Shop Processing");
+                                    ui.selectable_value(&mut self.selected_code, 10730, "Inn Processing");
+                                    ui.selectable_value(&mut self.selected_code, 10740, "Hero Name Input");
+                                    ui.selectable_value(&mut self.selected_code, 11910, "Open Save Menu");
+                                    ui.selectable_value(&mut self.selected_code, 11950, "Open Main Menu");
+                                    ui.selectable_value(&mut self.selected_code, 12420, "Game Over");
+                                    ui.selectable_value(&mut self.selected_code, 12510, "Return to Title");
                                 }
                                 CommandCategory::Maniac => {
                                     for &code in MANIAC_CODES.iter() {
@@ -322,11 +326,11 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param1, 1, "Transparent");
                                 });
                             }
-                            10130 => {
+                            10140 => {
                                 ui.label("Choices (slash-separated, e.g. Yes/No/Cancel):");
                                 ui.text_edit_singleline(&mut self.string_val);
                             }
-                            10140 => {
+                            10150 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Store Result in Variable ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
@@ -349,12 +353,30 @@ impl EventCommandDialogState {
                                 });
                             }
                             10220 => {
-                                ui.horizontal(|ui| {
-                                    ui.label("Variable ID:");
-                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                ui.heading("Target Variable");
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Single");
+                                    ui.radio_value(&mut self.param0, 1, "Range");
+                                    ui.radio_value(&mut self.param0, 2, "Indirect");
                                 });
                                 ui.horizontal(|ui| {
-                                    ui.label("Operation:");
+                                    if self.param0 == 1 {
+                                        ui.label("Start Var ID:");
+                                        ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                        ui.label("End Var ID:");
+                                        ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                    } else if self.param0 == 2 {
+                                        ui.label("Pointer Var ID (V[ID]):");
+                                        ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                    } else {
+                                        ui.label("Variable ID:");
+                                        ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                    }
+                                });
+
+                                ui.separator();
+                                ui.heading("Operation");
+                                ui.horizontal_wrapped(|ui| {
                                     ui.radio_value(&mut self.param3, 0, "Set (=)");
                                     ui.radio_value(&mut self.param3, 1, "Add (+)");
                                     ui.radio_value(&mut self.param3, 2, "Subtract (-)");
@@ -362,10 +384,157 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param3, 4, "Divide (÷)");
                                     ui.radio_value(&mut self.param3, 5, "Modulo (%)");
                                 });
-                                ui.horizontal(|ui| {
-                                    ui.label("Value / Operand:");
-                                    ui.add(egui::DragValue::new(&mut self.param2));
+
+                                ui.separator();
+                                ui.heading("Operand");
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.radio_value(&mut self.param4, 0, "Constant");
+                                    ui.radio_value(&mut self.param4, 1, "Variable");
+                                    ui.radio_value(&mut self.param4, 2, "Indirect Var");
+                                    ui.radio_value(&mut self.param4, 3, "Random");
+                                    ui.radio_value(&mut self.param4, 4, "Item");
+                                    ui.radio_value(&mut self.param4, 5, "Hero");
+                                    ui.radio_value(&mut self.param4, 6, "Character");
+                                    ui.radio_value(&mut self.param4, 7, "Other");
                                 });
+
+                                match self.param4 {
+                                    0 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Constant Value:");
+                                            ui.add(egui::DragValue::new(&mut self.param5));
+                                        });
+                                    }
+                                    1 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Source Variable ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param5).range(1..=5000));
+                                        });
+                                    }
+                                    2 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Pointer Variable ID (V[ID]):");
+                                            ui.add(egui::DragValue::new(&mut self.param5).range(1..=5000));
+                                        });
+                                    }
+                                    3 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Min:");
+                                            ui.add(egui::DragValue::new(&mut self.param5));
+                                            ui.label("Max:");
+                                            ui.add(egui::DragValue::new(&mut self.param6));
+                                        });
+                                    }
+                                    4 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Item ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param5).range(1..=5000));
+                                            ui.radio_value(&mut self.param6, 0, "In Inventory");
+                                            ui.radio_value(&mut self.param6, 1, "Equipped");
+                                        });
+                                    }
+                                    5 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Hero / Actor ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param5).range(1..=5000));
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Stat / Property:");
+                                            egui::ComboBox::from_id_salt("cmd_cv_hero_stat")
+                                                .selected_text(match self.param6 {
+                                                    0 => "Level", 1 => "EXP", 2 => "HP", 3 => "SP", 4 => "Max HP", 5 => "Max SP",
+                                                    6 => "Attack", 7 => "Defense", 8 => "Spirit", 9 => "Agility",
+                                                    10 => "Weapon ID", 11 => "Shield ID", 12 => "Armor ID", 13 => "Helmet ID", 14 => "Accessory ID",
+                                                    _ => "Level",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param6, 0, "Level");
+                                                    ui.selectable_value(&mut self.param6, 1, "EXP");
+                                                    ui.selectable_value(&mut self.param6, 2, "HP");
+                                                    ui.selectable_value(&mut self.param6, 3, "SP");
+                                                    ui.selectable_value(&mut self.param6, 4, "Max HP");
+                                                    ui.selectable_value(&mut self.param6, 5, "Max SP");
+                                                    ui.selectable_value(&mut self.param6, 6, "Attack");
+                                                    ui.selectable_value(&mut self.param6, 7, "Defense");
+                                                    ui.selectable_value(&mut self.param6, 8, "Spirit");
+                                                    ui.selectable_value(&mut self.param6, 9, "Agility");
+                                                    ui.selectable_value(&mut self.param6, 10, "Weapon ID");
+                                                    ui.selectable_value(&mut self.param6, 11, "Shield ID");
+                                                    ui.selectable_value(&mut self.param6, 12, "Armor ID");
+                                                    ui.selectable_value(&mut self.param6, 13, "Helmet ID");
+                                                    ui.selectable_value(&mut self.param6, 14, "Accessory ID");
+                                                });
+                                        });
+                                    }
+                                    6 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Target Character:");
+                                            egui::ComboBox::from_id_salt("cmd_cv_char_target")
+                                                .selected_text(match self.param5 {
+                                                    10001 => "Player / Party Leader",
+                                                    10005 => "This Event",
+                                                    _ => "Specific Event ID",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param5, 10001, "Player / Party Leader");
+                                                    ui.selectable_value(&mut self.param5, 10005, "This Event");
+                                                    ui.selectable_value(&mut self.param5, 1, "Specific Event ID");
+                                                });
+                                            if self.param5 != 10001 && self.param5 != 10005 {
+                                                ui.add(egui::DragValue::new(&mut self.param5).range(1..=5000));
+                                            }
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Property:");
+                                            egui::ComboBox::from_id_salt("cmd_cv_char_prop")
+                                                .selected_text(match self.param6 {
+                                                    0 => "Map ID", 1 => "X Coordinate", 2 => "Y Coordinate",
+                                                    3 => "Facing Direction", 4 => "Screen X", 5 => "Screen Y",
+                                                    _ => "Map ID",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param6, 0, "Map ID");
+                                                    ui.selectable_value(&mut self.param6, 1, "X Coordinate");
+                                                    ui.selectable_value(&mut self.param6, 2, "Y Coordinate");
+                                                    ui.selectable_value(&mut self.param6, 3, "Facing Direction");
+                                                    ui.selectable_value(&mut self.param6, 4, "Screen X");
+                                                    ui.selectable_value(&mut self.param6, 5, "Screen Y");
+                                                });
+                                        });
+                                    }
+                                    7 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("System Property:");
+                                            egui::ComboBox::from_id_salt("cmd_cv_other_prop")
+                                                .selected_text(match self.param5 {
+                                                    0 => "Gold / Money",
+                                                    1 => "Timer 1 (Seconds Left)",
+                                                    2 => "Party Size",
+                                                    3 => "Save Count",
+                                                    4 => "Battle Count",
+                                                    5 => "Victories Count",
+                                                    6 => "Defeats Count",
+                                                    7 => "Escapes Count",
+                                                    8 => "MIDI Play Position (Ticks)",
+                                                    9 => "Timer 2 (Seconds Left)",
+                                                    _ => "Gold / Money",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param5, 0, "Gold / Money");
+                                                    ui.selectable_value(&mut self.param5, 1, "Timer 1 (Seconds Left)");
+                                                    ui.selectable_value(&mut self.param5, 2, "Party Size");
+                                                    ui.selectable_value(&mut self.param5, 3, "Save Count");
+                                                    ui.selectable_value(&mut self.param5, 4, "Battle Count");
+                                                    ui.selectable_value(&mut self.param5, 5, "Victories Count");
+                                                    ui.selectable_value(&mut self.param5, 6, "Defeats Count");
+                                                    ui.selectable_value(&mut self.param5, 7, "Escapes Count");
+                                                    ui.selectable_value(&mut self.param5, 8, "MIDI Play Position (Ticks)");
+                                                    ui.selectable_value(&mut self.param5, 9, "Timer 2 (Seconds Left)");
+                                                });
+                                        });
+                                    }
+                                    _ => {}
+                                }
                             }
                             10310 => {
                                 ui.horizontal(|ui| {
@@ -404,7 +573,7 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param0, 1, "Remove from Party");
                                 });
                             }
-                            10340..=10360 => {
+                            10410..=10430 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Hero / Actor ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
@@ -419,7 +588,7 @@ impl EventCommandDialogState {
                                     ui.add(egui::DragValue::new(&mut self.param2).range(1..=999999));
                                 });
                             }
-                            10370 => {
+                            10440 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Hero / Actor ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
@@ -434,7 +603,7 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param0, 1, "Forget");
                                 });
                             }
-                            10390 | 10400 => {
+                            10460 | 10470 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Hero / Actor ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
@@ -449,7 +618,7 @@ impl EventCommandDialogState {
                                     ui.add(egui::DragValue::new(&mut self.param2).range(1..=99999));
                                 });
                             }
-                            10410 => {
+                            10480 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Hero / Actor ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
@@ -464,7 +633,7 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param0, 1, "Heal / Remove");
                                 });
                             }
-                            10420 => {
+                            10490 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Target:");
                                     ui.radio_value(&mut self.param0, 0, "Entire Party");
@@ -477,7 +646,7 @@ impl EventCommandDialogState {
                                     });
                                 }
                             }
-                            10610 => {
+                            10810 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Target Map ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=9999));
@@ -489,14 +658,14 @@ impl EventCommandDialogState {
                                     ui.add(egui::DragValue::new(&mut self.param3).range(0..=500));
                                 });
                             }
-                            11030 => {
+                            11410 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Duration (tenths of sec):");
                                     ui.add(egui::DragValue::new(&mut self.param0).range(1..=300));
                                     ui.label(format!("({:.1}s)", self.param0 as f32 / 10.0));
                                 });
                             }
-                            11110 => {
+                            11510 => {
                                 ui.horizontal(|ui| {
                                     ui.label("BGM Name:");
                                     let mut dummy_dirty = false;
@@ -509,7 +678,7 @@ impl EventCommandDialogState {
                                     ui.add(egui::DragValue::new(&mut self.param2).range(50..=150));
                                 });
                             }
-                            11140 => {
+                            11550 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Sound (SE) Name:");
                                     let mut dummy_dirty = false;
@@ -522,7 +691,7 @@ impl EventCommandDialogState {
                                     ui.add(egui::DragValue::new(&mut self.param2).range(50..=150));
                                 });
                             }
-                            10720 => {
+                            11030 => {
                                 ui.label("Screen Color Tint:");
                                 ui.horizontal(|ui| {
                                     ui.label("Red:"); ui.add(egui::DragValue::new(&mut self.param0).range(-31..=31));
@@ -531,7 +700,7 @@ impl EventCommandDialogState {
                                     ui.label("Chroma:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=31));
                                 });
                             }
-                            10760 => {
+                            11070 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Weather Effect:");
                                     ui.radio_value(&mut self.param0, 0, "None");
@@ -540,7 +709,7 @@ impl EventCommandDialogState {
                                     ui.radio_value(&mut self.param0, 3, "Sandstorm");
                                 });
                             }
-                            10810 | 10820 => {
+                            11110 | 11120 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Picture Number (1..50):");
                                     ui.add(egui::DragValue::new(&mut self.param0).range(1..=50));
@@ -555,25 +724,213 @@ impl EventCommandDialogState {
                                     ui.label("Y:"); ui.add(egui::DragValue::new(&mut self.param2).range(0..=480));
                                 });
                             }
-                            10830 => {
+                            11130 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Picture Number to Erase:");
                                     ui.add(egui::DragValue::new(&mut self.param0).range(1..=50));
                                 });
                             }
-                            11560 => {
+                            12330 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Call Common Event ID:");
                                     ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
                                 });
                             }
-                            11710 => {
+                            10710 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Battle Troop ID:");
                                     ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
                                 });
                             }
-                            11570 => {
+                            12010 => {
+                                ui.heading("Branch Condition");
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Switch");
+                                    ui.radio_value(&mut self.param0, 1, "Variable");
+                                    ui.radio_value(&mut self.param0, 2, "Timer 1");
+                                    ui.radio_value(&mut self.param0, 3, "Gold");
+                                    ui.radio_value(&mut self.param0, 4, "Item");
+                                    ui.radio_value(&mut self.param0, 5, "Hero");
+                                    ui.radio_value(&mut self.param0, 6, "Facing");
+                                    ui.radio_value(&mut self.param0, 7, "Vehicle");
+                                    ui.radio_value(&mut self.param0, 8, "Action Key");
+                                    ui.radio_value(&mut self.param0, 9, "BGM Loop");
+                                    ui.radio_value(&mut self.param0, 10, "Timer 2");
+                                });
+
+                                ui.separator();
+                                match self.param0 {
+                                    0 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Switch ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                            ui.label("State:");
+                                            ui.radio_value(&mut self.param2, 0, "ON");
+                                            ui.radio_value(&mut self.param2, 1, "OFF");
+                                        });
+                                    }
+                                    1 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Variable ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Comparison Operator:");
+                                            egui::ComboBox::from_id_salt("cmd_cb_var_op")
+                                                .selected_text(match self.param4 {
+                                                    0 => "Equal to (==)",
+                                                    1 => "Greater or Equal (>=)",
+                                                    2 => "Less or Equal (<=)",
+                                                    3 => "Greater Than (>)",
+                                                    4 => "Less Than (<)",
+                                                    5 => "Not Equal (!=)",
+                                                    _ => "Equal to (==)",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param4, 0, "Equal to (==)");
+                                                    ui.selectable_value(&mut self.param4, 1, "Greater or Equal (>=)");
+                                                    ui.selectable_value(&mut self.param4, 2, "Less or Equal (<=)");
+                                                    ui.selectable_value(&mut self.param4, 3, "Greater Than (>)");
+                                                    ui.selectable_value(&mut self.param4, 4, "Less Than (<)");
+                                                    ui.selectable_value(&mut self.param4, 5, "Not Equal (!=)");
+                                                });
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Compare with:");
+                                            ui.radio_value(&mut self.param2, 0, "Constant Value");
+                                            ui.radio_value(&mut self.param2, 1, "Another Variable");
+                                        });
+                                        ui.horizontal(|ui| {
+                                            if self.param2 == 1 {
+                                                ui.label("Source Variable ID:");
+                                                ui.add(egui::DragValue::new(&mut self.param3).range(1..=5000));
+                                            } else {
+                                                ui.label("Constant Value:");
+                                                ui.add(egui::DragValue::new(&mut self.param3));
+                                            }
+                                        });
+                                    }
+                                    2 | 10 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Time (Seconds):");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(0..=99999));
+                                            ui.radio_value(&mut self.param2, 0, ">= Remaining");
+                                            ui.radio_value(&mut self.param2, 1, "<= Remaining");
+                                        });
+                                    }
+                                    3 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Gold Amount:");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(0..=999999));
+                                            ui.radio_value(&mut self.param2, 0, ">= Possessed");
+                                            ui.radio_value(&mut self.param2, 1, "<= Possessed");
+                                        });
+                                    }
+                                    4 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Item ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                            ui.radio_value(&mut self.param2, 0, "In Inventory");
+                                            ui.radio_value(&mut self.param2, 1, "Not Possessed");
+                                        });
+                                    }
+                                    5 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Hero / Actor ID:");
+                                            ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Condition:");
+                                            egui::ComboBox::from_id_salt("cmd_cb_hero_type")
+                                                .selected_text(match self.param2 {
+                                                    0 => "Is in Party",
+                                                    1 => "Name Matches",
+                                                    2 => "Level >=",
+                                                    3 => "HP >=",
+                                                    4 => "Knows Skill",
+                                                    5 => "Has Item Equipped",
+                                                    6 => "Has State / Condition",
+                                                    _ => "Is in Party",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param2, 0, "Is in Party");
+                                                    ui.selectable_value(&mut self.param2, 1, "Name Matches");
+                                                    ui.selectable_value(&mut self.param2, 2, "Level >=");
+                                                    ui.selectable_value(&mut self.param2, 3, "HP >=");
+                                                    ui.selectable_value(&mut self.param2, 4, "Knows Skill");
+                                                    ui.selectable_value(&mut self.param2, 5, "Has Item Equipped");
+                                                    ui.selectable_value(&mut self.param2, 6, "Has State / Condition");
+                                                });
+                                        });
+                                        if self.param2 == 1 {
+                                            ui.horizontal(|ui| {
+                                                ui.label("Expected Name:");
+                                                ui.text_edit_singleline(&mut self.string_val);
+                                            });
+                                        } else if self.param2 >= 2 {
+                                            ui.horizontal(|ui| {
+                                                let label = match self.param2 {
+                                                    2 => "Min Level:",
+                                                    3 => "Min HP:",
+                                                    4 => "Skill ID:",
+                                                    5 => "Equipped Item ID:",
+                                                    6 => "State ID:",
+                                                    _ => "Value:",
+                                                };
+                                                ui.label(label);
+                                                ui.add(egui::DragValue::new(&mut self.param3).range(1..=99999));
+                                            });
+                                        }
+                                    }
+                                    6 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Target Character:");
+                                            egui::ComboBox::from_id_salt("cmd_cb_facing_char")
+                                                .selected_text(if self.param1 == 10001 { "Player / Party Leader" } else { "Event" })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param1, 10001, "Player / Party Leader");
+                                                    ui.selectable_value(&mut self.param1, 10005, "This Event");
+                                                });
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Direction:");
+                                            egui::ComboBox::from_id_salt("cmd_cb_facing_dir")
+                                                .selected_text(crate::lcf_bridge::event_direction_label(self.param2))
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param2, 0, crate::lcf_bridge::event_direction_label(0));
+                                                    ui.selectable_value(&mut self.param2, 1, crate::lcf_bridge::event_direction_label(1));
+                                                    ui.selectable_value(&mut self.param2, 2, crate::lcf_bridge::event_direction_label(2));
+                                                    ui.selectable_value(&mut self.param2, 3, crate::lcf_bridge::event_direction_label(3));
+                                                });
+                                        });
+                                    }
+                                    7 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Vehicle:");
+                                            egui::ComboBox::from_id_salt("cmd_cb_veh")
+                                                .selected_text(match self.param1 {
+                                                    0 => "Boat",
+                                                    1 => "Ship",
+                                                    2 => "Airship",
+                                                    _ => "Boat",
+                                                })
+                                                .show_ui(ui, |ui| {
+                                                    ui.selectable_value(&mut self.param1, 0, "Boat");
+                                                    ui.selectable_value(&mut self.param1, 1, "Ship");
+                                                    ui.selectable_value(&mut self.param1, 2, "Airship");
+                                                });
+                                        });
+                                    }
+                                    8 => {
+                                        ui.label("Branch is taken if the player triggered this event by pressing the Action Key.");
+                                    }
+                                    9 => {
+                                        ui.label("Branch is taken if the current BGM has looped at least once.");
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            12410 => {
                                 ui.label("Comment:");
                                 ui.text_edit_singleline(&mut self.string_val);
                             }
@@ -906,14 +1263,14 @@ impl EventCommandDialogState {
                             10120 => {
                                 params = vec![self.param0, self.param1];
                             }
-                            10140 => {
+                            10150 => {
                                 params = vec![self.param1, self.param2];
                             }
                             10210 => {
                                 params = vec![0, self.param1, self.param1, self.param3];
                             }
                             10220 => {
-                                params = vec![0, self.param1, self.param1, self.param3, 0, self.param2];
+                                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4, self.param5, self.param6];
                             }
                             10310 => {
                                 params = vec![self.param0, 0, self.param2];
@@ -924,46 +1281,49 @@ impl EventCommandDialogState {
                             10330 => {
                                 params = vec![self.param0, self.param1];
                             }
-                            10340..=10360 => {
+                            10410..=10430 => {
                                 params = vec![0, self.param1, self.param0, 0, self.param2];
                             }
-                            10370 => {
+                            10440 => {
                                 params = vec![0, self.param1, self.param0, self.param2];
                             }
-                            10390 | 10400 => {
+                            10460 | 10470 => {
                                 params = vec![0, self.param1, self.param0, 0, self.param2];
                             }
-                            10410 => {
+                            10480 => {
                                 params = vec![0, self.param1, self.param0, self.param2];
                             }
-                            10420 => {
+                            10490 => {
                                 params = vec![self.param0, self.param1];
                             }
-                            10610 => {
+                            10810 => {
                                 params = vec![0, self.param1, self.param2, self.param3, 0];
                             }
-                            11030 => {
+                            11410 => {
                                 params = vec![self.param0];
                             }
-                            11110 | 11140 => {
+                            11510 | 11550 => {
                                 params = vec![self.param1, self.param2, 50];
                             }
-                            10720 => {
+                            11030 => {
                                 params = vec![self.param0, self.param1, self.param2, self.param3];
                             }
-                            10760 => {
+                            11070 => {
                                 params = vec![self.param0];
                             }
-                            10810 | 10820 => {
+                            11110 | 11120 => {
                                 params = vec![self.param0, self.param1, self.param2];
                             }
-                            10830 => {
+                            11130 => {
                                 params = vec![self.param0];
                             }
-                            11560 => {
+                            12010 => {
+                                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4];
+                            }
+                            12330 => {
                                 params = vec![self.param0];
                             }
-                            11710 => {
+                            10710 => {
                                 params = vec![0, self.param1];
                             }
                             // Every Maniac command (Tier-1 bespoke or the

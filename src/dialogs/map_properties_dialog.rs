@@ -185,6 +185,35 @@ impl MapPropertiesDialogState {
                                     ui.label("Auto-scroll Speed Y:");
                                     ui.add(egui::DragValue::new(&mut self.props.parallax_sy).range(-32..=32));
                                     ui.end_row();
+
+                                    ui.label("Battle Background:");
+                                    egui::ComboBox::from_id_salt("map_battle_bg_combo")
+                                        .selected_text(match self.props.background_type {
+                                            0 => "Terrain Default",
+                                            1 => "Specific Backdrop",
+                                            _ => "None",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.props.background_type, 0, "Terrain Default");
+                                            ui.selectable_value(&mut self.props.background_type, 1, "Specific Backdrop");
+                                            ui.selectable_value(&mut self.props.background_type, 2, "None");
+                                        });
+                                    ui.end_row();
+
+                                    if self.props.background_type == 1 {
+                                        ui.label("Backdrop Graphic:");
+                                        let mut dummy_dirty3 = false;
+                                        crate::widgets::resource_dropdown::resource_combo_box(
+                                            ui,
+                                            "map_props_backdrop_combo",
+                                            &mut self.props.background_name,
+                                            "Backdrop",
+                                            project_path,
+                                            &mut dummy_dirty3,
+                                            audio,
+                                        );
+                                        ui.end_row();
+                                    }
                                 });
                         });
 

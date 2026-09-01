@@ -69,6 +69,8 @@ pub struct EventConditionInfo {
     pub actor_id: i32,
     pub timer_flag: bool,
     pub timer_sec: i32,
+    pub timer2_flag: bool,
+    pub timer2_sec: i32,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -86,6 +88,7 @@ pub struct EventPageInfo {
     pub overlap_forbidden: bool,
     pub animation_type: i32,
     pub move_speed: i32,
+    pub move_route: lcf_core::MoveRoute,
     pub condition: EventConditionInfo,
     pub commands: Vec<EventCommandInfo>,
 }
@@ -135,16 +138,41 @@ pub fn event_move_type_label(move_type: i32) -> &'static str {
     }
 }
 
+pub fn event_direction_label(direction: i32) -> &'static str {
+    match direction {
+        0 => "Up (↑)",
+        1 => "Right (→)",
+        2 => "Down (↓)",
+        3 => "Left (←)",
+        _ => "Down (↓)",
+    }
+}
+
+pub fn event_pattern_label(pattern: i32) -> &'static str {
+    match pattern {
+        0 => "Left Frame",
+        1 => "Middle Frame",
+        2 => "Right Frame",
+        _ => "Middle Frame",
+    }
+}
+
 pub fn event_command_label(cmd: &EventCommandInfo) -> String {
     let prefix = "  ".repeat(cmd.indent.max(0) as usize);
     let desc = match cmd.code {
         10110 => format!("Show Message: \"{}\"", cmd.string),
         10120 => "Message Options".to_string(),
-        10130 => format!("Show Choices: \"{}\"", cmd.string),
-        20130 => format!("When [Choice {}]", cmd.parameters.first().copied().unwrap_or(0) + 1),
-        20131 => "When Cancel".to_string(),
-        20132 => "End Choices".to_string(),
-        10140 => format!("Input Number (Var #{})", cmd.parameters.first().copied().unwrap_or(0)),
+        10140 => format!("Show Choices: \"{}\"", cmd.string),
+        20140 => {
+            let idx = cmd.parameters.first().copied().unwrap_or(0);
+            if idx >= 4 {
+                "When Cancel".to_string()
+            } else {
+                format!("When [Choice {}]", idx + 1)
+            }
+        }
+        20141 => "End Choices".to_string(),
+        10150 => format!("Input Number (Var #{})", cmd.parameters.first().copied().unwrap_or(0)),
         10210 => {
             let op = match cmd.parameters.get(3).copied().unwrap_or(0) {
                 0 => "ON",
@@ -154,7 +182,13 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
             format!("Control Switches: [#{}] = {}", cmd.parameters.get(1).copied().unwrap_or(0), op)
         }
         10220 => {
-            let var_id = cmd.parameters.get(1).copied().unwrap_or(0);
+            let target_mode = cmd.parameters.first().copied().unwrap_or(0);
+            let target_str = match target_mode {
+                0 => format!("[#{:04}]", cmd.parameters.get(1).copied().unwrap_or(0)),
+                1 => format!("[#{:04}..#{:04}]", cmd.parameters.get(1).copied().unwrap_or(0), cmd.parameters.get(2).copied().unwrap_or(0)),
+                2 => format!("[V[#{:04}]]", cmd.parameters.get(1).copied().unwrap_or(0)),
+                _ => "[?]".to_string(),
+            };
             let op = match cmd.parameters.get(3).copied().unwrap_or(0) {
                 0 => "=",
                 1 => "+=",
@@ -164,66 +198,195 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
                 5 => "%=",
                 _ => "=",
             };
-            format!("Control Variables: [#{}] {} Val", var_id, op)
+            let operand_mode = cmd.parameters.get(4).copied().unwrap_or(0);
+            let operand_str = match operand_mode {
+                0 => format!("{}", cmd.parameters.get(5).copied().unwrap_or(0)),
+                1 => format!("V[#{:04}]", cmd.parameters.get(5).copied().unwrap_or(0)),
+                2 => format!("V[V[#{:04}]]", cmd.parameters.get(5).copied().unwrap_or(0)),
+                3 => format!("Random({}..{})", cmd.parameters.get(5).copied().unwrap_or(0), cmd.parameters.get(6).copied().unwrap_or(0)),
+                4 => {
+                    let item_id = cmd.parameters.get(5).copied().unwrap_or(0);
+                    let check = if cmd.parameters.get(6).copied().unwrap_or(0) == 1 { "Equipped" } else { "Possessed" };
+                    format!("Item #{:04} ({})", item_id, check)
+                }
+                5 => {
+                    let actor_id = cmd.parameters.get(5).copied().unwrap_or(0);
+                    let stat = match cmd.parameters.get(6).copied().unwrap_or(0) {
+                        0 => "Level", 1 => "EXP", 2 => "HP", 3 => "SP", 4 => "Max HP", 5 => "Max SP",
+                        6 => "Attack", 7 => "Defense", 8 => "Spirit", 9 => "Agility",
+                        10 => "Weapon ID", 11 => "Shield ID", 12 => "Armor ID", 13 => "Helmet ID", 14 => "Accessory ID",
+                        _ => "Stat",
+                    };
+                    format!("Hero #{:04} {}", actor_id, stat)
+                }
+                6 => {
+                    let char_id = cmd.parameters.get(5).copied().unwrap_or(0);
+                    let char_name = match char_id {
+                        10001 => "Player".to_string(),
+                        10005 => "This Event".to_string(),
+                        id => format!("Event #{:04}", id),
+                    };
+                    let prop = match cmd.parameters.get(6).copied().unwrap_or(0) {
+                        0 => "Map ID", 1 => "X", 2 => "Y", 3 => "Direction", 4 => "Screen X", 5 => "Screen Y", _ => "Prop",
+                    };
+                    format!("{} {}", char_name, prop)
+                }
+                7 => match cmd.parameters.get(5).copied().unwrap_or(0) {
+                    0 => "Gold".to_string(),
+                    1 => "Timer 1".to_string(),
+                    2 => "Party Size".to_string(),
+                    3 => "Save Count".to_string(),
+                    4 => "Battle Count".to_string(),
+                    5 => "Victories".to_string(),
+                    6 => "Defeats".to_string(),
+                    7 => "Escapes".to_string(),
+                    8 => "MIDI Pos".to_string(),
+                    9 => "Timer 2".to_string(),
+                    _ => "Other".to_string(),
+                },
+                _ => format!("{}", cmd.parameters.get(5).copied().unwrap_or(0)),
+            };
+            format!("Control Variables: {} {} {}", target_str, op, operand_str)
         }
-        10310 => "Change Gold".to_string(),
-        10320 => "Change Items".to_string(),
-        10330 => "Change Party Members".to_string(),
-        10340 => "Change EXP".to_string(),
-        10350 => "Change Level".to_string(),
-        10360 => "Change Parameters".to_string(),
-        10370 => "Change Skills".to_string(),
-        10380 => "Change Equipment".to_string(),
-        10390 => "Change HP".to_string(),
-        10400 => "Change SP".to_string(),
-        10410 => "Change Condition / State".to_string(),
-        10420 => "Recover All".to_string(),
-        10610 => format!(
+        10310 => {
+            let op = if cmd.parameters.first().copied().unwrap_or(0) == 0 { "Add" } else { "Remove" };
+            format!("Change Gold: {} {}", op, cmd.parameters.get(2).copied().unwrap_or(0))
+        }
+        10320 => {
+            let op = if cmd.parameters.first().copied().unwrap_or(0) == 0 { "Add" } else { "Remove" };
+            format!("Change Items: {} Item #{:04} (x{})", op, cmd.parameters.get(2).copied().unwrap_or(0), cmd.parameters.get(3).copied().unwrap_or(1))
+        }
+        10330 => {
+            let op = if cmd.parameters.first().copied().unwrap_or(0) == 0 { "Add" } else { "Remove" };
+            format!("Change Party: {} Hero #{:04}", op, cmd.parameters.get(1).copied().unwrap_or(0))
+        }
+        10410 => "Change EXP".to_string(),
+        10420 => "Change Level".to_string(),
+        10430 => "Change Parameters".to_string(),
+        10440 => "Change Skills".to_string(),
+        10450 => "Change Equipment".to_string(),
+        10460 => "Change HP".to_string(),
+        10470 => "Change SP".to_string(),
+        10480 => "Change Condition / State".to_string(),
+        10490 => "Recover All".to_string(),
+        10810 => format!(
             "Transfer Player -> Map #{:04} ({}, {})",
             cmd.parameters.get(1).copied().unwrap_or(0),
             cmd.parameters.get(2).copied().unwrap_or(0),
             cmd.parameters.get(3).copied().unwrap_or(0)
         ),
-        10630 => "Set Event Location".to_string(),
-        10710 => "Erase / Show Screen".to_string(),
-        10720 => "Tint Screen".to_string(),
-        10730 => "Flash Screen".to_string(),
-        10740 => "Shake Screen".to_string(),
-        10750 => "Pan Screen".to_string(),
-        10760 => "Weather Effects".to_string(),
-        10810 => format!("Show Picture: \"{}\"", cmd.string),
-        10820 => "Move Picture".to_string(),
-        10830 => "Erase Picture".to_string(),
-        10910 => "Show Battle Animation".to_string(),
-        11010 => "Flash Event".to_string(),
-        11020 => "Set Move Route".to_string(),
-        11030 => format!("Wait: {:.1}s", cmd.parameters.first().copied().unwrap_or(0) as f32 / 10.0),
-        11110 => format!("Play BGM: \"{}\"", cmd.string),
-        11120 => "Fade Out BGM".to_string(),
-        11140 => format!("Play SE: \"{}\"", cmd.string),
-        11210 => "Key Input Processing".to_string(),
-        11310 => "Change Chipset".to_string(),
-        11320 => "Change Parallax Background".to_string(),
-        11410 => "Teleport Target".to_string(),
-        11420 => "Escape Target".to_string(),
-        11430 => "Open Save Menu".to_string(),
-        11440 => "Open Main Menu".to_string(),
-        11510 => "Conditional Branch".to_string(),
-        21510 => "Else".to_string(),
-        21511 => "End Branch".to_string(),
-        11520 => "Loop".to_string(),
-        21520 => "End Loop".to_string(),
-        11530 => "Break Loop".to_string(),
-        11540 => "Exit Event Processing".to_string(),
-        11550 => "Erase Event".to_string(),
-        11560 => "Call Event".to_string(),
-        11570 => format!("// Comment: {}", cmd.string),
-        11610 => "Game Over".to_string(),
-        11620 => "Return to Title Screen".to_string(),
-        11710 => "Battle Processing".to_string(),
-        11720 => "Shop Processing".to_string(),
-        11730 => "Inn Processing".to_string(),
-        11740 => "Hero Name Input".to_string(),
+        10860 => "Set Event Location".to_string(),
+        11010 => "Erase / Show Screen".to_string(),
+        11030 => "Tint Screen".to_string(),
+        11040 => "Flash Screen".to_string(),
+        11050 => "Shake Screen".to_string(),
+        11060 => "Pan Screen".to_string(),
+        11070 => "Weather Effects".to_string(),
+        11110 => format!("Show Picture: \"{}\"", cmd.string),
+        11120 => "Move Picture".to_string(),
+        11130 => "Erase Picture".to_string(),
+        11210 => "Show Battle Animation".to_string(),
+        11320 => "Flash Event".to_string(),
+        11330 => "Set Move Route".to_string(),
+        11410 => format!("Wait: {:.1}s", cmd.parameters.first().copied().unwrap_or(0) as f32 / 10.0),
+        11510 => format!("Play BGM: \"{}\"", cmd.string),
+        11520 => "Fade Out BGM".to_string(),
+        11550 => format!("Play SE: \"{}\"", cmd.string),
+        11610 => "Key Input Processing".to_string(),
+        11710 => "Change Chipset".to_string(),
+        11720 => "Change Parallax Background".to_string(),
+        11810 => "Teleport Target".to_string(),
+        11830 => "Escape Target".to_string(),
+        11910 => "Open Save Menu".to_string(),
+        11950 => "Open Main Menu".to_string(),
+        12010 => {
+            let cond_type = cmd.parameters.first().copied().unwrap_or(0);
+            let cond_str = match cond_type {
+                0 => {
+                    let sw_id = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let state = if cmd.parameters.get(2).copied().unwrap_or(0) == 1 { "OFF" } else { "ON" };
+                    format!("Switch [#{:04}] is {}", sw_id, state)
+                }
+                1 => {
+                    let var_id = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let is_var = cmd.parameters.get(2).copied().unwrap_or(0) == 1;
+                    let val = cmd.parameters.get(3).copied().unwrap_or(0);
+                    let op = match cmd.parameters.get(4).copied().unwrap_or(0) {
+                        0 => "==", 1 => ">=", 2 => "<=", 3 => ">", 4 => "<", 5 => "!=", _ => "==",
+                    };
+                    if is_var {
+                        format!("Variable [#{:04}] {} V[#{:04}]", var_id, op, val)
+                    } else {
+                        format!("Variable [#{:04}] {} {}", var_id, op, val)
+                    }
+                }
+                2 => {
+                    let sec = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let op = if cmd.parameters.get(2).copied().unwrap_or(0) == 1 { "<=" } else { ">=" };
+                    format!("Timer 1 {} {}s", op, sec)
+                }
+                3 => {
+                    let gold = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let op = if cmd.parameters.get(2).copied().unwrap_or(0) == 1 { "<=" } else { ">=" };
+                    format!("Gold {} {}", op, gold)
+                }
+                4 => {
+                    let item_id = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let state = if cmd.parameters.get(2).copied().unwrap_or(0) == 1 { "Not Possessed" } else { "Possessed" };
+                    format!("Item [#{:04}] is {}", item_id, state)
+                }
+                5 => {
+                    let actor_id = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let sub = match cmd.parameters.get(2).copied().unwrap_or(0) {
+                        0 => "in party".to_string(),
+                        1 => format!("name is \"{}\"", cmd.string),
+                        2 => format!("level >= {}", cmd.parameters.get(3).copied().unwrap_or(0)),
+                        3 => format!("HP >= {}", cmd.parameters.get(3).copied().unwrap_or(0)),
+                        4 => format!("knows skill #{}", cmd.parameters.get(3).copied().unwrap_or(0)),
+                        5 => format!("has item #{} equipped", cmd.parameters.get(3).copied().unwrap_or(0)),
+                        6 => format!("has state #{}", cmd.parameters.get(3).copied().unwrap_or(0)),
+                        _ => "condition met".to_string(),
+                    };
+                    format!("Hero [#{:04}] {}", actor_id, sub)
+                }
+                6 => {
+                    let char_id = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let dir = event_direction_label(cmd.parameters.get(2).copied().unwrap_or(2));
+                    let name = if char_id == 10001 { "Player" } else { "Event" };
+                    format!("{} is facing {}", name, dir)
+                }
+                7 => {
+                    let veh = match cmd.parameters.get(1).copied().unwrap_or(0) {
+                        0 => "Boat", 1 => "Ship", 2 => "Airship", _ => "Vehicle",
+                    };
+                    format!("Riding {}", veh)
+                }
+                8 => "Triggered by Action Button".to_string(),
+                9 => "BGM played once".to_string(),
+                10 => {
+                    let sec = cmd.parameters.get(1).copied().unwrap_or(0);
+                    let op = if cmd.parameters.get(2).copied().unwrap_or(0) == 1 { "<=" } else { ">=" };
+                    format!("Timer 2 {} {}s", op, sec)
+                }
+                _ => "Condition Met".to_string(),
+            };
+            format!("Branch if {}", cond_str)
+        }
+        22010 => "Else".to_string(),
+        22011 => "End Branch".to_string(),
+        12210 => "Loop".to_string(),
+        22210 => "End Loop".to_string(),
+        12220 => "Break Loop".to_string(),
+        12310 => "Exit Event Processing".to_string(),
+        12320 => "Erase Event".to_string(),
+        12330 => "Call Event".to_string(),
+        12410 => format!("// Comment: {}", cmd.string),
+        12420 => "Game Over".to_string(),
+        12510 => "Return to Title Screen".to_string(),
+        10710 => "Battle Processing".to_string(),
+        10720 => "Shop Processing".to_string(),
+        10730 => "Inn Processing".to_string(),
+        10740 => "Hero Name Input".to_string(),
         code if is_maniac_command_code(code) => {
             if !cmd.string.is_empty() {
                 format!("Maniac: {} ({})", maniac_command_name(code), cmd.string)
@@ -242,6 +405,44 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
         }
     };
     format!("{prefix}◆ {desc}")
+}
+
+/// Inserts a new command at `insert_pos`, automatically scaffolding matching
+/// block structure (Else/EndBranch for ConditionalBranch, EndLoop for Loop,
+/// and Choice Options/End for ShowChoices).
+pub fn insert_event_command_with_scaffolding(
+    commands: &mut Vec<EventCommandInfo>,
+    insert_pos: usize,
+    cmd: EventCommandInfo,
+) {
+    let code = cmd.code;
+    let indent = cmd.indent;
+    match code {
+        12010 => {
+            // Conditional Branch -> insert Branch, Else (22010), End Branch (22011)
+            commands.insert(insert_pos, cmd);
+            commands.insert(insert_pos + 1, EventCommandInfo { code: 22010, indent, string: String::new(), parameters: vec![] });
+            commands.insert(insert_pos + 2, EventCommandInfo { code: 22011, indent, string: String::new(), parameters: vec![] });
+        }
+        12210 => {
+            // Loop -> insert Loop, End Loop (22210)
+            commands.insert(insert_pos, cmd);
+            commands.insert(insert_pos + 1, EventCommandInfo { code: 22210, indent, string: String::new(), parameters: vec![] });
+        }
+        10140 => {
+            // Show Choices -> insert Show Choices, Choice 1, Choice 2, Cancel, End Choices
+            let opt1 = cmd.string.split('\\').next().unwrap_or("Yes").to_string();
+            let opt2 = cmd.string.split('\\').nth(1).unwrap_or("No").to_string();
+            commands.insert(insert_pos, cmd);
+            commands.insert(insert_pos + 1, EventCommandInfo { code: 20140, indent, string: opt1, parameters: vec![0] });
+            commands.insert(insert_pos + 2, EventCommandInfo { code: 20140, indent, string: opt2, parameters: vec![1] });
+            commands.insert(insert_pos + 3, EventCommandInfo { code: 20140, indent, string: String::new(), parameters: vec![4] }); // Cancel
+            commands.insert(insert_pos + 4, EventCommandInfo { code: 20141, indent, string: String::new(), parameters: vec![] }); // End
+        }
+        _ => {
+            commands.insert(insert_pos, cmd);
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -361,6 +562,9 @@ pub struct SkillInfo {
     pub id: i32,
     pub name: String,
     pub description: String,
+    pub using_message1: String,
+    pub using_message2: String,
+    pub failure_message: i32,
     pub skill_type: i32,
     pub sp_type: i32,
     pub sp_percent: i32,
@@ -368,6 +572,7 @@ pub struct SkillInfo {
     pub scope: i32,
     pub switch_id: i32,
     pub animation_id: i32,
+    pub sound_effect_name: String,
     pub occasion_field: bool,
     pub occasion_battle: bool,
     pub reverse_state_effect: bool,
@@ -447,6 +652,8 @@ pub struct EnemyInfo {
     pub miss: bool,
     pub levitate: bool,
     pub transparent: bool,
+    pub state_ranks: Vec<i32>,
+    pub attribute_ranks: Vec<i32>,
     pub actions: Vec<EnemyActionInfo>,
 }
 
@@ -503,7 +710,7 @@ pub struct TroopInfo {
     pub pages: Vec<TroopPageInfo>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CommonEventInfo {
     pub id: i32,
     pub name: String,
@@ -511,6 +718,19 @@ pub struct CommonEventInfo {
     pub switch_flag: bool,
     pub switch_id: i32,
     pub commands: Vec<EventCommandInfo>,
+}
+
+impl Default for CommonEventInfo {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            name: String::new(),
+            trigger: 5, // Call (Explicit)
+            switch_flag: false,
+            switch_id: 1,
+            commands: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -594,10 +814,22 @@ pub struct SystemInfo {
     pub battle_music_name: String,
     pub victory_music_name: String,
     pub gameover_music_name: String,
+    pub inn_music_name: String,
+    pub boat_music_name: String,
+    pub ship_music_name: String,
+    pub airship_music_name: String,
     pub cursor_sound_name: String,
     pub decision_sound_name: String,
     pub cancel_sound_name: String,
     pub buzzer_sound_name: String,
+    pub battle_sound_name: String,
+    pub escape_sound_name: String,
+    pub enemy_attack_sound_name: String,
+    pub enemy_damaged_sound_name: String,
+    pub actor_damaged_sound_name: String,
+    pub dodge_sound_name: String,
+    pub enemy_death_sound_name: String,
+    pub item_sound_name: String,
     pub transition_out: i32,
     pub transition_in: i32,
     pub battle_start_fadeout: i32,
@@ -804,6 +1036,8 @@ pub struct SaveSlotInfo {
     pub gold: i32,
     pub party: Vec<SavePartyMember>,
     pub inventory: Vec<(i32, i32)>, // item_id, count
+    pub switches: Vec<bool>,
+    pub variables: Vec<i32>,
     pub error: Option<String>,
 }
 
@@ -1438,6 +1672,8 @@ pub fn get_map_events(path: &str, map_id: i32) -> Vec<EventInfo> {
                         actor_id: p.condition.actor_id,
                         timer_flag: (f & 0x20) != 0,
                         timer_sec: p.condition.timer_sec,
+                        timer2_flag: (f & 0x40) != 0,
+                        timer2_sec: p.condition.timer2_sec,
                     };
 
                     let commands = p.event_commands.iter().map(EventCommandInfo::from).collect();
@@ -1456,6 +1692,7 @@ pub fn get_map_events(path: &str, map_id: i32) -> Vec<EventInfo> {
                         overlap_forbidden: p.overlap_forbidden,
                         animation_type: p.animation_type,
                         move_speed: p.move_speed,
+                        move_route: p.move_route,
                         condition: cond,
                         commands,
                     }
@@ -1534,6 +1771,7 @@ pub fn save_map_events_full(path: &str, map_id: i32, events: &[EventInfo]) -> Re
                     page.overlap_forbidden = p.overlap_forbidden;
                     page.animation_type = p.animation_type;
                     page.move_speed = p.move_speed;
+                    page.move_route = p.move_route.clone();
 
                     let mut flags = 0i32;
                     if p.condition.switch1_flag { flags |= 0x01; }
@@ -1542,6 +1780,7 @@ pub fn save_map_events_full(path: &str, map_id: i32, events: &[EventInfo]) -> Re
                     if p.condition.item_flag { flags |= 0x08; }
                     if p.condition.actor_flag { flags |= 0x10; }
                     if p.condition.timer_flag { flags |= 0x20; }
+                    if p.condition.timer2_flag { flags |= 0x40; }
                     page.condition.flags = flags;
                     page.condition.switch_a_id = p.condition.switch1_id;
                     page.condition.switch_b_id = p.condition.switch2_id;
@@ -1551,6 +1790,7 @@ pub fn save_map_events_full(path: &str, map_id: i32, events: &[EventInfo]) -> Re
                     page.condition.item_id = p.condition.item_id;
                     page.condition.actor_id = p.condition.actor_id;
                     page.condition.timer_sec = p.condition.timer_sec;
+                    page.condition.timer2_sec = p.condition.timer2_sec;
 
                     page.event_commands = p.commands.iter().map(LcfEventCommand::from).collect();
 
@@ -1887,6 +2127,9 @@ pub fn get_skills(path: &str) -> Vec<SkillInfo> {
             id: skill.id,
             name: skill.name.0,
             description: skill.description.0,
+            using_message1: skill.using_message1.0,
+            using_message2: skill.using_message2.0,
+            failure_message: skill.failure_message,
             skill_type: skill.r#type,
             sp_type: skill.sp_type,
             sp_percent: skill.sp_percent,
@@ -1894,6 +2137,7 @@ pub fn get_skills(path: &str) -> Vec<SkillInfo> {
             scope: skill.scope,
             switch_id: skill.switch_id,
             animation_id: skill.animation_id,
+            sound_effect_name: skill.sound_effect.name.0,
             occasion_field: skill.occasion_field,
             occasion_battle: skill.occasion_battle,
             reverse_state_effect: skill.reverse_state_effect,
@@ -1923,6 +2167,9 @@ pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
         if let Some(skill) = db.skills.iter_mut().find(|s| s.id == edit.id) {
             skill.name = edit.name.clone().into();
             skill.description = edit.description.clone().into();
+            skill.using_message1 = edit.using_message1.clone().into();
+            skill.using_message2 = edit.using_message2.clone().into();
+            skill.failure_message = edit.failure_message;
             skill.r#type = edit.skill_type;
             skill.sp_type = edit.sp_type;
             skill.sp_percent = edit.sp_percent;
@@ -1930,6 +2177,7 @@ pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
             skill.scope = edit.scope;
             skill.switch_id = edit.switch_id;
             skill.animation_id = edit.animation_id;
+            skill.sound_effect.name = edit.sound_effect_name.clone().into();
             skill.occasion_field = edit.occasion_field;
             skill.occasion_battle = edit.occasion_battle;
             skill.reverse_state_effect = edit.reverse_state_effect;
@@ -1984,6 +2232,7 @@ pub fn save_attributes(path: &str, attributes: &[AttributeInfo]) -> Result<(), S
     for edit in attributes {
         if let Some(attr) = db.attributes.iter_mut().find(|a| a.id == edit.id) {
             attr.name = edit.name.clone().into();
+            attr.r#type = if edit.attribute_type == "Magic" { 1 } else { 0 };
             attr.a_rate = edit.a_rate;
             attr.b_rate = edit.b_rate;
             attr.c_rate = edit.c_rate;
@@ -2026,6 +2275,8 @@ pub fn get_enemies(path: &str) -> Vec<EnemyInfo> {
             miss: e.miss,
             levitate: e.levitate,
             transparent: e.transparent,
+            state_ranks: e.state_ranks.into_iter().map(|r| r as i32).collect(),
+            attribute_ranks: e.attribute_ranks.into_iter().map(|r| r as i32).collect(),
             actions: e.actions.into_iter().map(|a| EnemyActionInfo {
                 id: a.id,
                 kind: a.kind,
@@ -2071,6 +2322,8 @@ pub fn save_enemies(path: &str, enemies: &[EnemyInfo]) -> Result<(), String> {
             e.miss = edit.miss;
             e.levitate = edit.levitate;
             e.transparent = edit.transparent;
+            e.state_ranks = edit.state_ranks.iter().map(|&r| r as u8).collect();
+            e.attribute_ranks = edit.attribute_ranks.iter().map(|&r| r as u8).collect();
             e.actions = edit.actions.iter().enumerate().map(|(i, a)| LdbEnemyAction {
                 id: (i + 1) as i32,
                 kind: a.kind,
@@ -2378,10 +2631,22 @@ pub fn get_system(path: &str) -> Option<SystemInfo> {
         battle_music_name: s.battle_music.name.0.clone(),
         victory_music_name: s.battle_end_music.name.0.clone(),
         gameover_music_name: s.gameover_music.name.0.clone(),
+        inn_music_name: s.inn_music.name.0.clone(),
+        boat_music_name: s.boat_music.name.0.clone(),
+        ship_music_name: s.ship_music.name.0.clone(),
+        airship_music_name: s.airship_music.name.0.clone(),
         cursor_sound_name: s.cursor_se.name.0.clone(),
         decision_sound_name: s.decision_se.name.0.clone(),
         cancel_sound_name: s.cancel_se.name.0.clone(),
         buzzer_sound_name: s.buzzer_se.name.0.clone(),
+        battle_sound_name: s.battle_se.name.0.clone(),
+        escape_sound_name: s.escape_se.name.0.clone(),
+        enemy_attack_sound_name: s.enemy_attack_se.name.0.clone(),
+        enemy_damaged_sound_name: s.enemy_damaged_se.name.0.clone(),
+        actor_damaged_sound_name: s.actor_damaged_se.name.0.clone(),
+        dodge_sound_name: s.dodge_se.name.0.clone(),
+        enemy_death_sound_name: s.enemy_death_se.name.0.clone(),
+        item_sound_name: s.item_se.name.0.clone(),
         transition_out: s.transition_out,
         transition_in: s.transition_in,
         battle_start_fadeout: s.battle_start_fadeout,
@@ -2411,10 +2676,22 @@ pub fn save_system(path: &str, system: &SystemInfo) -> Result<(), String> {
     s.battle_music.name = DBString::new(system.battle_music_name.clone());
     s.battle_end_music.name = DBString::new(system.victory_music_name.clone());
     s.gameover_music.name = DBString::new(system.gameover_music_name.clone());
+    s.inn_music.name = DBString::new(system.inn_music_name.clone());
+    s.boat_music.name = DBString::new(system.boat_music_name.clone());
+    s.ship_music.name = DBString::new(system.ship_music_name.clone());
+    s.airship_music.name = DBString::new(system.airship_music_name.clone());
     s.cursor_se.name = DBString::new(system.cursor_sound_name.clone());
     s.decision_se.name = DBString::new(system.decision_sound_name.clone());
     s.cancel_se.name = DBString::new(system.cancel_sound_name.clone());
     s.buzzer_se.name = DBString::new(system.buzzer_sound_name.clone());
+    s.battle_se.name = DBString::new(system.battle_sound_name.clone());
+    s.escape_se.name = DBString::new(system.escape_sound_name.clone());
+    s.enemy_attack_se.name = DBString::new(system.enemy_attack_sound_name.clone());
+    s.enemy_damaged_se.name = DBString::new(system.enemy_damaged_sound_name.clone());
+    s.actor_damaged_se.name = DBString::new(system.actor_damaged_sound_name.clone());
+    s.dodge_se.name = DBString::new(system.dodge_sound_name.clone());
+    s.enemy_death_se.name = DBString::new(system.enemy_death_sound_name.clone());
+    s.item_se.name = DBString::new(system.item_sound_name.clone());
     s.transition_out = system.transition_out;
     s.transition_in = system.transition_in;
     s.battle_start_fadeout = system.battle_start_fadeout;
@@ -2820,6 +3097,8 @@ fn load_save_slot_info(dir: &str, file_name: String) -> SaveSlotInfo {
                 gold: save.inventory.gold,
                 party,
                 inventory,
+                switches: save.system.switches.clone(),
+                variables: save.system.variables.clone(),
                 error: None,
             }
         }
@@ -2870,6 +3149,12 @@ pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Resul
     save.party_location.position_x = info.position_x;
     save.party_location.position_y = info.position_y;
     save.inventory.gold = info.gold;
+    save.system.switches = info.switches.clone();
+    save.system.variables = info.variables.clone();
+
+    save.inventory.item_ids = info.inventory.iter().map(|(id, _)| *id as i16).collect();
+    save.inventory.item_counts = info.inventory.iter().map(|(_, count)| *count as u8).collect();
+    save.inventory.item_usage = vec![0u8; info.inventory.len()];
 
     for edit in &info.party {
         if let Some(actor) = save.actors.iter_mut().find(|a| a.id == edit.id) {
@@ -3183,10 +3468,13 @@ pub fn save_map_properties(
 
     map.chipset_id = props.chipset_id;
     map.scroll_type = props.scroll_type;
+    map.parallax_flag = !props.parallax_name.trim().is_empty();
     map.parallax_name = DBString::new(props.parallax_name.clone());
     map.parallax_loop_x = props.parallax_loop_x;
     map.parallax_loop_y = props.parallax_loop_y;
+    map.parallax_auto_loop_x = props.parallax_sx != 0;
     map.parallax_sx = props.parallax_sx;
+    map.parallax_auto_loop_y = props.parallax_sy != 0;
     map.parallax_sy = props.parallax_sy;
 
     if map.width != props.width || map.height != props.height {
@@ -3293,6 +3581,13 @@ pub fn delete_map(path: &str, map_id: i32) -> Result<(), String> {
     let lmt_path = Path::new(path).join("RPG_RT.lmt");
     let mut tree = LmtReader::load(&lmt_path, "auto").map_err(|e| e.to_string())?;
     backup_file_once(&lmt_path)?;
+
+    let parent_id = tree.maps.iter().find(|m| m.id == map_id).map(|m| m.parent_map).unwrap_or(0);
+    for m in &mut tree.maps {
+        if m.parent_map == map_id {
+            m.parent_map = parent_id;
+        }
+    }
 
     tree.maps.retain(|m| m.id != map_id);
     tree.tree_order.retain(|&id| id != map_id);

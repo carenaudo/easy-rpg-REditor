@@ -49,6 +49,9 @@ struct EditorApp {
     /// Shows the Save All / Discard / Cancel choice when the window close
     /// button is clicked while there are unsaved changes.
     show_close_confirm: bool,
+    /// Shows the Save All / Discard / Cancel choice when the user chooses
+    /// to close the active project while there are unsaved changes.
+    show_close_project_confirm: bool,
     /// Set right before re-issuing `ViewportCommand::Close` from the modal's
     /// Discard/Save-and-close actions, so the close guard below doesn't
     /// intercept that second close request and reopen the same modal in an
@@ -97,6 +100,7 @@ impl EditorApp {
             open_blocked_message: None,
             audio,
             show_close_confirm: false,
+            show_close_project_confirm: false,
             force_close: false,
         };
 
@@ -127,6 +131,20 @@ impl EditorApp {
         if !self.state.maps.is_empty() {
             self.select_map(0, ctx);
         }
+    }
+
+    /// Saves all dirty database categories and the active map (if dirty).
+    /// Returns a list of error descriptions, which is empty on success.
+    fn save_all_dirty_project_data(&mut self) -> Vec<String> {
+        let mut errors = self.state.save_all_dirty();
+        if self.map_view.map_dirty || self.map_view.events_dirty {
+            let map_id = self.state.selected_map.and_then(|i| self.state.maps.get(i)).map(|m| m.0);
+            self.map_view.save_current_map(self.state.project_path.as_deref(), map_id);
+            if self.map_view.map_dirty || self.map_view.events_dirty {
+                errors.push("Map failed to save.".to_string());
+            }
+        }
+        errors
     }
 
     /// Closes the current project and returns to the "no project loaded"
@@ -187,17 +205,26 @@ impl EditorApp {
 
     fn launch_playtest(&mut self) {
         if let Some(proj) = &self.state.project_path {
-            let candidates = ["Player.exe", "easyrpg.exe", "RPG_RT.exe", "Player", "easyrpg", "RPG_RT"];
-            let mut found_exe = None;
-            for cand in &candidates {
-                let p = Path::new(proj).join(cand);
-                if p.exists() {
-                    found_exe = Some(p);
-                    break;
+            let configured_exe = self.state.config.player_path.as_deref().and_then(|p| {
+                let path = std::path::PathBuf::from(p);
+                if path.exists() {
+                    Some(path)
+                } else {
+                    None
                 }
-            }
+            });
 
-            let exe = found_exe.unwrap_or_else(|| std::path::PathBuf::from("Player.exe"));
+            let exe = configured_exe.unwrap_or_else(|| {
+                let candidates = ["Player.exe", "easyrpg.exe", "RPG_RT.exe", "Player", "easyrpg", "RPG_RT"];
+                for cand in &candidates {
+                    let p = Path::new(proj).join(cand);
+                    if p.exists() {
+                        return p;
+                    }
+                }
+                std::path::PathBuf::from("Player.exe")
+            });
+
             match std::process::Command::new(exe).current_dir(proj).arg("--test-play").spawn() {
                 Ok(_) => {
                     self.open_blocked_message = None;
@@ -224,7 +251,7 @@ impl EditorApp {
         }
     }
 
-    /// Context strip: app icon, project name, current map, and a dirty dot.
+    /// Context strip: app icon, project name, current map, and a dirty dot / save message.
     fn ui_context_strip(&mut self, ui: &mut egui::Ui) {
         egui::Panel::top("context_strip").show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -249,7 +276,16 @@ impl EditorApp {
 
                 let dirty = self.state.has_unsaved_changes() || self.map_view.map_dirty || self.map_view.events_dirty;
                 if dirty {
-                    ui.colored_label(crate::theme::colors::warning(is_dark), "●");
+                    ui.colored_label(crate::theme::colors::warning(is_dark), "● Unsaved Changes");
+                } else if let Some(msg) = &self.map_view.save_message {
+                    match msg {
+                        Ok(txt) => {
+                            ui.colored_label(crate::theme::colors::success(is_dark), txt);
+                        }
+                        Err(txt) => {
+                            ui.colored_label(crate::theme::colors::danger(is_dark), txt);
+                        }
+                    }
                 }
             });
         });
@@ -358,9 +394,45 @@ impl EditorApp {
         .on_hover_text(format!("RTP Folder:\n{}\n\nClick to change RTP directory.", rtp_display));
     }
 
-    /// ⚙ preferences icon popup - a compact overview of the three settings
-    /// above, per the mockup's fourth icon. Actual changes happen via the
-    /// dedicated 🌐/🎨/📦 popups; this just summarizes current state.
+    /// 🎮 EasyRPG Player path popup.
+    fn ui_player_popup(&mut self, ui: &mut egui::Ui) {
+        let player_display = self
+            .state
+            .config
+            .player_path
+            .clone()
+            .unwrap_or_else(|| "(Not Configured — searching project)".to_string());
+
+        ui.menu_button("🎮", |ui| {
+            ui.label(format!("EasyRPG Player:\n{}", player_display));
+            ui.separator();
+            if ui.button("Select Player executable…").clicked() {
+                let mut dialog = FileDialog::new().set_title("Select EasyRPG Player Executable");
+                #[cfg(target_os = "windows")]
+                {
+                    dialog = dialog.add_filter("Executable", &["exe"]);
+                }
+                if let Some(file) = dialog.pick_file() {
+                    self.state.config.player_path = Some(file.to_string_lossy().to_string());
+                    self.state.config.save();
+                }
+                ui.close();
+            }
+            if self.state.config.player_path.is_some() {
+                if ui.button("Clear (use project folder)").clicked() {
+                    self.state.config.player_path = None;
+                    self.state.config.save();
+                    ui.close();
+                }
+            }
+        })
+        .response
+        .on_hover_text(format!("EasyRPG Player:\n{}\n\nClick to configure.", player_display));
+    }
+
+    /// ⚙ preferences icon popup - a compact overview of the settings
+    /// above, per the mockup's fifth icon. Actual changes happen via the
+    /// dedicated 🌐/🎨/📦/🎮 popups; this just summarizes current state.
     fn ui_preferences_popup(&mut self, ui: &mut egui::Ui) {
         let project_version = self.state.project_path.is_some().then_some(self.state.is_2003);
         let rtp_display = self
@@ -369,6 +441,12 @@ impl EditorApp {
             .get_effective_rtp_path_for(project_version)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "(Not Configured)".to_string());
+        let player_display = self
+            .state
+            .config
+            .player_path
+            .as_deref()
+            .unwrap_or("(project folder)");
 
         ui.menu_button("⚙", |ui| {
             ui.label(rust_i18n::t!("menu.preferences"));
@@ -381,8 +459,9 @@ impl EditorApp {
                 self.state.config.theme.mode
             ));
             ui.label(format!("RTP: {}", rtp_display));
+            ui.label(format!("Player: {}", player_display));
             ui.separator();
-            ui.small("Use the 🌐 🎨 📦 icons to change these settings.");
+            ui.small("Use the 🌐 🎨 📦 🎮 icons to change these settings.");
         })
         .response
         .on_hover_text(rust_i18n::t!("menu.preferences"));
@@ -438,7 +517,8 @@ impl EditorApp {
                     let has_project = self.state.project_path.is_some();
                     if ui.add_enabled(has_project, egui::Button::new(format!("🗙 {}", rust_i18n::t!("menu.close_project")))).clicked() {
                         if self.state.has_unsaved_changes() || self.map_view.map_dirty || self.map_view.events_dirty {
-                            self.open_blocked_message = Some(rust_i18n::t!("dialog.unsaved_prompt").to_string());
+                            self.open_blocked_message = None;
+                            self.show_close_project_confirm = true;
                         } else {
                             self.close_current_project();
                         }
@@ -533,6 +613,7 @@ impl EditorApp {
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     self.ui_preferences_popup(ui);
+                    self.ui_player_popup(ui);
                     self.ui_rtp_popup(ui);
                     self.ui_theme_popup(ui);
                     self.ui_language_popup(ui);
@@ -604,7 +685,6 @@ impl EditorApp {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let is_dark = ui.visuals().dark_mode;
                     let is_dirty = self.map_view.map_dirty || self.map_view.events_dirty;
 
                     ui.add_enabled_ui(is_dirty, |ui| {
@@ -613,19 +693,6 @@ impl EditorApp {
                             self.map_view.save_current_map(self.state.project_path.as_deref(), map_id);
                         }
                     });
-                    if is_dirty {
-                        ui.colored_label(crate::theme::colors::warning(is_dark), "● Unsaved Changes");
-                    }
-                    if let Some(msg) = &self.map_view.save_message {
-                        match msg {
-                            Ok(txt) => {
-                                ui.colored_label(crate::theme::colors::success(is_dark), txt);
-                            }
-                            Err(txt) => {
-                                ui.colored_label(crate::theme::colors::danger(is_dark), txt);
-                            }
-                        }
-                    }
                 });
             });
         });
@@ -892,14 +959,7 @@ impl eframe::App for EditorApp {
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     if ui.button(format!("💾 {}", rust_i18n::t!("dialog.save_all_and_close"))).clicked() {
-                        let mut errors = self.state.save_all_dirty();
-                        if self.map_view.map_dirty || self.map_view.events_dirty {
-                            let map_id = self.state.selected_map.and_then(|i| self.state.maps.get(i)).map(|m| m.0);
-                            self.map_view.save_current_map(self.state.project_path.as_deref(), map_id);
-                            if self.map_view.map_dirty || self.map_view.events_dirty {
-                                errors.push("Map failed to save.".to_string());
-                            }
-                        }
+                        let errors = self.save_all_dirty_project_data();
                         if errors.is_empty() {
                             self.show_close_confirm = false;
                             self.force_close = true;
@@ -919,6 +979,37 @@ impl eframe::App for EditorApp {
                     }
                     if ui.button(rust_i18n::t!("dialog.cancel")).clicked() {
                         self.show_close_confirm = false;
+                    }
+                });
+            });
+        }
+
+        if self.show_close_project_confirm {
+            egui::Modal::new(egui::Id::new("close_project_confirm_modal")).show(ui.ctx(), |ui| {
+                ui.set_min_width(360.0);
+                ui.heading(rust_i18n::t!("dialog.unsaved_title"));
+                ui.label(rust_i18n::t!("dialog.close_unsaved_prompt"));
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    if ui.button(format!("💾 {}", rust_i18n::t!("dialog.save_all_and_close"))).clicked() {
+                        let errors = self.save_all_dirty_project_data();
+                        if errors.is_empty() {
+                            self.show_close_project_confirm = false;
+                            self.close_current_project();
+                        } else {
+                            self.open_blocked_message = Some(format!(
+                                "{}: {}",
+                                rust_i18n::t!("dialog.save_all_failed"),
+                                errors.join("; ")
+                            ));
+                        }
+                    }
+                    if ui.button(format!("🗑 {}", rust_i18n::t!("dialog.discard_and_close"))).clicked() {
+                        self.show_close_project_confirm = false;
+                        self.close_current_project();
+                    }
+                    if ui.button(rust_i18n::t!("dialog.cancel")).clicked() {
+                        self.show_close_project_confirm = false;
                     }
                 });
             });

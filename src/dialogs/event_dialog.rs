@@ -54,6 +54,7 @@ impl EventDialogState {
                 move_speed: 3,
                 condition: EventConditionInfo::default(),
                 commands: Vec::new(),
+                ..Default::default()
             });
         }
         self.selected_page = 0;
@@ -83,7 +84,7 @@ impl EventDialogState {
                     }
                 } else {
                     let insert_pos = self.selected_command.map(|i| i + 1).unwrap_or(page.commands.len());
-                    page.commands.insert(insert_pos, cmd);
+                    crate::lcf_bridge::insert_event_command_with_scaffolding(&mut page.commands, insert_pos, cmd);
                     self.selected_command = Some(insert_pos);
                 }
             }
@@ -226,6 +227,19 @@ impl EventDialogState {
                                         }
                                     });
                                     ui.end_row();
+
+                                    ui.checkbox(&mut page.condition.timer2_flag, "Timer 2 (2003):");
+                                    ui.horizontal(|ui| {
+                                        let mut mins = page.condition.timer2_sec / 60;
+                                        let mut secs = page.condition.timer2_sec % 60;
+                                        if ui.add_enabled(page.condition.timer2_flag, egui::DragValue::new(&mut mins).range(0..=99).suffix("m")).changed() {
+                                            page.condition.timer2_sec = mins * 60 + secs;
+                                        }
+                                        if ui.add_enabled(page.condition.timer2_flag, egui::DragValue::new(&mut secs).range(0..=59).suffix("s")).changed() {
+                                            page.condition.timer2_sec = mins * 60 + secs;
+                                        }
+                                    });
+                                    ui.end_row();
                                 });
                         });
 
@@ -239,6 +253,26 @@ impl EventDialogState {
                                 if !page.character_name.is_empty() {
                                     ui.label(format!("Idx #{}", page.character_index));
                                 }
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label("Facing:");
+                                egui::ComboBox::from_id_salt(format!("page_dir_{}", page.id))
+                                    .selected_text(crate::lcf_bridge::event_direction_label(page.character_direction))
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(&mut page.character_direction, 0, crate::lcf_bridge::event_direction_label(0));
+                                        ui.selectable_value(&mut page.character_direction, 1, crate::lcf_bridge::event_direction_label(1));
+                                        ui.selectable_value(&mut page.character_direction, 2, crate::lcf_bridge::event_direction_label(2));
+                                        ui.selectable_value(&mut page.character_direction, 3, crate::lcf_bridge::event_direction_label(3));
+                                    });
+
+                                ui.label("Frame:");
+                                egui::ComboBox::from_id_salt(format!("page_pattern_{}", page.id))
+                                    .selected_text(crate::lcf_bridge::event_pattern_label(page.character_pattern))
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(&mut page.character_pattern, 0, crate::lcf_bridge::event_pattern_label(0));
+                                        ui.selectable_value(&mut page.character_pattern, 1, crate::lcf_bridge::event_pattern_label(1));
+                                        ui.selectable_value(&mut page.character_pattern, 2, crate::lcf_bridge::event_pattern_label(2));
+                                    });
                             });
                             ui.horizontal(|ui| {
                                 ui.checkbox(&mut page.translucent, "Translucent");

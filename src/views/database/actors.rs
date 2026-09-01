@@ -491,11 +491,12 @@ pub fn render_resistance_tables(
 
                             for (idx, state) in states.iter().enumerate() {
                                 ui.label(format!("{:02}: {}", state.id, state.name));
-                                let current_rank = state_ranks.get_mut(idx).unwrap();
-                                for r in 0..=4 {
-                                    if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
-                                        *current_rank = r;
-                                        *dirty = true;
+                                if let Some(current_rank) = state_ranks.get_mut(idx) {
+                                    for r in 0..=4 {
+                                        if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
+                                            *current_rank = r;
+                                            *dirty = true;
+                                        }
                                     }
                                 }
                                 ui.end_row();
@@ -527,11 +528,12 @@ pub fn render_resistance_tables(
 
                             for (idx, attr) in attributes.iter().enumerate() {
                                 ui.label(format!("{:02}: {}", attr.id, attr.name));
-                                let current_rank = attr_ranks.get_mut(idx).unwrap();
-                                for r in 0..=4 {
-                                    if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
-                                        *current_rank = r;
-                                        *dirty = true;
+                                if let Some(current_rank) = attr_ranks.get_mut(idx) {
+                                    for r in 0..=4 {
+                                        if ui.selectable_label(*current_rank == r, match r { 0 => "A", 1 => "B", 2 => "C", 3 => "D", _ => "E" }).clicked() {
+                                            *current_rank = r;
+                                            *dirty = true;
+                                        }
                                     }
                                 }
                                 ui.end_row();

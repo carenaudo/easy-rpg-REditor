@@ -18,6 +18,9 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
     if bytes.len() >= 8 && &bytes[0..4] == b"XYZ1" {
         let width = u16::from_le_bytes([bytes[4], bytes[5]]) as u32;
         let height = u16::from_le_bytes([bytes[6], bytes[7]]) as u32;
+        if width == 0 || height == 0 {
+            return Ok(RgbaImage::new(0, 0));
+        }
         let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(&bytes[8..])
             .map_err(|e| image::ImageError::Decoding(image::error::DecodingError::new(
                 image::error::ImageFormatHint::Unknown,
@@ -52,36 +55,80 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
         return Ok(out);
     }
 
-    let mut rgba = image::load_from_memory(bytes)?.to_rgba8();
-    let debug = std::env::var("TILEMAP_DEBUG").is_ok();
-    let mut keyed = false;
-
-    if let Ok(decoder) = png::Decoder::new(std::io::Cursor::new(bytes)).read_info() {
-        let info = decoder.info();
+    // Try indexed PNG decoding directly (so only palette index 0 is transparent)
+    if let Ok(mut reader) = png::Decoder::new(std::io::Cursor::new(bytes)).read_info() {
+        let info = reader.info().clone();
         if info.color_type == png::ColorType::Indexed {
             if let Some(palette) = &info.palette {
-                if palette.len() >= 3 {
-                    let key = [palette[0], palette[1], palette[2]];
-                    for px in rgba.pixels_mut() {
-                        if px.0[0] == key[0] && px.0[1] == key[1] && px.0[2] == key[2] {
-                            px.0[3] = 0;
+                let buf_size = reader.output_buffer_size().unwrap_or((info.width * info.height) as usize);
+                let mut img_data = vec![0u8; buf_size];
+                if let Ok(_) = reader.next_frame(&mut img_data) {
+                    let w = info.width;
+                    let h = info.height;
+                    let mut out = RgbaImage::new(w, h);
+                    for y in 0..h {
+                        for x in 0..w {
+                            let idx = (y * w + x) as usize;
+                            if idx < img_data.len() {
+                                let p_idx = img_data[idx] as usize;
+                                if p_idx == 0 {
+                                    out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
+                                } else if (p_idx * 3 + 2) < palette.len() {
+                                    let r = palette[p_idx * 3];
+                                    let g = palette[p_idx * 3 + 1];
+                                    let b = palette[p_idx * 3 + 2];
+                                    out.put_pixel(x, y, Rgba([r, g, b, 255]));
+                                }
+                            }
                         }
                     }
-                    keyed = true;
-                    if debug {
-                        eprintln!("[decode_rpg_image] keyed palette index 0: {:?}", key);
-                    }
+                    return Ok(out);
                 }
             }
         }
     }
 
-    // If not keyed via indexed PNG palette, check if top-left or pure magenta (255, 0, 255) is present as color key
-    if !keyed {
-        for px in rgba.pixels_mut() {
-            if px.0[0] == 255 && px.0[1] == 0 && px.0[2] == 255 {
-                px.0[3] = 0;
+    // Check for 8-bit indexed BMP (BM header)
+    if bytes.len() >= 54 && &bytes[0..2] == b"BM" {
+        let bpp = u16::from_le_bytes([bytes[28], bytes[29]]);
+        if bpp == 8 {
+            let width = i32::from_le_bytes([bytes[18], bytes[19], bytes[20], bytes[21]]).abs() as u32;
+            let height = i32::from_le_bytes([bytes[22], bytes[23], bytes[24], bytes[25]]).abs() as u32;
+            let offset = u32::from_le_bytes([bytes[10], bytes[11], bytes[12], bytes[13]]) as usize;
+            if offset >= 54 && bytes.len() >= offset {
+                let palette = &bytes[54..offset];
+                let row_size = ((width + 3) / 4) * 4; // BMP rows are 4-byte padded
+                if bytes.len() >= offset + (row_size * height) as usize {
+                    let mut out = RgbaImage::new(width, height);
+                    for y in 0..height {
+                        // BMP stores rows bottom-to-top
+                        let src_y = height - 1 - y;
+                        let row_start = offset + (src_y * row_size) as usize;
+                        for x in 0..width {
+                            let p_idx = bytes[row_start + x as usize] as usize;
+                            if p_idx == 0 {
+                                out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
+                            } else if (p_idx * 4 + 2) < palette.len() {
+                                // BMP palette entries are BGRX
+                                let b = palette[p_idx * 4];
+                                let g = palette[p_idx * 4 + 1];
+                                let r = palette[p_idx * 4 + 2];
+                                out.put_pixel(x, y, Rgba([r, g, b, 255]));
+                            }
+                        }
+                    }
+                    return Ok(out);
+                }
             }
+        }
+    }
+
+    let mut rgba = image::load_from_memory(bytes)?.to_rgba8();
+
+    // Fallback: color-key pure magenta (255, 0, 255)
+    for px in rgba.pixels_mut() {
+        if px.0[0] == 255 && px.0[1] == 0 && px.0[2] == 255 {
+            px.0[3] = 0;
         }
     }
 

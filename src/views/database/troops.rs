@@ -393,7 +393,7 @@ pub fn show_troop_form(
                     *dirty = true;
                 }
 
-                if ui.small_button("📄 Duplicate Page").clicked() && !troop.pages.is_empty() {
+                if ui.small_button("📄 Duplicate Page").clicked() && state.active_page_idx < troop.pages.len() {
                     let mut dup = troop.pages[state.active_page_idx].clone();
                     dup.id = (troop.pages.len() + 1) as i32;
                     troop.pages.push(dup);
@@ -401,8 +401,11 @@ pub fn show_troop_form(
                     *dirty = true;
                 }
 
-                if troop.pages.len() > 1 && ui.small_button("🗑 Delete Page").clicked() {
+                if troop.pages.len() > 1 && ui.small_button("🗑 Delete Page").clicked() && state.active_page_idx < troop.pages.len() {
                     troop.pages.remove(state.active_page_idx);
+                    for (i, p) in troop.pages.iter_mut().enumerate() {
+                        p.id = (i + 1) as i32;
+                    }
                     if state.active_page_idx >= troop.pages.len() {
                         state.active_page_idx = troop.pages.len().saturating_sub(1);
                     }

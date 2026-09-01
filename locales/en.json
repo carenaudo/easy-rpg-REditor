@@ -138,5 +138,55 @@
     "save_all_and_close": "Save All & Close",
     "discard_and_close": "Discard & Close",
     "save_all_failed": "Some changes couldn't be saved"
+  },
+  "sound_test": {
+    "title": "Sound Test",
+    "bgm": "BGM (Background Music)",
+    "bgs": "BGS (Background Sound)",
+    "me": "ME (Music Effect)",
+    "se": "SE (Sound Effect)",
+    "play": "▶ Play",
+    "stop": "⏹ Stop",
+    "volume": "Volume",
+    "tempo": "Tempo",
+    "pitch": "Pitch",
+    "fade_out": "Fade Out"
+  },
+  "soundfont": {
+    "title": "SoundFont MIDI Synthesizer",
+    "current": "Active SoundFont:",
+    "builtin": "Built-in SoundFont (Standard General MIDI)",
+    "custom": "Custom SoundFont (.sf2 / .sf3):",
+    "browse": "Browse .sf2...",
+    "reset": "Reset to Default",
+    "volume": "MIDI Master Volume:",
+    "status_ok": "SoundFont loaded successfully",
+    "status_err": "Failed to load SoundFont: %{error}"
+  },
+  "xml_io": {
+    "title": "XML Import & Export (LibLCF)",
+    "export_header": "Export Project Components to XML",
+    "import_header": "Import XML Components into Project",
+    "export_all": "Export All (LDB, LMT, LMU, LSD)",
+    "import_all": "Import All XML",
+    "database": "Database (RPG_RT.ldb)",
+    "map_tree": "Map Tree (RPG_RT.lmt)",
+    "maps": "Maps (*.lmu)",
+    "saves": "Save Files (*.lsd)",
+    "export_btn": "Export...",
+    "import_btn": "Import...",
+    "success": "Operation completed successfully.",
+    "error": "Error: %{error}"
+  },
+  "health": {
+    "title": "Project Health Analyzer",
+    "scan": "Scan Project",
+    "scanning": "Scanning...",
+    "healthy": "No issues found! Project is healthy.",
+    "missing_assets": "Missing Assets (%{count})",
+    "broken_refs": "Broken References (%{count})",
+    "duplicate_events": "Duplicate Event IDs (%{count})",
+    "maniac_cmds": "Maniac Patch Commands (%{count})",
+    "summary": "Audited: %{maps} maps, %{events} events, %{db} database records."
   }
 }

@@ -2,7 +2,7 @@ use eframe::egui;
 use crate::lcf_bridge::MapTreeItem;
 
 pub enum MapTreeAction {
-    Select(usize),
+    Select(i32),
     OpenProperties(i32),
     NewMap { parent_id: i32 },
     Duplicate(i32),
@@ -26,7 +26,7 @@ impl MapTreeWidget {
         &mut self,
         ui: &mut egui::Ui,
         maps: &[MapTreeItem],
-        selected_map_idx: Option<usize>,
+        selected_map_id: Option<i32>,
     ) -> Option<MapTreeAction> {
         let mut action = None;
 
@@ -58,18 +58,18 @@ impl MapTreeWidget {
         egui::ScrollArea::vertical()
             .id_salt("map_tree_scroll")
             .show(ui, |ui| {
-                for (idx, map) in maps.iter().enumerate() {
+                for map in maps.iter() {
                     if !q.is_empty() && !map.name.to_lowercase().contains(&q) && !map.id.to_string().contains(&q) {
                         continue;
                     }
 
                     let indent_spaces = "  ".repeat(map.indentation.max(0) as usize);
                     let label_text = format!("{}{:04}: {}", indent_spaces, map.id, map.name);
-                    let is_selected = selected_map_idx == Some(idx);
+                    let is_selected = selected_map_id == Some(map.id);
 
                     let resp = ui.selectable_label(is_selected, label_text);
-                    if resp.clicked() {
-                        action = Some(MapTreeAction::Select(idx));
+                    if resp.clicked() && map.id > 0 {
+                        action = Some(MapTreeAction::Select(map.id));
                     }
 
                     // Context Menu

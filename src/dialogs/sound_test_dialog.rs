@@ -120,7 +120,7 @@ impl SoundTestDialog {
 
         let mut is_open = self.is_open;
 
-        egui::Window::new("🎵 Sound Test / Jukebox")
+        egui::Window::new(format!("🎵 {}", rust_i18n::t!("sound_test.title")))
             .open(&mut is_open)
             .collapsible(false)
             .resizable(true)
@@ -128,7 +128,7 @@ impl SoundTestDialog {
             .show(ctx, |ui| {
                 // Category Tabs
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(self.active_tab == 0, "🎵 Music (BGM)").clicked() {
+                    if ui.selectable_label(self.active_tab == 0, format!("🎵 {}", rust_i18n::t!("sound_test.bgm"))).clicked() {
                         self.active_tab = 0;
                         self.selected_track = None;
                         self.is_playing = false;
@@ -136,7 +136,7 @@ impl SoundTestDialog {
                         if let Some(a) = audio { a.stop(); }
                         self.scan_tracks(project_path);
                     }
-                    if ui.selectable_label(self.active_tab == 1, "🔊 Sound Effects (SE)").clicked() {
+                    if ui.selectable_label(self.active_tab == 1, format!("🔊 {}", rust_i18n::t!("sound_test.se"))).clicked() {
                         self.active_tab = 1;
                         self.selected_track = None;
                         self.is_playing = false;

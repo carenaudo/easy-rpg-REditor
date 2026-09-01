@@ -15,7 +15,21 @@
     "language": "言語",
     "theme_system": "システム",
     "theme_light": "ライト",
-    "theme_dark": "ダーク"
+    "theme_dark": "ダーク",
+    "project": "プロジェクト",
+    "edit": "編集",
+    "tools": "ツール",
+    "help": "ヘルプ",
+    "exit": "終了",
+    "about": "バージョン情報",
+    "preferences": "設定",
+    "undo": "元に戻す (Ctrl+Z)",
+    "redo": "やり直す (Ctrl+Y)",
+    "shift_map": "マップシフト...",
+    "sound_test": "サウンドテスト...",
+    "project_health": "プロジェクト健全性...",
+    "rtp": "RTP フォルダ...",
+    "close_project": "プロジェクトを閉じる"
   },
   "views": {
     "maps": "マップ",
@@ -53,7 +67,21 @@
     "delete_event": "イベントを削除",
     "cut_event": "切り取り",
     "copy_event": "コピー",
-    "paste_event": "イベントを貼り付け"
+    "paste_event": "イベントを貼り付け",
+    "layer_visibility": "レイヤーの表示/非表示"
+  },
+  "status": {
+    "cursor": "カーソル",
+    "map": "マップ",
+    "layer": "レイヤー",
+    "tool": "ツール",
+    "tile": "タイル",
+    "events": "イベント",
+    "zoom": "ズーム"
+  },
+  "pane": {
+    "maps": "マップ",
+    "palette": "パレット (マップチップ)"
   },
   "db": {
     "categories": "カテゴリー",
@@ -107,9 +135,58 @@
     "unsaved_title": "未保存の変更",
     "unsaved_prompt": "続行する前に未保存の変更を保存または破棄してください。",
     "close_unsaved_prompt": "このプロジェクトには未保存の変更があります。どうしますか?",
-    "playtest_error": "テストプレイ起動エラー: %{error}",
     "save_all_and_close": "すべて保存して閉じる",
     "discard_and_close": "破棄して閉じる",
     "save_all_failed": "一部の変更を保存できませんでした"
+  },
+  "sound_test": {
+    "title": "サウンドテスト",
+    "bgm": "BGM (背景音楽)",
+    "bgs": "BGS (環境音)",
+    "me": "ME (効果音楽)",
+    "se": "SE (効果音)",
+    "play": "▶ 再生",
+    "stop": "⏹ 停止",
+    "volume": "音量",
+    "tempo": "テンポ",
+    "pitch": "ピッチ",
+    "fade_out": "フェードアウト"
+  },
+  "soundfont": {
+    "title": "SoundFont MIDI シンセサイザー",
+    "current": "使用中の SoundFont:",
+    "builtin": "内蔵 SoundFont (標準 General MIDI)",
+    "custom": "カスタム SoundFont (.sf2 / .sf3):",
+    "browse": ".sf2 を参照...",
+    "reset": "デフォルトに戻す",
+    "volume": "MIDI マスター音量:",
+    "status_ok": "SoundFont を正常に読み込みました",
+    "status_err": "SoundFont の読み込みに失敗しました: %{error}"
+  },
+  "xml_io": {
+    "title": "XML インポート / エクスポート (LibLCF)",
+    "export_header": "プロジェクトコンポーネントを XML に出力",
+    "import_header": "XML コンポーネントをプロジェクトに取り込み",
+    "export_all": "すべてエクスポート (LDB, LMT, LMU, LSD)",
+    "import_all": "すべての XML をインポート",
+    "database": "データベース (RPG_RT.ldb)",
+    "map_tree": "マップツリー (RPG_RT.lmt)",
+    "maps": "マップ (*.lmu)",
+    "saves": "セーブデータ (*.lsd)",
+    "export_btn": "エクスポート...",
+    "import_btn": "インポート...",
+    "success": "処理が正常に完了しました。",
+    "error": "エラー: %{error}"
+  },
+  "health": {
+    "title": "プロジェクト正常性アナライザー",
+    "scan": "プロジェクトをスキャン",
+    "scanning": "スキャン中...",
+    "healthy": "問題は見つかりませんでした！プロジェクトは正常です。",
+    "missing_assets": "見つからない素材 (%{count})",
+    "broken_refs": "無効な参照 (%{count})",
+    "duplicate_events": "重複したイベントID (%{count})",
+    "maniac_cmds": "Maniac Patch コマンド (%{count})",
+    "summary": "監査結果: マップ %{maps} 個, イベント %{events} 個, データベース %{db} 件。"
   }
 }

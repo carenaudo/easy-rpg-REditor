@@ -138,5 +138,55 @@
     "save_all_and_close": "Guardar Todo y Cerrar",
     "discard_and_close": "Descartar y Cerrar",
     "save_all_failed": "Algunos cambios no se pudieron guardar"
+  },
+  "sound_test": {
+    "title": "Prueba de Sonido",
+    "bgm": "BGM (Música de Fondo)",
+    "bgs": "BGS (Sonido Ambiental)",
+    "me": "ME (Efecto Musical)",
+    "se": "SE (Efecto de Sonido)",
+    "play": "▶ Reproducir",
+    "stop": "⏹ Detener",
+    "volume": "Volumen",
+    "tempo": "Tempo",
+    "pitch": "Tono",
+    "fade_out": "Desvanecer"
+  },
+  "soundfont": {
+    "title": "Sintetizador MIDI SoundFont",
+    "current": "SoundFont Activo:",
+    "builtin": "SoundFont Integrado (General MIDI Estándar)",
+    "custom": "SoundFont Personalizado (.sf2 / .sf3):",
+    "browse": "Examinar .sf2...",
+    "reset": "Restablecer por Defecto",
+    "volume": "Volumen Maestro MIDI:",
+    "status_ok": "SoundFont cargado con éxito",
+    "status_err": "Error al cargar SoundFont: %{error}"
+  },
+  "xml_io": {
+    "title": "Importar / Exportar XML (LibLCF)",
+    "export_header": "Exportar Componentes del Proyecto a XML",
+    "import_header": "Importar Componentes XML al Proyecto",
+    "export_all": "Exportar Todo (LDB, LMT, LMU, LSD)",
+    "import_all": "Importar Todo XML",
+    "database": "Base de Datos (RPG_RT.ldb)",
+    "map_tree": "Árbol de Mapas (RPG_RT.lmt)",
+    "maps": "Mapas (*.lmu)",
+    "saves": "Partidas Guardadas (*.lsd)",
+    "export_btn": "Exportar...",
+    "import_btn": "Importar...",
+    "success": "Operación completada con éxito.",
+    "error": "Error: %{error}"
+  },
+  "health": {
+    "title": "Analizador de Salud del Proyecto",
+    "scan": "Analizar Proyecto",
+    "scanning": "Analizando...",
+    "healthy": "¡No se encontraron problemas! El proyecto está saludable.",
+    "missing_assets": "Recursos Faltantes (%{count})",
+    "broken_refs": "Referencias Rotas (%{count})",
+    "duplicate_events": "IDs de Eventos Duplicados (%{count})",
+    "maniac_cmds": "Comandos Maniac Patch (%{count})",
+    "summary": "Auditados: %{maps} mapas, %{events} eventos, %{db} registros de base de datos."
   }
 }

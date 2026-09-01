@@ -56,7 +56,7 @@ impl XmlIoDialogState {
 
         let mut is_open = self.is_open;
 
-        egui::Window::new("XML Import / Export")
+        egui::Window::new(format!("📄 {}", rust_i18n::t!("xml_io.title")))
             .open(&mut is_open)
             .collapsible(false)
             .resizable(true)
@@ -66,7 +66,7 @@ impl XmlIoDialogState {
                     ui.label(format!("Project: {}", proj));
                     ui.separator();
 
-                    ui.heading("Export XML");
+                    ui.heading(rust_i18n::t!("xml_io.export_header"));
                     ui.horizontal(|ui| {
                         if ui.button("Export Database to XML (LDB)").clicked() {
                             if let Some(path) = FileDialog::new().set_file_name("RPG_RT.edb").add_filter("XML", &["xml", "edb"]).save_file() {
@@ -111,7 +111,7 @@ impl XmlIoDialogState {
                     }
 
                     ui.separator();
-                    ui.heading("Import XML");
+                    ui.heading(rust_i18n::t!("xml_io.import_header"));
                     ui.label("Importing replaces the matching project file in place. The original is backed up once (e.g. RPG_RT.ldb.bak) before it's overwritten.");
                     ui.horizontal(|ui| {
                         if ui.button("Import Database from XML (LDB)").clicked() {

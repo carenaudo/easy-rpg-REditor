@@ -15,7 +15,21 @@
     "language": "Idioma",
     "theme_system": "Sistema",
     "theme_light": "Claro",
-    "theme_dark": "Escuro"
+    "theme_dark": "Escuro",
+    "project": "Projeto",
+    "edit": "Editar",
+    "tools": "Ferramentas",
+    "help": "Ajuda",
+    "exit": "Sair",
+    "about": "Sobre",
+    "preferences": "Preferências",
+    "undo": "Desfazer (Ctrl+Z)",
+    "redo": "Refazer (Ctrl+Y)",
+    "shift_map": "Deslocar Mapa...",
+    "sound_test": "Teste de Som...",
+    "project_health": "Integridade do Projeto...",
+    "rtp": "Pasta RTP...",
+    "close_project": "Fechar Projeto"
   },
   "views": {
     "maps": "Mapas",
@@ -53,7 +67,21 @@
     "delete_event": "Excluir Evento",
     "cut_event": "Recortar",
     "copy_event": "Copiar",
-    "paste_event": "Colar Evento"
+    "paste_event": "Colar Evento",
+    "layer_visibility": "Visibilidade de Camadas"
+  },
+  "status": {
+    "cursor": "Cursor",
+    "map": "Mapa",
+    "layer": "Camada",
+    "tool": "Ferramenta",
+    "tile": "Tile",
+    "events": "Eventos",
+    "zoom": "Zoom"
+  },
+  "pane": {
+    "maps": "Mapas",
+    "palette": "Paleta (Chipset)"
   },
   "db": {
     "categories": "Categorias",
@@ -107,9 +135,58 @@
     "unsaved_title": "Alterações Não Salvas",
     "unsaved_prompt": "Salve ou descarte as alterações não salvas antes de continuar.",
     "close_unsaved_prompt": "Este projeto tem alterações não salvas. O que você gostaria de fazer?",
-    "playtest_error": "Erro ao iniciar o playtest: %{error}",
     "save_all_and_close": "Salvar Tudo e Fechar",
     "discard_and_close": "Descartar e Fechar",
     "save_all_failed": "Algumas alterações não puderam ser salvas"
+  },
+  "sound_test": {
+    "title": "Teste de Som",
+    "bgm": "BGM (Música de Fundo)",
+    "bgs": "BGS (Som Ambiente)",
+    "me": "ME (Efeito Musical)",
+    "se": "SE (Efeito Sonoro)",
+    "play": "▶ Reproduzir",
+    "stop": "⏹ Parar",
+    "volume": "Volume",
+    "tempo": "Tempo",
+    "pitch": "Tom",
+    "fade_out": "Esmaecer"
+  },
+  "soundfont": {
+    "title": "Sintetizador MIDI SoundFont",
+    "current": "SoundFont Ativo:",
+    "builtin": "SoundFont Integrado (General MIDI Padrão)",
+    "custom": "SoundFont Personalizado (.sf2 / .sf3):",
+    "browse": "Procurar .sf2...",
+    "reset": "Restaurar Padrão",
+    "volume": "Volume Mestre MIDI:",
+    "status_ok": "SoundFont carregado com sucesso",
+    "status_err": "Falha ao carregar SoundFont: %{error}"
+  },
+  "xml_io": {
+    "title": "Importar / Exportar XML (LibLCF)",
+    "export_header": "Exportar Componentes do Projeto para XML",
+    "import_header": "Importar Componentes XML no Projeto",
+    "export_all": "Exportar Tudo (LDB, LMT, LMU, LSD)",
+    "import_all": "Importar Tudo XML",
+    "database": "Banco de Dados (RPG_RT.ldb)",
+    "map_tree": "Árvore de Mapas (RPG_RT.lmt)",
+    "maps": "Mapas (*.lmu)",
+    "saves": "Arquivos Salvos (*.lsd)",
+    "export_btn": "Exportar...",
+    "import_btn": "Importar...",
+    "success": "Operação concluída com sucesso.",
+    "error": "Erro: %{error}"
+  },
+  "health": {
+    "title": "Analisador de Integridade do Projeto",
+    "scan": "Analisar Projeto",
+    "scanning": "Analisando...",
+    "healthy": "Nenhum problema encontrado! O projeto está saudável.",
+    "missing_assets": "Recursos Ausentes (%{count})",
+    "broken_refs": "Referências Quebradas (%{count})",
+    "duplicate_events": "IDs de Eventos Duplicados (%{count})",
+    "maniac_cmds": "Comandos Maniac Patch (%{count})",
+    "summary": "Auditados: %{maps} mapas, %{events} eventos, %{db} registros do banco de dados."
   }
 }

@@ -10,3 +10,4 @@ pub mod new_project_dialog;
 pub mod sound_test_dialog;
 pub mod project_analyzer_dialog;
 pub mod soundfont_dialog;
+pub mod move_route_dialog;

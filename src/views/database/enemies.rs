@@ -345,7 +345,18 @@ fn render_ranks_table(
         ui.columns(2, |cols| {
             // Left: State Resistances
             cols[0].group(|ui| {
-                ui.heading(format!("States Susceptibility ({})", states.len()));
+                ui.horizontal(|ui| {
+                    ui.heading(format!("States Susceptibility ({})", states.len()));
+                    ui.label("Set All:");
+                    for (r, lbl) in &[(0, "A"), (1, "B"), (2, "C"), (3, "D"), (4, "E")] {
+                        if ui.small_button(*lbl).clicked() {
+                            for rank in state_ranks.iter_mut() {
+                                *rank = *r;
+                            }
+                            *dirty = true;
+                        }
+                    }
+                });
                 if states.is_empty() {
                     ui.label("(No states defined)");
                 } else {
@@ -382,7 +393,18 @@ fn render_ranks_table(
 
             // Right: Attribute / Element Resistances
             cols[1].group(|ui| {
-                ui.heading(format!("Attribute / Element Resistances ({})", attributes.len()));
+                ui.horizontal(|ui| {
+                    ui.heading(format!("Attribute Resistances ({})", attributes.len()));
+                    ui.label("Set All:");
+                    for (r, lbl) in &[(0, "A"), (1, "B"), (2, "C"), (3, "D"), (4, "E")] {
+                        if ui.small_button(*lbl).clicked() {
+                            for rank in attr_ranks.iter_mut() {
+                                *rank = *r;
+                            }
+                            *dirty = true;
+                        }
+                    }
+                });
                 if attributes.is_empty() {
                     ui.label("(No attributes defined)");
                 } else {

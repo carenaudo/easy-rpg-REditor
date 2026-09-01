@@ -93,6 +93,8 @@ impl Default for AppPersistentData {
             "pt-BR"
         } else if detected.starts_with("zh") {
             "zh-CN"
+        } else if detected.starts_with("ru") {
+            "ru"
         } else {
             "en"
         };

@@ -174,6 +174,8 @@ fn generate_default_expr(f: &FieldDef) -> String {
     } else if t == "DBString" {
         if val == "\"\"\"(OFF)\"\"\"" || val == "(OFF)" {
             "DBString::new(\"(OFF)\")".to_string()
+        } else if val == "kEmptyName" {
+            "DBString::new(\"\\x01\")".to_string()
         } else if !val.is_empty() && val != "\"\"" {
             let clean = val.trim_matches('"');
             format!("DBString::new(\"{}\")", clean)
@@ -379,6 +381,8 @@ fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>)
                     code.push_str(&emit_field(format!("writer.write_dbstring_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), None));
                 } else if t == "Rect" {
                     code.push_str(&emit_field(format!("writer.write_rect_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), None));
+                } else if t == "DBBitArray" {
+                    code.push_str(&emit_field(format!("writer.write_bit_array_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), None));
                 } else if t == "Vec<u8>" {
                     code.push_str(&emit_field(format!("writer.write_vector_u8_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), None));
                 } else if t == "Vec<i16>" {
@@ -418,6 +422,8 @@ fn generate_struct_code(s: &StructDef, all_structs: &HashMap<String, StructDef>)
                     code.push_str(&emit_field(format!("writer.write_bool_chunk(0x{:02X}, self.{})?;", cid, f.rust_name), Some(format!("self.{} != _def.{}", f.rust_name, f.rust_name))));
                 } else if t == "DBString" {
                     code.push_str(&emit_field(format!("writer.write_dbstring_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), Some(format!("self.{} != _def.{}", f.rust_name, f.rust_name))));
+                } else if t == "DBBitArray" {
+                    code.push_str(&emit_field(format!("writer.write_bit_array_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), Some(format!("!self.{}.0.is_empty()", f.rust_name))));
                 } else if t == "Vec<u8>" {
                     code.push_str(&emit_field(format!("writer.write_vector_u8_chunk(0x{:02X}, &self.{})?;", cid, f.rust_name), Some(format!("self.{} != _def.{}", f.rust_name, f.rust_name))));
                 } else if t == "Vec<i16>" {

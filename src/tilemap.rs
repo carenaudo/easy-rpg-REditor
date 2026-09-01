@@ -12,9 +12,14 @@
 
 use image::{Rgba, RgbaImage};
 
-/// Decodes any RPG Maker 2000/2003 graphic (Monster, CharSet, FaceSet, ChipSet, Picture):
-/// Handles classic XYZ format, 8-bit indexed PNGs (palette index 0 is transparent), and fallback magenta (#FF00FF) color-keying.
+/// Decodes any RPG Maker 2000/2003 graphic (Monster, CharSet, FaceSet, ChipSet, Picture, Backgrounds):
+/// Handles classic XYZ format, 8-bit indexed PNGs (optionally palette index 0 is transparent), and fallback magenta (#FF00FF) color-keying.
 pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
+    decode_rpg_image_with_alpha(bytes, true)
+}
+
+/// Decodes an RPG Maker image, with configurable palette index 0 transparency (false for full-screen backgrounds like Panoramas/Titles/GameOvers).
+pub fn decode_rpg_image_with_alpha(bytes: &[u8], transparent_idx_0: bool) -> image::ImageResult<RgbaImage> {
     if bytes.len() >= 8 && &bytes[0..4] == b"XYZ1" {
         let width = u16::from_le_bytes([bytes[4], bytes[5]]) as u32;
         let height = u16::from_le_bytes([bytes[6], bytes[7]]) as u32;
@@ -42,7 +47,7 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
         for (i, &palette_idx) in pixels.iter().enumerate() {
             let x = (i as u32) % width;
             let y = (i as u32) / width;
-            if palette_idx == 0 {
+            if palette_idx == 0 && transparent_idx_0 {
                 out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
             } else {
                 let p_offset = (palette_idx as usize) * 3;
@@ -55,7 +60,7 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
         return Ok(out);
     }
 
-    // Try indexed PNG decoding directly (so only palette index 0 is transparent)
+    // Try indexed PNG decoding directly (so only palette index 0 is transparent when requested)
     if let Ok(mut reader) = png::Decoder::new(std::io::Cursor::new(bytes)).read_info() {
         let info = reader.info().clone();
         if info.color_type == png::ColorType::Indexed {
@@ -71,7 +76,7 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
                             let idx = (y * w + x) as usize;
                             if idx < img_data.len() {
                                 let p_idx = img_data[idx] as usize;
-                                if p_idx == 0 {
+                                if p_idx == 0 && transparent_idx_0 {
                                     out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
                                 } else if (p_idx * 3 + 2) < palette.len() {
                                     let r = palette[p_idx * 3];
@@ -106,7 +111,7 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
                         let row_start = offset + (src_y * row_size) as usize;
                         for x in 0..width {
                             let p_idx = bytes[row_start + x as usize] as usize;
-                            if p_idx == 0 {
+                            if p_idx == 0 && transparent_idx_0 {
                                 out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
                             } else if (p_idx * 4 + 2) < palette.len() {
                                 // BMP palette entries are BGRX
@@ -125,10 +130,12 @@ pub fn decode_rpg_image(bytes: &[u8]) -> image::ImageResult<RgbaImage> {
 
     let mut rgba = image::load_from_memory(bytes)?.to_rgba8();
 
-    // Fallback: color-key pure magenta (255, 0, 255)
-    for px in rgba.pixels_mut() {
-        if px.0[0] == 255 && px.0[1] == 0 && px.0[2] == 255 {
-            px.0[3] = 0;
+    // Fallback: color-key pure magenta (255, 0, 255) only if transparent_idx_0 requested
+    if transparent_idx_0 {
+        for px in rgba.pixels_mut() {
+            if px.0[0] == 255 && px.0[1] == 0 && px.0[2] == 255 {
+                px.0[3] = 0;
+            }
         }
     }
 
@@ -537,54 +544,54 @@ pub fn calculate_autotile_d_subtile(
     // Quadrant logic: [j][i]
     // Top-Left (j=0, i=0): N, W, NW
     let tl = if !n && !w {
-        [1, 2] // corner
+        [0, 1] // outer corner
     } else if n && !w {
-        [0, 2] // vert edge
+        [0, 2] // vert edge (left edge)
     } else if !n && w {
-        [1, 1] // horiz edge
+        [1, 1] // horiz edge (top edge)
     } else if !nw {
         [2, 0] // inner corner
     } else {
-        [0, 1] // center
+        [1, 2] // center
     };
 
     // Top-Right (j=0, i=1): N, E, NE
     let tr = if !n && !e {
-        [1, 2]
+        [2, 1] // outer corner
     } else if n && !e {
-        [0, 2]
+        [2, 2] // vert edge (right edge)
     } else if !n && e {
-        [1, 1]
+        [1, 1] // horiz edge (top edge)
     } else if !ne {
-        [2, 0]
+        [2, 0] // inner corner
     } else {
-        [2, 1]
+        [1, 2] // center
     };
 
     // Bottom-Left (j=1, i=0): S, W, SW
     let bl = if !s && !w {
-        [1, 2]
+        [0, 3] // outer corner
     } else if s && !w {
-        [0, 2]
+        [0, 2] // vert edge (left edge)
     } else if !s && w {
-        [1, 1]
+        [1, 3] // horiz edge (bottom edge)
     } else if !sw {
-        [2, 0]
+        [2, 0] // inner corner
     } else {
-        [0, 3]
+        [1, 2] // center
     };
 
     // Bottom-Right (j=1, i=1): S, E, SE
     let br = if !s && !e {
-        [1, 2]
+        [2, 3] // outer corner
     } else if s && !e {
-        [0, 2]
+        [2, 2] // vert edge (right edge)
     } else if !s && e {
-        [1, 1]
+        [1, 3] // horiz edge (bottom edge)
     } else if !se {
-        [2, 0]
+        [2, 0] // inner corner
     } else {
-        [2, 3]
+        [1, 2] // center
     };
 
     // Find the subtile pattern in BLOCK_D_SUBTILES
@@ -597,7 +604,7 @@ pub fn calculate_autotile_d_subtile(
 }
 
 /// Check if a tile ID belongs to the same autotile block (e.g. D0..D11).
-fn autotile_block_base(id: i32) -> Option<i32> {
+pub fn autotile_block_base(id: i32) -> Option<i32> {
     if (BLOCK_D..BLOCK_D_END).contains(&id) {
         let block_idx = (id - BLOCK_D) / 50;
         Some(BLOCK_D + block_idx * 50)
@@ -666,13 +673,13 @@ pub fn render_palette_image(chipset: &RgbaImage, is_upper: bool) -> (RgbaImage, 
             tile_ids.push(id);
         }
     } else {
-        // Row 0: Special autotiles A1 (0), A2 (1000), B (2000), C1 (3000), C2 (3050), E0 (5000)
+        // Row 0: Special autotiles A1 (0), A2 (1000), B (2000), C1 (3000), C2 (3050), C3 (3100)
         tile_ids.push(0);
         tile_ids.push(1000);
         tile_ids.push(2000);
         tile_ids.push(3000);
         tile_ids.push(3050);
-        tile_ids.push(5000);
+        tile_ids.push(3100);
 
         // Row 1: Land autotiles D0..D5 (IDs 4000, 4050, 4100, 4150, 4200, 4250)
         for i in 0..6 {

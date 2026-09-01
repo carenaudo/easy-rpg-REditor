@@ -5,11 +5,15 @@ use crate::widgets::asset_viewer::{draw_checkerboard, AssetPreviewCache};
 
 pub struct TerrainsView {
     pub selected_idx: usize,
+    pub search_query: String,
 }
 
 impl Default for TerrainsView {
     fn default() -> Self {
-        Self { selected_idx: 0 }
+        Self {
+            selected_idx: 0,
+            search_query: String::new(),
+        }
     }
 }
 
@@ -48,7 +52,7 @@ impl TerrainsView {
         ui.columns(2, |cols| {
             // Master list
             cols[0].group(|ui| {
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.heading("Terrains");
                     if ui.small_button("+ Add").clicked() {
                         let new_id = (terrains.len() + 1) as i32;
@@ -76,6 +80,24 @@ impl TerrainsView {
                         self.selected_idx = terrains.len() - 1;
                         *dirty = true;
                     }
+                    if ui.add_enabled(terrains.len() > 1 && self.selected_idx < terrains.len(), egui::Button::new("🗑 Del").small()).clicked() {
+                        terrains.remove(self.selected_idx);
+                        for (i, entry) in terrains.iter_mut().enumerate() {
+                            entry.id = (i + 1) as i32;
+                        }
+                        if self.selected_idx >= terrains.len() {
+                            self.selected_idx = terrains.len().saturating_sub(1);
+                        }
+                        *dirty = true;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("🔍");
+                    ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Filter terrains...").desired_width(120.0));
+                    if !self.search_query.is_empty() && ui.small_button("✕").clicked() {
+                        self.search_query.clear();
+                    }
                 });
 
                 ui.separator();
@@ -84,7 +106,11 @@ impl TerrainsView {
                     .id_salt("terrains_master_scroll")
                     .max_height(450.0)
                     .show(ui, |ui| {
+                        let q = self.search_query.trim().to_lowercase();
                         for (idx, t) in terrains.iter().enumerate() {
+                            if !q.is_empty() && !t.name.to_lowercase().contains(&q) && !t.id.to_string().contains(&q) {
+                                continue;
+                            }
                             let label = format!("{:04}: {}", t.id, t.name);
                             if ui.selectable_label(self.selected_idx == idx, label).clicked() {
                                 self.selected_idx = idx;

@@ -158,7 +158,7 @@ impl ReaderUtil {
             check_dbstring(&item.name, &mut sjis_score, &mut euc_score, &mut gbk_score);
         }
 
-        if sjis_score > 0 && sjis_score >= euc_score && sjis_score >= gbk_score {
+        if sjis_score >= 8 && sjis_score >= euc_score && sjis_score >= gbk_score {
             "shift_jis".to_string()
         } else if euc_score > 5 && euc_score > sjis_score {
             "euc-kr".to_string()

@@ -305,6 +305,7 @@ impl EditorApp {
                 ("it", "Italiano"),
                 ("pt-BR", "Português (Brasil)"),
                 ("zh-CN", "简体中文"),
+                ("ru", "Русский"),
             ] {
                 if ui.selectable_label(loc_str == *loc, *name).clicked() {
                     rust_i18n::set_locale(loc);
@@ -648,11 +649,13 @@ impl EditorApp {
                     ui.selectable_value(&mut self.map_view.draw_tool, MapDrawTool::Ellipse, format!("⭕ {}", rust_i18n::t!("map.tool_circle")));
                     ui.selectable_value(&mut self.map_view.draw_tool, MapDrawTool::Fill, format!("🪣 {}", rust_i18n::t!("map.tool_fill")));
                     ui.selectable_value(&mut self.map_view.draw_tool, MapDrawTool::Eyedropper, format!("💉 {}", rust_i18n::t!("map.tool_picker")));
+                    ui.selectable_value(&mut self.map_view.draw_tool, MapDrawTool::Select, "🔲 Marquee");
                     ui.separator();
                 }
 
                 ui.checkbox(&mut self.map_view.show_grid, "▦ Grid");
                 ui.checkbox(&mut self.map_view.show_passability, rust_i18n::t!("map.overlay_passability"));
+                ui.checkbox(&mut self.map_view.show_terrain_tags, "🏷 Terrains");
                 ui.checkbox(&mut self.map_view.dim_inactive_layers, rust_i18n::t!("map.dim_layers"));
 
                 ui.menu_button("👁", |ui| {
@@ -739,6 +742,7 @@ impl EditorApp {
                                 MapDrawTool::Ellipse => rust_i18n::t!("map.tool_circle"),
                                 MapDrawTool::Fill => rust_i18n::t!("map.tool_fill"),
                                 MapDrawTool::Eyedropper => rust_i18n::t!("map.tool_picker"),
+                                MapDrawTool::Select => std::borrow::Cow::Borrowed("Marquee Select"),
                             };
                             ui.label(tool_txt);
                             ui.separator();
@@ -848,12 +852,13 @@ impl EditorApp {
                             .default_size(260.0)
                             .min_size(100.0)
                             .show(ui, |ui| {
-                                if let Some(act) = self.map_tree_widget.show(ui, &self.state.map_tree, self.state.selected_map) {
+                                let current_map_id = self.state.selected_map.and_then(|idx| self.state.maps.get(idx).map(|m| m.0));
+                                if let Some(act) = self.map_tree_widget.show(ui, &self.state.map_tree, current_map_id) {
                                     match act {
-                                        MapTreeAction::Select(idx) => {
+                                        MapTreeAction::Select(map_id) => {
                                             if self.map_view.map_dirty || self.map_view.events_dirty {
                                                 self.map_view.save_message = Some(Err("Save or discard map changes before switching maps.".to_string()));
-                                            } else {
+                                            } else if let Some(idx) = self.state.maps.iter().position(|m| m.0 == map_id) {
                                                 self.select_map(idx, ui.ctx());
                                             }
                                         }
@@ -910,14 +915,12 @@ impl EditorApp {
                                             if ui.selectable_label(active_id == cs.id, label).clicked() {
                                                 self.map_view.active_chipset_id = Some(cs.id);
                                                 if let Some(proj) = &self.state.project_path {
-                                                    if let Some(_tex) = self.asset_cache.get_or_load(ui.ctx(), proj, "ChipSet", &cs.chipset_name) {
-                                                        let path_opt = Path::new(proj).join("ChipSet").join(format!("{}.png", cs.chipset_name));
-                                                        if let Ok(bytes) = std::fs::read(&path_opt) {
-                                                            if let Ok(rgba) = tilemap::decode_chipset(&bytes) {
-                                                                self.map_view.palette.reload_chipset(ui.ctx(), &rgba);
-                                                                self.map_view.refresh_texture(ui.ctx(), &rgba);
-                                                                self.cached_chipset = Some(rgba);
-                                                            }
+                                                    let _ = self.asset_cache.get_or_load(ui.ctx(), proj, "ChipSet", &cs.chipset_name);
+                                                    if let Some(bytes) = AssetPreviewCache::load_asset_bytes(proj, "ChipSet", &cs.chipset_name) {
+                                                        if let Ok(rgba) = tilemap::decode_chipset(&bytes) {
+                                                            self.map_view.palette.reload_chipset(ui.ctx(), &rgba);
+                                                            self.map_view.refresh_texture(ui.ctx(), &rgba);
+                                                            self.cached_chipset = Some(rgba);
                                                         }
                                                     }
                                                 }
@@ -1058,6 +1061,13 @@ impl eframe::App for EditorApp {
 
         if let Some(saved) = self.map_props_dialog.show(ui.ctx(), self.state.project_path.as_deref(), self.audio.as_ref()) {
             if saved {
+                if let Some(ref path) = self.state.project_path {
+                    let info = lcf_bridge::load_project(path);
+                    if info.valid {
+                        self.state.maps = info.maps.into_iter().map(|m| (m.id, m.name)).collect();
+                    }
+                    self.state.map_tree = lcf_bridge::get_map_tree(path);
+                }
                 if let Some(sel) = self.state.selected_map {
                     self.select_map(sel, ui.ctx());
                 }

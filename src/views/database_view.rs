@@ -146,7 +146,7 @@ impl DatabaseViewState {
             crate::app_state::DbCategory::Terrains => (app.terrains_dirty, app.terrains_save_message.clone()),
             crate::app_state::DbCategory::Animations => (app.animations_dirty, app.animations_save_message.clone()),
             crate::app_state::DbCategory::Terms => (app.terms_dirty, app.terms_save_message.clone()),
-            crate::app_state::DbCategory::System => (false, None),
+            crate::app_state::DbCategory::System => (app.system_dirty, app.system_save_message.clone()),
             crate::app_state::DbCategory::ManiacStringVariables => (app.maniac_string_variables_dirty, app.maniac_string_variables_save_message.clone()),
         };
 

@@ -3,11 +3,15 @@ use crate::lcf_bridge::StateInfo;
 
 pub struct StatesView {
     pub selected_idx: usize,
+    pub search_query: String,
 }
 
 impl Default for StatesView {
     fn default() -> Self {
-        Self { selected_idx: 0 }
+        Self {
+            selected_idx: 0,
+            search_query: String::new(),
+        }
     }
 }
 
@@ -59,6 +63,24 @@ impl StatesView {
                         self.selected_idx = states.len() - 1;
                         *dirty = true;
                     }
+                    if ui.add_enabled(states.len() > 1 && self.selected_idx < states.len(), egui::Button::new("🗑 Del").small()).clicked() {
+                        states.remove(self.selected_idx);
+                        for (i, entry) in states.iter_mut().enumerate() {
+                            entry.id = (i + 1) as i32;
+                        }
+                        if self.selected_idx >= states.len() {
+                            self.selected_idx = states.len().saturating_sub(1);
+                        }
+                        *dirty = true;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("🔍");
+                    ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Filter states...").desired_width(120.0));
+                    if !self.search_query.is_empty() && ui.small_button("✕").clicked() {
+                        self.search_query.clear();
+                    }
                 });
 
                 ui.separator();
@@ -67,7 +89,11 @@ impl StatesView {
                     .id_salt("states_master_scroll")
                     .max_height(550.0)
                     .show(ui, |ui| {
+                        let q = self.search_query.trim().to_lowercase();
                         for (idx, s) in states.iter().enumerate() {
+                            if !q.is_empty() && !s.name.to_lowercase().contains(&q) && !s.id.to_string().contains(&q) {
+                                continue;
+                            }
                             let label = format!("{:04}: {}", s.id, s.name);
                             if ui.selectable_label(self.selected_idx == idx, label).clicked() {
                                 self.selected_idx = idx;

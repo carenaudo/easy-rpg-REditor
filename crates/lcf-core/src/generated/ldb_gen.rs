@@ -371,8 +371,14 @@ impl Actor {
         if self.easyrpg_unarmed_hit != _def.easyrpg_unarmed_hit {
             writer.write_int_chunk(0xCE, self.easyrpg_unarmed_hit as i32)?;
         }
+        if !self.easyrpg_unarmed_state_set.0.is_empty() {
+            writer.write_bit_array_chunk(0xD0, &self.easyrpg_unarmed_state_set)?;
+        }
         if self.easyrpg_unarmed_state_chance != _def.easyrpg_unarmed_state_chance {
             writer.write_int_chunk(0xD1, self.easyrpg_unarmed_state_chance as i32)?;
+        }
+        if !self.easyrpg_unarmed_attribute_set.0.is_empty() {
+            writer.write_bit_array_chunk(0xD3, &self.easyrpg_unarmed_attribute_set)?;
         }
         if self.easyrpg_dual_attack != _def.easyrpg_dual_attack {
             writer.write_bool_chunk(0xD4, self.easyrpg_dual_attack)?;
@@ -3545,8 +3551,14 @@ impl Enemy {
         if self.easyrpg_hit != _def.easyrpg_hit {
             writer.write_int_chunk(0xCE, self.easyrpg_hit as i32)?;
         }
+        if !self.easyrpg_state_set.0.is_empty() {
+            writer.write_bit_array_chunk(0xD0, &self.easyrpg_state_set)?;
+        }
         if self.easyrpg_state_chance != _def.easyrpg_state_chance {
             writer.write_int_chunk(0xD1, self.easyrpg_state_chance as i32)?;
+        }
+        if !self.easyrpg_attribute_set.0.is_empty() {
+            writer.write_bit_array_chunk(0xD3, &self.easyrpg_attribute_set)?;
         }
         if self.easyrpg_super_guard != _def.easyrpg_super_guard {
             writer.write_bool_chunk(0xD4, self.easyrpg_super_guard)?;
@@ -4277,6 +4289,9 @@ impl Item {
         if self.occasion_battle != _def.occasion_battle {
             writer.write_bool_chunk(0x3A, self.occasion_battle)?;
         }
+        writer.write_bit_array_chunk(0x3E, &self.actor_set)?;
+        writer.write_bit_array_chunk(0x40, &self.state_set)?;
+        writer.write_bit_array_chunk(0x42, &self.attribute_set)?;
         if self.state_chance != _def.state_chance {
             writer.write_int_chunk(0x43, self.state_chance as i32)?;
         }
@@ -4298,6 +4313,9 @@ impl Item {
         }
         if writer.is_2k3() && (self.use_skill != _def.use_skill) {
             writer.write_bool_chunk(0x47, self.use_skill)?;
+        }
+        if writer.is_2k3() {
+            writer.write_bit_array_chunk(0x49, &self.class_set)?;
         }
         if self.ranged_trajectory != _def.ranged_trajectory {
             writer.write_int_chunk(0x4B, self.ranged_trajectory as i32)?;
@@ -4901,6 +4919,8 @@ impl Skill {
         if self.ignore_defense != _def.ignore_defense {
             writer.write_bool_chunk(0x26, self.ignore_defense)?;
         }
+        writer.write_bit_array_chunk(0x2A, &self.state_effects)?;
+        writer.write_bit_array_chunk(0x2C, &self.attribute_effects)?;
         if self.affect_attr_defence != _def.affect_attr_defence {
             writer.write_bool_chunk(0x2D, self.affect_attr_defence)?;
         }
@@ -5462,6 +5482,9 @@ impl State {
         }
         if self.sp_change_map_val != _def.sp_change_map_val {
             writer.write_int_chunk(0x44, self.sp_change_map_val as i32)?;
+        }
+        if !self.easyrpg_immune_states.0.is_empty() {
+            writer.write_bit_array_chunk(0xC9, &self.easyrpg_immune_states)?;
         }
         writer.write_int(0)?;
         Ok(())
@@ -8527,6 +8550,7 @@ impl Troop {
         if writer.is_2k3() && (self.auto_alignment != _def.auto_alignment) {
             writer.write_bool_chunk(0x03, self.auto_alignment)?;
         }
+        writer.write_bit_array_chunk(0x05, &self.terrain_set)?;
         if writer.is_2k3() && (self.appear_randomly != _def.appear_randomly) {
             writer.write_bool_chunk(0x06, self.appear_randomly)?;
         }

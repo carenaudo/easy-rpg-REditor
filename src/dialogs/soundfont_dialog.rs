@@ -26,7 +26,7 @@ impl SoundFontDialog {
 
         let mut is_open = self.is_open;
 
-        egui::Window::new("🎵 MIDI SoundFont Setup")
+        egui::Window::new(format!("🎵 {}", rust_i18n::t!("soundfont.title")))
             .open(&mut is_open)
             .collapsible(false)
             .resizable(true)
@@ -46,7 +46,7 @@ impl SoundFontDialog {
                         ui.horizontal(|ui| {
                             ui.colored_label(
                                 egui::Color32::from_rgb(0, 180, 0),
-                                "✅ Active SoundFont:",
+                                format!("✅ {}", rust_i18n::t!("soundfont.current")),
                             );
                             ui.strong(
                                 loaded_path

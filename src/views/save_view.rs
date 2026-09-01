@@ -22,17 +22,47 @@ impl SaveViewState {
         &mut self,
         ui: &mut egui::Ui,
         project_path: Option<&str>,
-        saves: &mut [SaveSlotView],
+        saves: &mut Vec<SaveSlotView>,
     ) {
         if saves.is_empty() {
-            ui.colored_label(egui::Color32::GRAY, "No save files found in project directory (Save01.lsd ..).");
+            ui.group(|ui| {
+                ui.colored_label(egui::Color32::GRAY, "No save files found in project directory (Save01.lsd ..).");
+                if let Some(proj) = project_path {
+                    if ui.button("➕ Create First Save File (Save01.lsd)").clicked() {
+                        if let Ok(new_name) = lcf_bridge::create_blank_save_slot(proj) {
+                            let new_slot = lcf_bridge::reload_save_slot(proj, &new_name);
+                            saves.push(SaveSlotView {
+                                info: new_slot,
+                                dirty: false,
+                                save_message: Some(Ok("Created new save file.".to_string())),
+                            });
+                            self.selected_slot = 0;
+                        }
+                    }
+                }
+            });
             return;
         }
 
         ui.columns(2, |cols| {
             // Left column: Slot List
             cols[0].group(|ui| {
-                ui.heading("Save Slots");
+                ui.horizontal(|ui| {
+                    ui.heading("Save Slots");
+                    if let Some(proj) = project_path {
+                        if ui.small_button("➕ New Save").on_hover_text("Create a new blank save file in this project").clicked() {
+                            if let Ok(new_name) = lcf_bridge::create_blank_save_slot(proj) {
+                                let new_slot = lcf_bridge::reload_save_slot(proj, &new_name);
+                                saves.push(SaveSlotView {
+                                    info: new_slot,
+                                    dirty: false,
+                                    save_message: Some(Ok("Created new save file.".to_string())),
+                                });
+                                self.selected_slot = saves.len().saturating_sub(1);
+                            }
+                        }
+                    }
+                });
                 egui::ScrollArea::vertical()
                     .id_salt("save_slots_list")
                     .max_height(450.0)
@@ -48,10 +78,16 @@ impl SaveViewState {
             });
 
             // Right column: Slot Editor
+            let mut clone_source = None;
             cols[1].group(|ui| {
                 if let Some(slot) = saves.get_mut(self.selected_slot) {
                     ui.horizontal(|ui| {
                         ui.heading(&slot.info.file_name);
+                        if project_path.is_some() {
+                            if ui.small_button("📄 Clone Slot").on_hover_text("Duplicate this save file into the next free slot").clicked() {
+                                clone_source = Some(slot.info.file_name.clone());
+                            }
+                        }
                         ui.separator();
                         ui.add_enabled_ui(slot.dirty, |ui| {
                             if ui.button("Save Slot").clicked() {
@@ -136,18 +172,36 @@ impl SaveViewState {
                         });
 
                     ui.separator();
-                    ui.heading("Party Members");
+                    ui.horizontal(|ui| {
+                        ui.heading("Party Members");
+                        if ui.small_button("➕ Add Hero").clicked() {
+                            let new_id = (slot.info.party.len() + 1) as i32;
+                            slot.info.party.push(crate::lcf_bridge::SavePartyMember {
+                                id: new_id,
+                                name: format!("Hero {}", new_id),
+                                level: 1,
+                                current_hp: 100,
+                                current_sp: 50,
+                            });
+                            slot.dirty = true;
+                        }
+                    });
+
+                    let mut remove_party_idx = None;
                     egui::Grid::new("save_party_grid")
-                        .num_columns(4)
+                        .num_columns(6)
                         .spacing([12.0, 6.0])
                         .show(ui, |ui| {
+                            ui.label("ID");
                             ui.label("Name");
                             ui.label("Level");
                             ui.label("HP");
                             ui.label("SP");
+                            ui.label("");
                             ui.end_row();
 
-                            for member in &mut slot.info.party {
+                            for (idx, member) in slot.info.party.iter_mut().enumerate() {
+                                ui.label(format!("#{}", member.id));
                                 let n_resp = ui.text_edit_singleline(&mut member.name);
                                 let l_resp = ui.add(egui::DragValue::new(&mut member.level).range(1..=99));
                                 let hp_resp = ui.add(egui::DragValue::new(&mut member.current_hp).range(0..=99999));
@@ -155,9 +209,19 @@ impl SaveViewState {
                                 if n_resp.changed() || l_resp.changed() || hp_resp.changed() || sp_resp.changed() {
                                     slot.dirty = true;
                                 }
+                                if ui.small_button("🗑").clicked() {
+                                    remove_party_idx = Some(idx);
+                                }
                                 ui.end_row();
                             }
                         });
+
+                    if let Some(idx) = remove_party_idx {
+                        if slot.info.party.len() > 1 {
+                            slot.info.party.remove(idx);
+                            slot.dirty = true;
+                        }
+                    }
 
                     ui.separator();
                     ui.horizontal(|ui| {
@@ -264,6 +328,20 @@ impl SaveViewState {
                     });
                 }
             });
+
+            if let Some(src_name) = clone_source {
+                if let Some(proj) = project_path {
+                    if let Ok(cloned_name) = lcf_bridge::clone_save_slot(proj, &src_name) {
+                        let cloned_slot = lcf_bridge::reload_save_slot(proj, &cloned_name);
+                        saves.push(SaveSlotView {
+                            info: cloned_slot,
+                            dirty: false,
+                            save_message: Some(Ok("Cloned save file successfully.".to_string())),
+                        });
+                        self.selected_slot = saves.len().saturating_sub(1);
+                    }
+                }
+            }
         });
     }
 }

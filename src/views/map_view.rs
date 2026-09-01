@@ -23,6 +23,7 @@ pub enum MapDrawTool {
     Ellipse,
     Fill,
     Eyedropper,
+    Select,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +32,7 @@ pub enum QuickEventPending {
     Transfer { x: i32, y: i32 },
 }
 
+#[derive(Clone, Debug)]
 pub struct MapDims {
     pub width: i32,
     pub height: i32,
@@ -54,6 +56,7 @@ pub struct MapViewState {
     pub show_upper_layer: bool,
     pub show_events: bool,
     pub show_passability: bool,
+    pub show_terrain_tags: bool,
     pub dim_inactive_layers: bool,
     pub palette: MapPalette,
     pub undo_stack: UndoStack,
@@ -61,6 +64,8 @@ pub struct MapViewState {
     pub target_picker: MapTargetPickerState,
     pub quick_event_pending: Option<QuickEventPending>,
     pub drag_start_tile: Option<(i32, i32)>,
+    pub marquee_start: Option<(i32, i32)>,
+    pub marquee_end: Option<(i32, i32)>,
     pub active_stroke_changes: Vec<TileChange>,
     pub active_chipset_id: Option<i32>,
     /// Tile coordinate the pointer is currently over, for the status bar's
@@ -101,6 +106,7 @@ impl Default for MapViewState {
             show_upper_layer: true,
             show_events: true,
             show_passability: false,
+            show_terrain_tags: false,
             dim_inactive_layers: false,
             palette: MapPalette::default(),
             undo_stack: UndoStack::new(),
@@ -108,6 +114,8 @@ impl Default for MapViewState {
             target_picker: MapTargetPickerState::default(),
             quick_event_pending: None,
             drag_start_tile: None,
+            marquee_start: None,
+            marquee_end: None,
             active_stroke_changes: Vec::new(),
             active_chipset_id: None,
             hover_tile: None,
@@ -201,8 +209,30 @@ impl MapViewState {
                         new_val: new_tile,
                     });
 
-                    if !is_upper && tilemap::is_autotile_d(new_tile) {
+                    if !is_upper && (tilemap::is_autotile_d(new_tile) || tilemap::is_autotile_d(old_val)) {
+                        // Snapshot neighbor tiles before updating neighborhood
+                        let mut neighbor_snapshots = Vec::new();
+                        for ny in (y - 1).max(0)..=(y + 1).min(dims.height - 1) {
+                            for nx in (x - 1).max(0)..=(x + 1).min(dims.width - 1) {
+                                if nx == x && ny == y { continue; }
+                                let n_idx = (ny * dims.width + nx) as usize;
+                                if n_idx < dims.lower.len() {
+                                    neighbor_snapshots.push((n_idx, dims.lower[n_idx]));
+                                }
+                            }
+                        }
                         tilemap::update_autotile_neighborhood(&mut dims.lower, dims.width, dims.height, x, y);
+                        // Record any neighbor subtiles that changed as part of this stroke
+                        for (n_idx, n_old) in neighbor_snapshots {
+                            let n_new = dims.lower[n_idx];
+                            if n_old != n_new {
+                                self.active_stroke_changes.push(TileChange {
+                                    index: n_idx,
+                                    old_val: n_old,
+                                    new_val: n_new,
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -327,7 +357,12 @@ impl MapViewState {
                 for (nx, ny) in neighbors {
                     if nx >= 0 && nx < dims.width && ny >= 0 && ny < dims.height {
                         let n_idx = (ny * dims.width + nx) as usize;
-                        if !visited[n_idx] && target[n_idx] == target_tile {
+                        let is_match = if !is_upper && tilemap::is_autotile_d(target_tile) && tilemap::is_autotile_d(target[n_idx]) {
+                            tilemap::autotile_block_base(target[n_idx]) == tilemap::autotile_block_base(target_tile)
+                        } else {
+                            target[n_idx] == target_tile
+                        };
+                        if !visited[n_idx] && is_match {
                             visited[n_idx] = true;
                             queue.push_back((nx, ny));
                         }
@@ -336,9 +371,15 @@ impl MapViewState {
             }
 
             if !is_upper && tilemap::is_autotile_d(new_tile) {
+                let lower_before = dims.lower.clone();
                 for cy in 0..dims.height {
                     for cx in 0..dims.width {
                         tilemap::update_autotile_neighborhood(&mut dims.lower, dims.width, dims.height, cx, cy);
+                    }
+                }
+                for i in 0..dims.lower.len() {
+                    if lower_before[i] != dims.lower[i] && !changes.iter().any(|c| c.index == i) {
+                        changes.push(TileChange { index: i, old_val: lower_before[i], new_val: dims.lower[i] });
                     }
                 }
             }
@@ -601,6 +642,41 @@ impl MapViewState {
         }
     }
 
+    pub fn copy_marquee_selection(&mut self, is_upper: bool) -> bool {
+        if let (Some((x1, y1)), Some((x2, y2)), Some(dims)) = (self.marquee_start, self.marquee_end, &self.map_dims) {
+            let min_x = x1.min(x2).max(0);
+            let max_x = x1.max(x2).min(dims.width - 1);
+            let min_y = y1.min(y2).max(0);
+            let max_y = y1.max(y2).min(dims.height - 1);
+
+            let w = (max_x - min_x + 1) as usize;
+            let h = (max_y - min_y + 1) as usize;
+            let mut tiles = Vec::with_capacity(w * h);
+
+            let layer = if is_upper { &dims.upper } else { &dims.lower };
+            for y in min_y..=max_y {
+                for x in min_x..=max_x {
+                    let idx = (y * dims.width + x) as usize;
+                    let tid = layer.get(idx).copied().unwrap_or(0);
+                    tiles.push(tid);
+                }
+            }
+
+            self.palette.selected_tile_id = tiles.first().copied().unwrap_or(5000);
+            self.palette.brush = crate::views::map_palette::TileBrush {
+                width: w,
+                height: h,
+                tiles,
+            };
+            self.draw_tool = MapDrawTool::Pen;
+            self.marquee_start = None;
+            self.marquee_end = None;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -684,7 +760,7 @@ impl MapViewState {
         egui::ScrollArea::both()
             .id_salt("map_canvas_scroll")
             .show(ui, |ui| {
-            if let (Some(dims), Some(tex), Some(cs)) = (&mut self.map_dims, &self.map_texture, chipset) {
+            if let (Some(dims), Some(tex), Some(cs)) = (&self.map_dims.clone(), &self.map_texture, chipset) {
                 let tile_px = 16.0 * self.zoom;
                 let canvas_w = dims.width as f32 * tile_px;
                 let canvas_h = dims.height as f32 * tile_px;
@@ -728,24 +804,70 @@ impl MapViewState {
                     tint,
                 );
 
-                // Passability Overlay
+                // Passability Overlay (High contrast symbols: 〇, ✕, △, ★)
                 if self.show_passability {
                     for y in 0..dims.height {
                         for x in 0..dims.width {
                             let idx = (y * dims.width + x) as usize;
                             let l_id = dims.lower.get(idx).copied().unwrap_or(0);
                             let u_id = dims.upper.get(idx).copied().unwrap_or(10000);
-                            if tilemap::is_blocked(l_id, u_id, &passability.lower, &passability.upper) {
-                                let cell_rect = egui::Rect::from_min_size(
-                                    egui::pos2(rect.min.x + x as f32 * tile_px, rect.min.y + y as f32 * tile_px),
-                                    egui::vec2(tile_px, tile_px),
-                                );
-                                painter.rect_filled(cell_rect, 0.0, egui::Color32::from_rgba_unmultiplied(255, 0, 0, 80));
-                                painter.line_segment(
-                                    [cell_rect.min, cell_rect.max],
-                                    egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(255, 0, 0, 160)),
-                                );
-                            }
+
+                            let l_flag = passability.lower.get(l_id as usize).copied().unwrap_or(15);
+                            let u_flag = if u_id >= 10000 {
+                                passability.upper.get((u_id - 10000) as usize).copied().unwrap_or(15)
+                            } else {
+                                15
+                            };
+
+                            let (symbol, color) = if (u_flag & 0x20) != 0 || (l_flag & 0x20) != 0 {
+                                ("★", egui::Color32::from_rgb(80, 220, 255))
+                            } else if (u_flag & 0x10) != 0 || (l_flag & 0x10) != 0 {
+                                ("△", egui::Color32::from_rgb(255, 220, 0))
+                            } else if tilemap::is_blocked(l_id, u_id, &passability.lower, &passability.upper) {
+                                ("✕", egui::Color32::from_rgb(255, 70, 70))
+                            } else {
+                                ("〇", egui::Color32::from_rgb(70, 255, 70))
+                            };
+
+                            let cell_rect = egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x + x as f32 * tile_px, rect.min.y + y as f32 * tile_px),
+                                egui::vec2(tile_px, tile_px),
+                            );
+                            let badge_r = (tile_px * 0.35).clamp(5.0, 12.0);
+                            painter.circle_filled(cell_rect.center(), badge_r, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 160));
+                            let font_sz = (tile_px * 0.44).clamp(8.0, 14.0);
+                            painter.text(cell_rect.center(), egui::Align2::CENTER_CENTER, symbol, egui::FontId::proportional(font_sz), color);
+                        }
+                    }
+                }
+
+                // Terrain Tag Overlay
+                if self.show_terrain_tags {
+                    for y in 0..dims.height {
+                        for x in 0..dims.width {
+                            let idx = (y * dims.width + x) as usize;
+                            let l_id = dims.lower.get(idx).copied().unwrap_or(0);
+                            let t_id = passability.terrain.get(l_id as usize).copied().unwrap_or(1);
+                            let cell_rect = egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x + x as f32 * tile_px, rect.min.y + y as f32 * tile_px),
+                                egui::vec2(tile_px, tile_px),
+                            );
+
+                            let badge_col = match t_id % 8 {
+                                1 => egui::Color32::from_rgb(50, 160, 60),
+                                2 => egui::Color32::from_rgb(40, 120, 220),
+                                3 => egui::Color32::from_rgb(220, 120, 30),
+                                4 => egui::Color32::from_rgb(160, 60, 200),
+                                5 => egui::Color32::from_rgb(200, 40, 40),
+                                6 => egui::Color32::from_rgb(40, 180, 180),
+                                7 => egui::Color32::from_rgb(200, 180, 40),
+                                _ => egui::Color32::from_rgb(100, 100, 100),
+                            };
+
+                            let pill_rect = egui::Rect::from_center_size(cell_rect.center(), egui::vec2((tile_px * 0.8).clamp(12.0, 24.0), (tile_px * 0.45).clamp(10.0, 16.0)));
+                            painter.rect_filled(pill_rect, 3.0, badge_col);
+                            let font_sz = (tile_px * 0.35).clamp(7.0, 11.0);
+                            painter.text(pill_rect.center(), egui::Align2::CENTER_CENTER, format!("T{}", t_id), egui::FontId::proportional(font_sz), egui::Color32::WHITE);
                         }
                     }
                 }
@@ -820,10 +942,15 @@ impl MapViewState {
                     let tile_y = ((pos.y - rect.min.y) / tile_px) as i32;
 
                     if tile_x >= 0 && tile_x < dims.width && tile_y >= 0 && tile_y < dims.height {
-                        // Hover box
+                        // Hover box (sizing adapts to multi-tile brush)
+                        let (bw, bh) = if self.layer_mode != MapLayerMode::Events && self.draw_tool == MapDrawTool::Pen {
+                            (self.palette.brush.width as f32, self.palette.brush.height as f32)
+                        } else {
+                            (1.0, 1.0)
+                        };
                         let hover_rect = egui::Rect::from_min_size(
                             egui::pos2(rect.min.x + tile_x as f32 * tile_px, rect.min.y + tile_y as f32 * tile_px),
-                            egui::vec2(tile_px, tile_px),
+                            egui::vec2(tile_px * bw, tile_px * bh),
                         );
                         painter.rect_stroke(
                             hover_rect,
@@ -838,7 +965,7 @@ impl MapViewState {
                             let idx = (tile_y * dims.width + tile_x) as usize;
                             let t_id = if is_upper { dims.upper.get(idx) } else { dims.lower.get(idx) };
                             if let Some(&id) = t_id {
-                                self.palette.selected_tile_id = id;
+                                self.palette.set_single_tile(id, is_upper);
                             }
                         }
 
@@ -887,11 +1014,10 @@ impl MapViewState {
                                 }
                             }
 
-                            // Double-click still opens/creates events - a click that
-                            // never became a real drag falls through to here.
+                            // Event double click handling
                             if resp.double_clicked() {
-                                if let Some(ev) = self.events.iter().find(|e| e.x == tile_x && e.y == tile_y) {
-                                    self.event_dialog.open(ev);
+                                if let Some(event) = self.events.iter().find(|e| e.x == tile_x && e.y == tile_y) {
+                                    self.event_dialog.open(event);
                                 } else {
                                     let new_id = (self.events.iter().map(|e| e.id).max().unwrap_or(0)) + 1;
                                     let new_ev = EventInfo {
@@ -916,7 +1042,17 @@ impl MapViewState {
                             if resp.clicked() || resp.dragged_by(egui::PointerButton::Primary) {
                                 match self.draw_tool {
                                     MapDrawTool::Pen => {
-                                        self.paint_tile_at(tile_x, tile_y, selected_tile, is_upper);
+                                        let brush = self.palette.brush.clone();
+                                        for dy in 0..brush.height {
+                                            for dx in 0..brush.width {
+                                                let px = tile_x + dx as i32;
+                                                let py = tile_y + dy as i32;
+                                                if px < dims.width && py < dims.height {
+                                                    let t_id = brush.tiles[dy * brush.width + dx];
+                                                    self.paint_tile_at(px, py, t_id, is_upper);
+                                                }
+                                            }
+                                        }
                                         self.refresh_texture(ui.ctx(), cs);
                                     }
                                     MapDrawTool::Fill => {
@@ -929,12 +1065,20 @@ impl MapViewState {
                                         let idx = (tile_y * dims.width + tile_x) as usize;
                                         let t_id = if is_upper { dims.upper.get(idx) } else { dims.lower.get(idx) };
                                         if let Some(&id) = t_id {
-                                            self.palette.selected_tile_id = id;
+                                            self.palette.set_single_tile(id, is_upper);
                                         }
                                     }
                                     MapDrawTool::Rectangle | MapDrawTool::Ellipse => {
                                         if self.drag_start_tile.is_none() {
                                             self.drag_start_tile = Some((tile_x, tile_y));
+                                        }
+                                    }
+                                    MapDrawTool::Select => {
+                                        if resp.drag_started() || resp.clicked() {
+                                            self.marquee_start = Some((tile_x, tile_y));
+                                            self.marquee_end = Some((tile_x, tile_y));
+                                        } else if resp.dragged() {
+                                            self.marquee_end = Some((tile_x, tile_y));
                                         }
                                     }
                                 }
@@ -965,11 +1109,42 @@ impl MapViewState {
                                 }
                             }
 
+                            // Marquee Selection Box Preview
+                            if self.draw_tool == MapDrawTool::Select {
+                                if let (Some((x1, y1)), Some((x2, y2))) = (self.marquee_start, self.marquee_end) {
+                                    let min_x = x1.min(x2).max(0);
+                                    let max_x = x1.max(x2).min(dims.width - 1);
+                                    let min_y = y1.min(y2).max(0);
+                                    let max_y = y1.max(y2).min(dims.height - 1);
+
+                                    let sel_rect = egui::Rect::from_min_max(
+                                        egui::pos2(rect.min.x + min_x as f32 * tile_px, rect.min.y + min_y as f32 * tile_px),
+                                        egui::pos2(rect.min.x + (max_x + 1) as f32 * tile_px, rect.min.y + (max_y + 1) as f32 * tile_px),
+                                    );
+                                    painter.rect_filled(sel_rect, 0.0, egui::Color32::from_rgba_unmultiplied(80, 180, 255, 60));
+                                    painter.rect_stroke(sel_rect, 0.0, egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 255)), egui::StrokeKind::Outside);
+
+                                    if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::C)) {
+                                        self.copy_marquee_selection(is_upper);
+                                    }
+                                }
+                            }
+
                             // Commit active stroke into undo stack
                             if resp.drag_stopped() && !self.active_stroke_changes.is_empty() {
                                 let changes = std::mem::take(&mut self.active_stroke_changes);
                                 self.undo_stack.push(MapEditAction::TileStroke { is_upper, changes });
                             }
+                        }
+                    }
+                }
+
+                // Drag release safety fallback (if mouse released outside valid tile boundaries)
+                if resp.drag_stopped() {
+                    if let Some((idx, orig_x, orig_y)) = self.dragging_event.take() {
+                        if let Some(ev) = self.events.get_mut(idx) {
+                            ev.x = orig_x;
+                            ev.y = orig_y;
                         }
                     }
                 }

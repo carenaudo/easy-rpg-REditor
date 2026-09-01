@@ -129,8 +129,8 @@ pub fn event_move_type_label(move_type: i32) -> &'static str {
     match move_type {
         0 => "Stationary",
         1 => "Random",
-        2 => "Step Left-Right",
-        3 => "Step Up-Down",
+        2 => "Step Up-Down (Vertical)",
+        3 => "Step Left-Right (Horizontal)",
         4 => "Towards Hero",
         5 => "Away from Hero",
         6 => "Custom Route",
@@ -161,6 +161,7 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
     let prefix = "  ".repeat(cmd.indent.max(0) as usize);
     let desc = match cmd.code {
         10110 => format!("Show Message: \"{}\"", cmd.string),
+        20110 => format!("  : \"{}\"", cmd.string),
         10120 => "Message Options".to_string(),
         10140 => format!("Show Choices: \"{}\"", cmd.string),
         20140 => {
@@ -269,12 +270,25 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
         10470 => "Change SP".to_string(),
         10480 => "Change Condition / State".to_string(),
         10490 => "Recover All".to_string(),
+        10610 => format!("Change Hero Name: Hero #{:04} -> \"{}\"", cmd.parameters.first().copied().unwrap_or(0), cmd.string),
+        10620 => format!("Change Hero Title: Hero #{:04} -> \"{}\"", cmd.parameters.first().copied().unwrap_or(0), cmd.string),
+        10630 => format!("Change Hero Graphic: Hero #{:04} -> {}", cmd.parameters.first().copied().unwrap_or(0), cmd.string),
+        10640 => format!("Change Hero Face Graphic: Hero #{:04} -> {}", cmd.parameters.first().copied().unwrap_or(0), cmd.string),
+        10650 => format!("Change Vehicle Graphic: Vehicle #{} -> {}", cmd.parameters.first().copied().unwrap_or(0), cmd.string),
+        10710 => "Battle Processing".to_string(),
+        10720 => "Shop Processing".to_string(),
+        10730 => "Inn Processing".to_string(),
+        10740 => format!("Hero Name Input: Hero #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
         10810 => format!(
             "Transfer Player -> Map #{:04} ({}, {})",
             cmd.parameters.get(1).copied().unwrap_or(0),
             cmd.parameters.get(2).copied().unwrap_or(0),
             cmd.parameters.get(3).copied().unwrap_or(0)
         ),
+        10820 => "Memorize Location".to_string(),
+        10830 => "Recall to Location".to_string(),
+        10840 => "Enter / Exit Vehicle".to_string(),
+        10850 => "Set Vehicle Location".to_string(),
         10860 => "Set Event Location".to_string(),
         11010 => "Erase / Show Screen".to_string(),
         11030 => "Tint Screen".to_string(),
@@ -295,8 +309,10 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
         11610 => "Key Input Processing".to_string(),
         11710 => "Change Chipset".to_string(),
         11720 => "Change Parallax Background".to_string(),
-        11810 => "Teleport Target".to_string(),
-        11830 => "Escape Target".to_string(),
+        11810 => "Change Teleport Access".to_string(),
+        11820 => "Change Escape Access".to_string(),
+        11830 => "Change Save Access".to_string(),
+        11840 => "Change Main Menu Access".to_string(),
         11910 => "Open Save Menu".to_string(),
         11950 => "Open Main Menu".to_string(),
         12010 => {
@@ -381,12 +397,29 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
         12320 => "Erase Event".to_string(),
         12330 => "Call Event".to_string(),
         12410 => format!("// Comment: {}", cmd.string),
+        22410 => format!("// (cont.): {}", cmd.string),
+        20710 => "When [Victory]".to_string(),
+        20711 => "When [Escape]".to_string(),
+        20712 => "When [Defeat]".to_string(),
+        20713 => "End Battle Processing".to_string(),
+        20720 => "When [Transaction]".to_string(),
+        20721 => "When [Cancel]".to_string(),
+        20722 => "End Shop Processing".to_string(),
+        20730 => "When [Stay / Rest]".to_string(),
+        20731 => "When [Cancel]".to_string(),
+        20732 => "End Inn Processing".to_string(),
+        13110 => format!("Change Monster HP: Enemy #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        13120 => format!("Change Monster MP: Enemy #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        13130 => format!("Change Monster Condition: Enemy #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        13150 => format!("Show Hidden Monster: Enemy #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        13210 => format!("Change Battle BG: \"{}\"", cmd.string),
+        13260 => "Show Battle Animation (Battle)".to_string(),
+        13310 => "Branch if (Battle)".to_string(),
+        23310 => "Else (Battle)".to_string(),
+        23311 => "End Branch (Battle)".to_string(),
+        13410 => "Terminate Battle".to_string(),
         12420 => "Game Over".to_string(),
         12510 => "Return to Title Screen".to_string(),
-        10710 => "Battle Processing".to_string(),
-        10720 => "Shop Processing".to_string(),
-        10730 => "Inn Processing".to_string(),
-        10740 => "Hero Name Input".to_string(),
         code if is_maniac_command_code(code) => {
             if !cmd.string.is_empty() {
                 format!("Maniac: {} ({})", maniac_command_name(code), cmd.string)
@@ -418,6 +451,28 @@ pub fn insert_event_command_with_scaffolding(
     let code = cmd.code;
     let indent = cmd.indent;
     match code {
+        10110 => {
+            // Show Message -> if string contains multiple lines, split into line 1 (10110) + continuation lines (20110)
+            let lines: Vec<&str> = cmd.string.lines().collect();
+            if lines.len() <= 1 {
+                commands.insert(insert_pos, cmd);
+            } else {
+                let mut first_cmd = cmd.clone();
+                first_cmd.string = lines[0].to_string();
+                commands.insert(insert_pos, first_cmd);
+                for (i, line) in lines.iter().enumerate().skip(1) {
+                    commands.insert(
+                        insert_pos + i,
+                        EventCommandInfo {
+                            code: 20110,
+                            indent,
+                            string: line.to_string(),
+                            parameters: vec![],
+                        },
+                    );
+                }
+            }
+        }
         12010 => {
             // Conditional Branch -> insert Branch, Else (22010), End Branch (22011)
             commands.insert(insert_pos, cmd);
@@ -430,14 +485,36 @@ pub fn insert_event_command_with_scaffolding(
             commands.insert(insert_pos + 1, EventCommandInfo { code: 22210, indent, string: String::new(), parameters: vec![] });
         }
         10140 => {
-            // Show Choices -> insert Show Choices, Choice 1, Choice 2, Cancel, End Choices
-            let opt1 = cmd.string.split('\\').next().unwrap_or("Yes").to_string();
-            let opt2 = cmd.string.split('\\').nth(1).unwrap_or("No").to_string();
+            // Show Choices -> insert Show Choices, Choice 1..N, Cancel, End Choices
+            let parts: Vec<String> = if cmd.string.contains('/') {
+                cmd.string.split('/').map(|s| s.to_string()).collect()
+            } else if cmd.string.contains('\\') {
+                cmd.string.split('\\').map(|s| s.to_string()).collect()
+            } else {
+                vec![cmd.string.clone()]
+            };
             commands.insert(insert_pos, cmd);
-            commands.insert(insert_pos + 1, EventCommandInfo { code: 20140, indent, string: opt1, parameters: vec![0] });
-            commands.insert(insert_pos + 2, EventCommandInfo { code: 20140, indent, string: opt2, parameters: vec![1] });
-            commands.insert(insert_pos + 3, EventCommandInfo { code: 20140, indent, string: String::new(), parameters: vec![4] }); // Cancel
-            commands.insert(insert_pos + 4, EventCommandInfo { code: 20141, indent, string: String::new(), parameters: vec![] }); // End
+            let mut offset = 1;
+            for (idx, choice) in parts.iter().enumerate() {
+                let trimmed = choice.trim();
+                if !trimmed.is_empty() {
+                    commands.insert(insert_pos + offset, EventCommandInfo {
+                        code: 20140,
+                        indent,
+                        string: trimmed.to_string(),
+                        parameters: vec![idx as i32],
+                    });
+                    offset += 1;
+                }
+            }
+            if offset == 1 {
+                // Default fallback if empty
+                commands.insert(insert_pos + 1, EventCommandInfo { code: 20140, indent, string: "Yes".to_string(), parameters: vec![0] });
+                commands.insert(insert_pos + 2, EventCommandInfo { code: 20140, indent, string: "No".to_string(), parameters: vec![1] });
+                offset = 3;
+            }
+            commands.insert(insert_pos + offset, EventCommandInfo { code: 20140, indent, string: String::new(), parameters: vec![4] }); // Cancel
+            commands.insert(insert_pos + offset + 1, EventCommandInfo { code: 20141, indent, string: String::new(), parameters: vec![] }); // End
         }
         _ => {
             commands.insert(insert_pos, cmd);
@@ -465,6 +542,7 @@ pub struct ProjectInfo {
 pub struct Passability {
     pub lower: Vec<u8>,
     pub upper: Vec<u8>,
+    pub terrain: Vec<i16>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1195,6 +1273,23 @@ pub struct AnimationTimingInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
+pub struct AnimationCellInfo {
+    pub id: i32,
+    pub valid: bool,
+    pub cell_id: i32,
+    pub x: i32,
+    pub y: i32,
+    pub zoom: i32,
+    pub transparency: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AnimationFrameInfo {
+    pub id: i32,
+    pub cells: Vec<AnimationCellInfo>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct AnimationInfo {
     pub id: i32,
     pub name: String,
@@ -1203,6 +1298,7 @@ pub struct AnimationInfo {
     pub scope: i32,
     pub position: i32,
     pub frame_count: usize,
+    pub frames: Vec<AnimationFrameInfo>,
     pub timings: Vec<AnimationTimingInfo>,
 }
 
@@ -1565,8 +1661,7 @@ pub fn get_map_chipset(path: &str, map_id: i32) -> Vec<u8> {
         return Vec::new();
     }
 
-    let img_path = Path::new(path).join("ChipSet").join(format!("{}.png", chipset_name));
-    fs::read(img_path).unwrap_or_default()
+    crate::widgets::asset_viewer::AssetPreviewCache::load_asset_bytes(path, "ChipSet", chipset_name).unwrap_or_default()
 }
 
 pub fn get_map_layers(path: &str, map_id: i32) -> MapLayers {
@@ -1625,6 +1720,7 @@ pub fn get_chipset_passability(path: &str, map_id: i32) -> Passability {
     Passability {
         lower: cs.passable_data_lower.clone(),
         upper: cs.passable_data_upper.clone(),
+        terrain: cs.terrain_data.clone(),
     }
 }
 
@@ -1874,56 +1970,62 @@ pub fn save_actors(path: &str, actors: &[ActorInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(actors.len());
     for edit in actors {
-        if let Some(actor) = db.actors.iter_mut().find(|a| a.id == edit.id) {
-            actor.name = edit.name.clone().into();
-            actor.title = edit.title.clone().into();
-            actor.character_name = edit.character_name.clone().into();
-            actor.character_index = edit.character_index;
-            actor.face_name = edit.face_name.clone().into();
-            actor.face_index = edit.face_index;
-            actor.class_id = edit.class_id;
-            actor.initial_level = edit.initial_level;
-            actor.final_level = edit.final_level;
-            actor.two_weapon = edit.two_weapon;
-            actor.lock_equipment = edit.lock_equipment;
-            actor.auto_battle = edit.auto_battle;
-            actor.super_guard = edit.super_guard;
-            actor.battler_animation = edit.battler_animation;
-            actor.initial_equipment.weapon_id = edit.weapon_id;
-            actor.initial_equipment.shield_id = edit.shield_id;
-            actor.initial_equipment.armor_id = edit.armor_id;
-            actor.initial_equipment.helmet_id = edit.helmet_id;
-            actor.initial_equipment.accessory_id = edit.accessory_id;
-            if !edit.param_maxhp.is_empty() {
-                actor.parameters.maxhp = edit.param_maxhp.clone();
-            }
-            if !edit.param_maxsp.is_empty() {
-                actor.parameters.maxsp = edit.param_maxsp.clone();
-            }
-            if !edit.param_attack.is_empty() {
-                actor.parameters.attack = edit.param_attack.clone();
-            }
-            if !edit.param_defense.is_empty() {
-                actor.parameters.defense = edit.param_defense.clone();
-            }
-            if !edit.param_spirit.is_empty() {
-                actor.parameters.spirit = edit.param_spirit.clone();
-            }
-            if !edit.param_agility.is_empty() {
-                actor.parameters.agility = edit.param_agility.clone();
-            }
-            actor.skills = edit.skills.iter().enumerate().map(|(i, &(lvl, sid))| {
-                LdbLearning {
-                    id: (i + 1) as i32,
-                    level: lvl,
-                    skill_id: sid,
-                }
-            }).collect();
-            actor.state_ranks = edit.state_ranks.clone();
-            actor.attribute_ranks = edit.attribute_ranks.clone();
+        let mut actor = db.actors.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut a = lcf_core::generated::ldb_gen::Actor::default();
+            a.id = edit.id;
+            a
+        });
+        actor.name = edit.name.clone().into();
+        actor.title = edit.title.clone().into();
+        actor.character_name = edit.character_name.clone().into();
+        actor.character_index = edit.character_index;
+        actor.face_name = edit.face_name.clone().into();
+        actor.face_index = edit.face_index;
+        actor.class_id = edit.class_id;
+        actor.initial_level = edit.initial_level;
+        actor.final_level = edit.final_level;
+        actor.two_weapon = edit.two_weapon;
+        actor.lock_equipment = edit.lock_equipment;
+        actor.auto_battle = edit.auto_battle;
+        actor.super_guard = edit.super_guard;
+        actor.battler_animation = edit.battler_animation;
+        actor.initial_equipment.weapon_id = edit.weapon_id;
+        actor.initial_equipment.shield_id = edit.shield_id;
+        actor.initial_equipment.armor_id = edit.armor_id;
+        actor.initial_equipment.helmet_id = edit.helmet_id;
+        actor.initial_equipment.accessory_id = edit.accessory_id;
+        if !edit.param_maxhp.is_empty() {
+            actor.parameters.maxhp = edit.param_maxhp.clone();
         }
+        if !edit.param_maxsp.is_empty() {
+            actor.parameters.maxsp = edit.param_maxsp.clone();
+        }
+        if !edit.param_attack.is_empty() {
+            actor.parameters.attack = edit.param_attack.clone();
+        }
+        if !edit.param_defense.is_empty() {
+            actor.parameters.defense = edit.param_defense.clone();
+        }
+        if !edit.param_spirit.is_empty() {
+            actor.parameters.spirit = edit.param_spirit.clone();
+        }
+        if !edit.param_agility.is_empty() {
+            actor.parameters.agility = edit.param_agility.clone();
+        }
+        actor.skills = edit.skills.iter().enumerate().map(|(i, &(lvl, sid))| {
+            LdbLearning {
+                id: (i + 1) as i32,
+                level: lvl,
+                skill_id: sid,
+            }
+        }).collect();
+        actor.state_ranks = edit.state_ranks.clone();
+        actor.attribute_ranks = edit.attribute_ranks.clone();
+        updated.push(actor);
     }
+    db.actors = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -1970,46 +2072,52 @@ pub fn save_classes(path: &str, classes: &[ClassInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(classes.len());
     for edit in classes {
-        if let Some(class) = db.classes.iter_mut().find(|c| c.id == edit.id) {
-            class.name = edit.name.clone().into();
-            class.two_weapon = edit.two_weapon;
-            class.lock_equipment = edit.lock_equipment;
-            class.auto_battle = edit.auto_battle;
-            class.super_guard = edit.super_guard;
-            class.exp_base = edit.exp_base;
-            class.exp_inflation = edit.exp_inflation;
-            class.exp_correction = edit.exp_correction;
-            class.battler_animation = edit.battler_animation;
-            if !edit.param_maxhp.is_empty() {
-                class.parameters.maxhp = edit.param_maxhp.clone();
-            }
-            if !edit.param_maxsp.is_empty() {
-                class.parameters.maxsp = edit.param_maxsp.clone();
-            }
-            if !edit.param_attack.is_empty() {
-                class.parameters.attack = edit.param_attack.clone();
-            }
-            if !edit.param_defense.is_empty() {
-                class.parameters.defense = edit.param_defense.clone();
-            }
-            if !edit.param_spirit.is_empty() {
-                class.parameters.spirit = edit.param_spirit.clone();
-            }
-            if !edit.param_agility.is_empty() {
-                class.parameters.agility = edit.param_agility.clone();
-            }
-            class.skills = edit.skills.iter().enumerate().map(|(i, &(lvl, sid))| {
-                LdbLearning {
-                    id: (i + 1) as i32,
-                    level: lvl,
-                    skill_id: sid,
-                }
-            }).collect();
-            class.state_ranks = edit.state_ranks.clone();
-            class.attribute_ranks = edit.attribute_ranks.clone();
+        let mut class = db.classes.iter().find(|c| c.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut c = lcf_core::generated::ldb_gen::Class::default();
+            c.id = edit.id;
+            c
+        });
+        class.name = edit.name.clone().into();
+        class.two_weapon = edit.two_weapon;
+        class.lock_equipment = edit.lock_equipment;
+        class.auto_battle = edit.auto_battle;
+        class.super_guard = edit.super_guard;
+        class.exp_base = edit.exp_base;
+        class.exp_inflation = edit.exp_inflation;
+        class.exp_correction = edit.exp_correction;
+        class.battler_animation = edit.battler_animation;
+        if !edit.param_maxhp.is_empty() {
+            class.parameters.maxhp = edit.param_maxhp.clone();
         }
+        if !edit.param_maxsp.is_empty() {
+            class.parameters.maxsp = edit.param_maxsp.clone();
+        }
+        if !edit.param_attack.is_empty() {
+            class.parameters.attack = edit.param_attack.clone();
+        }
+        if !edit.param_defense.is_empty() {
+            class.parameters.defense = edit.param_defense.clone();
+        }
+        if !edit.param_spirit.is_empty() {
+            class.parameters.spirit = edit.param_spirit.clone();
+        }
+        if !edit.param_agility.is_empty() {
+            class.parameters.agility = edit.param_agility.clone();
+        }
+        class.skills = edit.skills.iter().enumerate().map(|(i, &(lvl, sid))| {
+            LdbLearning {
+                id: (i + 1) as i32,
+                level: lvl,
+                skill_id: sid,
+            }
+        }).collect();
+        class.state_ranks = edit.state_ranks.clone();
+        class.attribute_ranks = edit.attribute_ranks.clone();
+        updated.push(class);
     }
+    db.classes = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2070,44 +2178,50 @@ pub fn save_items(path: &str, items: &[ItemInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(items.len());
     for edit in items {
-        if let Some(item) = db.items.iter_mut().find(|i| i.id == edit.id) {
-            item.name = edit.name.clone().into();
-            item.description = edit.description.clone().into();
-            item.r#type = edit.item_type;
-            item.price = edit.price;
-            item.uses = edit.uses;
-            item.atk_points1 = edit.atk_points1;
-            item.def_points1 = edit.def_points1;
-            item.spi_points1 = edit.spi_points1;
-            item.agi_points1 = edit.agi_points1;
-            item.two_handed = edit.two_handed;
-            item.sp_cost = edit.sp_cost;
-            item.hit = edit.hit;
-            item.critical_hit = edit.critical_hit;
-            item.animation_id = edit.animation_id;
-            item.preemptive = edit.preemptive;
-            item.dual_attack = edit.dual_attack;
-            item.attack_all = edit.attack_all;
-            item.ignore_evasion = edit.ignore_evasion;
-            item.prevent_critical = edit.prevent_critical;
-            item.raise_evasion = edit.raise_evasion;
-            item.half_sp_cost = edit.half_sp_cost;
-            item.no_terrain_damage = edit.no_terrain_damage;
-            item.cursed = edit.cursed;
-            item.entire_party = edit.entire_party;
-            item.recover_hp_rate = edit.recover_hp_rate;
-            item.recover_hp = edit.recover_hp;
-            item.recover_sp_rate = edit.recover_sp_rate;
-            item.recover_sp = edit.recover_sp;
-            item.occasion_field1 = edit.occasion_field1;
-            item.occasion_battle = edit.occasion_battle;
-            item.max_hp_points = edit.max_hp_points;
-            item.max_sp_points = edit.max_sp_points;
-            item.skill_id = edit.skill_id;
-            item.switch_id = edit.switch_id;
-        }
+        let mut item = db.items.iter().find(|i| i.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut i = lcf_core::generated::ldb_gen::Item::default();
+            i.id = edit.id;
+            i
+        });
+        item.name = edit.name.clone().into();
+        item.description = edit.description.clone().into();
+        item.r#type = edit.item_type;
+        item.price = edit.price;
+        item.uses = edit.uses;
+        item.atk_points1 = edit.atk_points1;
+        item.def_points1 = edit.def_points1;
+        item.spi_points1 = edit.spi_points1;
+        item.agi_points1 = edit.agi_points1;
+        item.two_handed = edit.two_handed;
+        item.sp_cost = edit.sp_cost;
+        item.hit = edit.hit;
+        item.critical_hit = edit.critical_hit;
+        item.animation_id = edit.animation_id;
+        item.preemptive = edit.preemptive;
+        item.dual_attack = edit.dual_attack;
+        item.attack_all = edit.attack_all;
+        item.ignore_evasion = edit.ignore_evasion;
+        item.prevent_critical = edit.prevent_critical;
+        item.raise_evasion = edit.raise_evasion;
+        item.half_sp_cost = edit.half_sp_cost;
+        item.no_terrain_damage = edit.no_terrain_damage;
+        item.cursed = edit.cursed;
+        item.entire_party = edit.entire_party;
+        item.recover_hp_rate = edit.recover_hp_rate;
+        item.recover_hp = edit.recover_hp;
+        item.recover_sp_rate = edit.recover_sp_rate;
+        item.recover_sp = edit.recover_sp;
+        item.occasion_field1 = edit.occasion_field1;
+        item.occasion_battle = edit.occasion_battle;
+        item.max_hp_points = edit.max_hp_points;
+        item.max_sp_points = edit.max_sp_points;
+        item.skill_id = edit.skill_id;
+        item.switch_id = edit.switch_id;
+        updated.push(item);
     }
+    db.items = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2163,39 +2277,45 @@ pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(skills.len());
     for edit in skills {
-        if let Some(skill) = db.skills.iter_mut().find(|s| s.id == edit.id) {
-            skill.name = edit.name.clone().into();
-            skill.description = edit.description.clone().into();
-            skill.using_message1 = edit.using_message1.clone().into();
-            skill.using_message2 = edit.using_message2.clone().into();
-            skill.failure_message = edit.failure_message;
-            skill.r#type = edit.skill_type;
-            skill.sp_type = edit.sp_type;
-            skill.sp_percent = edit.sp_percent;
-            skill.sp_cost = edit.sp_cost;
-            skill.scope = edit.scope;
-            skill.switch_id = edit.switch_id;
-            skill.animation_id = edit.animation_id;
-            skill.sound_effect.name = edit.sound_effect_name.clone().into();
-            skill.occasion_field = edit.occasion_field;
-            skill.occasion_battle = edit.occasion_battle;
-            skill.reverse_state_effect = edit.reverse_state_effect;
-            skill.physical_rate = edit.physical_rate;
-            skill.magical_rate = edit.magical_rate;
-            skill.variance = edit.variance;
-            skill.power = edit.power;
-            skill.hit = edit.hit;
-            skill.affect_hp = edit.affect_hp;
-            skill.affect_sp = edit.affect_sp;
-            skill.affect_attack = edit.affect_attack;
-            skill.affect_defense = edit.affect_defense;
-            skill.affect_spirit = edit.affect_spirit;
-            skill.affect_agility = edit.affect_agility;
-            skill.absorb_damage = edit.absorb_damage;
-            skill.ignore_defense = edit.ignore_defense;
-        }
+        let mut skill = db.skills.iter().find(|s| s.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut s = lcf_core::generated::ldb_gen::Skill::default();
+            s.id = edit.id;
+            s
+        });
+        skill.name = edit.name.clone().into();
+        skill.description = edit.description.clone().into();
+        skill.using_message1 = edit.using_message1.clone().into();
+        skill.using_message2 = edit.using_message2.clone().into();
+        skill.failure_message = edit.failure_message;
+        skill.r#type = edit.skill_type;
+        skill.sp_type = edit.sp_type;
+        skill.sp_percent = edit.sp_percent;
+        skill.sp_cost = edit.sp_cost;
+        skill.scope = edit.scope;
+        skill.switch_id = edit.switch_id;
+        skill.animation_id = edit.animation_id;
+        skill.sound_effect.name = edit.sound_effect_name.clone().into();
+        skill.occasion_field = edit.occasion_field;
+        skill.occasion_battle = edit.occasion_battle;
+        skill.reverse_state_effect = edit.reverse_state_effect;
+        skill.physical_rate = edit.physical_rate;
+        skill.magical_rate = edit.magical_rate;
+        skill.variance = edit.variance;
+        skill.power = edit.power;
+        skill.hit = edit.hit;
+        skill.affect_hp = edit.affect_hp;
+        skill.affect_sp = edit.affect_sp;
+        skill.affect_attack = edit.affect_attack;
+        skill.affect_defense = edit.affect_defense;
+        skill.affect_spirit = edit.affect_spirit;
+        skill.affect_agility = edit.affect_agility;
+        skill.absorb_damage = edit.absorb_damage;
+        skill.ignore_defense = edit.ignore_defense;
+        updated.push(skill);
     }
+    db.skills = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2214,7 +2334,7 @@ pub fn get_attributes(path: &str) -> Vec<AttributeInfo> {
         .map(|attr| AttributeInfo {
             id: attr.id,
             name: attr.name.0,
-            attribute_type: attribute_type_label(attr.r#type).to_string(),
+            attribute_type: if attr.r#type == 1 { "Magic".to_string() } else { "Physical".to_string() },
             a_rate: attr.a_rate,
             b_rate: attr.b_rate,
             c_rate: attr.c_rate,
@@ -2229,17 +2349,23 @@ pub fn save_attributes(path: &str, attributes: &[AttributeInfo]) -> Result<(), S
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(attributes.len());
     for edit in attributes {
-        if let Some(attr) = db.attributes.iter_mut().find(|a| a.id == edit.id) {
-            attr.name = edit.name.clone().into();
-            attr.r#type = if edit.attribute_type == "Magic" { 1 } else { 0 };
-            attr.a_rate = edit.a_rate;
-            attr.b_rate = edit.b_rate;
-            attr.c_rate = edit.c_rate;
-            attr.d_rate = edit.d_rate;
-            attr.e_rate = edit.e_rate;
-        }
+        let mut attr = db.attributes.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut a = lcf_core::generated::ldb_gen::Attribute::default();
+            a.id = edit.id;
+            a
+        });
+        attr.name = edit.name.clone().into();
+        attr.r#type = if edit.attribute_type == "Magic" { 1 } else { 0 };
+        attr.a_rate = edit.a_rate;
+        attr.b_rate = edit.b_rate;
+        attr.c_rate = edit.c_rate;
+        attr.d_rate = edit.d_rate;
+        attr.e_rate = edit.e_rate;
+        updated.push(attr);
     }
+    db.attributes = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2302,46 +2428,52 @@ pub fn save_enemies(path: &str, enemies: &[EnemyInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(enemies.len());
     for edit in enemies {
-        if let Some(e) = db.enemies.iter_mut().find(|e| e.id == edit.id) {
-            e.name = edit.name.clone().into();
-            e.battler_name = edit.battler_name.clone().into();
-            e.battler_hue = edit.battler_hue;
-            e.max_hp = edit.max_hp;
-            e.max_sp = edit.max_sp;
-            e.attack = edit.attack;
-            e.defense = edit.defense;
-            e.spirit = edit.spirit;
-            e.agility = edit.agility;
-            e.exp = edit.exp;
-            e.gold = edit.gold;
-            e.drop_id = edit.drop_id;
-            e.drop_prob = edit.drop_prob;
-            e.critical_hit = edit.critical_hit;
-            e.critical_hit_chance = edit.critical_hit_chance;
-            e.miss = edit.miss;
-            e.levitate = edit.levitate;
-            e.transparent = edit.transparent;
-            e.state_ranks = edit.state_ranks.iter().map(|&r| r as u8).collect();
-            e.attribute_ranks = edit.attribute_ranks.iter().map(|&r| r as u8).collect();
-            e.actions = edit.actions.iter().enumerate().map(|(i, a)| LdbEnemyAction {
-                id: (i + 1) as i32,
-                kind: a.kind,
-                basic: a.basic,
-                skill_id: a.skill_id,
-                enemy_id: a.enemy_id,
-                condition_type: a.condition_type,
-                condition_param1: a.condition_param1,
-                condition_param2: a.condition_param2,
-                switch_id: a.switch_id,
-                switch_on: a.switch_on,
-                switch_on_id: a.switch_on_id,
-                switch_off: a.switch_off,
-                switch_off_id: a.switch_off_id,
-                rating: a.rating,
-            }).collect();
-        }
+        let mut e = db.enemies.iter().find(|e| e.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut e = lcf_core::generated::ldb_gen::Enemy::default();
+            e.id = edit.id;
+            e
+        });
+        e.name = edit.name.clone().into();
+        e.battler_name = edit.battler_name.clone().into();
+        e.battler_hue = edit.battler_hue;
+        e.max_hp = edit.max_hp;
+        e.max_sp = edit.max_sp;
+        e.attack = edit.attack;
+        e.defense = edit.defense;
+        e.spirit = edit.spirit;
+        e.agility = edit.agility;
+        e.exp = edit.exp;
+        e.gold = edit.gold;
+        e.drop_id = edit.drop_id;
+        e.drop_prob = edit.drop_prob;
+        e.critical_hit = edit.critical_hit;
+        e.critical_hit_chance = edit.critical_hit_chance;
+        e.miss = edit.miss;
+        e.levitate = edit.levitate;
+        e.transparent = edit.transparent;
+        e.state_ranks = edit.state_ranks.iter().map(|&r| r as u8).collect();
+        e.attribute_ranks = edit.attribute_ranks.iter().map(|&r| r as u8).collect();
+        e.actions = edit.actions.iter().enumerate().map(|(i, a)| LdbEnemyAction {
+            id: (i + 1) as i32,
+            kind: a.kind,
+            basic: a.basic,
+            skill_id: a.skill_id,
+            enemy_id: a.enemy_id,
+            condition_type: a.condition_type,
+            condition_param1: a.condition_param1,
+            condition_param2: a.condition_param2,
+            switch_id: a.switch_id,
+            switch_on: a.switch_on,
+            switch_on_id: a.switch_on_id,
+            switch_off: a.switch_off,
+            switch_off_id: a.switch_off_id,
+            rating: a.rating,
+        }).collect();
+        updated.push(e);
     }
+    db.enemies = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2415,54 +2547,60 @@ pub fn save_troops(path: &str, troops: &[TroopInfo]) -> Result<(), String> {
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(troops.len());
     for edit in troops {
-        if let Some(t) = db.troops.iter_mut().find(|t| t.id == edit.id) {
-            t.name = edit.name.clone().into();
-            t.auto_alignment = edit.auto_alignment;
-            t.appear_randomly = edit.appear_randomly;
-            t.terrain_set = DBBitArray(edit.terrain_set.clone());
-            t.members = edit.members.iter().enumerate().map(|(i, m)| {
-                LdbTroopMember {
-                    id: (i + 1) as i32,
-                    enemy_id: m.enemy_id,
-                    x: m.x,
-                    y: m.y,
-                    invisible: m.invisible,
-                }
-            }).collect();
-            t.pages = edit.pages.iter().enumerate().map(|(i, p)| {
-                LdbTroopPage {
-                    id: (i + 1) as i32,
-                    condition: LdbTroopPageCondition {
-                        flags: p.condition.flags,
-                        switch_a_id: p.condition.switch_a_id,
-                        switch_b_id: p.condition.switch_b_id,
-                        variable_id: p.condition.variable_id,
-                        variable_value: p.condition.variable_value,
-                        turn_a: p.condition.turn_a,
-                        turn_b: p.condition.turn_b,
-                        fatigue_min: p.condition.fatigue_min,
-                        fatigue_max: p.condition.fatigue_max,
-                        enemy_id: p.condition.enemy_id,
-                        enemy_hp_min: p.condition.enemy_hp_min,
-                        enemy_hp_max: p.condition.enemy_hp_max,
-                        actor_id: p.condition.actor_id,
-                        actor_hp_min: p.condition.actor_hp_min,
-                        actor_hp_max: p.condition.actor_hp_max,
-                        turn_enemy_id: p.condition.turn_enemy_id,
-                        turn_enemy_a: p.condition.turn_enemy_a,
-                        turn_enemy_b: p.condition.turn_enemy_b,
-                        turn_actor_id: p.condition.turn_actor_id,
-                        turn_actor_a: p.condition.turn_actor_a,
-                        turn_actor_b: p.condition.turn_actor_b,
-                        command_actor_id: p.condition.command_actor_id,
-                        command_id: p.condition.command_id,
-                    },
-                    event_commands: p.commands.iter().map(LcfEventCommand::from).collect(),
-                }
-            }).collect();
-        }
+        let mut t = db.troops.iter().find(|t| t.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut t = lcf_core::generated::ldb_gen::Troop::default();
+            t.id = edit.id;
+            t
+        });
+        t.name = edit.name.clone().into();
+        t.auto_alignment = edit.auto_alignment;
+        t.appear_randomly = edit.appear_randomly;
+        t.terrain_set = DBBitArray(edit.terrain_set.clone());
+        t.members = edit.members.iter().enumerate().map(|(i, m)| {
+            LdbTroopMember {
+                id: (i + 1) as i32,
+                enemy_id: m.enemy_id,
+                x: m.x,
+                y: m.y,
+                invisible: m.invisible,
+            }
+        }).collect();
+        t.pages = edit.pages.iter().enumerate().map(|(i, p)| {
+            LdbTroopPage {
+                id: (i + 1) as i32,
+                condition: LdbTroopPageCondition {
+                    flags: p.condition.flags,
+                    switch_a_id: p.condition.switch_a_id,
+                    switch_b_id: p.condition.switch_b_id,
+                    variable_id: p.condition.variable_id,
+                    variable_value: p.condition.variable_value,
+                    turn_a: p.condition.turn_a,
+                    turn_b: p.condition.turn_b,
+                    fatigue_min: p.condition.fatigue_min,
+                    fatigue_max: p.condition.fatigue_max,
+                    enemy_id: p.condition.enemy_id,
+                    enemy_hp_min: p.condition.enemy_hp_min,
+                    enemy_hp_max: p.condition.enemy_hp_max,
+                    actor_id: p.condition.actor_id,
+                    actor_hp_min: p.condition.actor_hp_min,
+                    actor_hp_max: p.condition.actor_hp_max,
+                    turn_enemy_id: p.condition.turn_enemy_id,
+                    turn_enemy_a: p.condition.turn_enemy_a,
+                    turn_enemy_b: p.condition.turn_enemy_b,
+                    turn_actor_id: p.condition.turn_actor_id,
+                    turn_actor_a: p.condition.turn_actor_a,
+                    turn_actor_b: p.condition.turn_actor_b,
+                    command_actor_id: p.condition.command_actor_id,
+                    command_id: p.condition.command_id,
+                },
+                event_commands: p.commands.iter().map(LcfEventCommand::from).collect(),
+            }
+        }).collect();
+        updated.push(t);
     }
+    db.troops = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2494,15 +2632,21 @@ pub fn save_common_events(path: &str, events: &[CommonEventInfo]) -> Result<(), 
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(events.len());
     for edit in events {
-        if let Some(ce) = db.commonevents.iter_mut().find(|c| c.id == edit.id) {
-            ce.name = edit.name.clone().into();
-            ce.trigger = edit.trigger;
-            ce.switch_flag = edit.switch_flag;
-            ce.switch_id = edit.switch_id;
-            ce.event_commands = edit.commands.iter().map(LcfEventCommand::from).collect();
-        }
+        let mut ce = db.commonevents.iter().find(|c| c.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut c = lcf_core::generated::ldb_gen::CommonEvent::default();
+            c.id = edit.id;
+            c
+        });
+        ce.name = edit.name.clone().into();
+        ce.trigger = edit.trigger;
+        ce.switch_flag = edit.switch_flag;
+        ce.switch_id = edit.switch_id;
+        ce.event_commands = edit.commands.iter().map(LcfEventCommand::from).collect();
+        updated.push(ce);
     }
+    db.commonevents = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2530,11 +2674,17 @@ pub fn save_switches(path: &str, switches: &[SwitchInfo]) -> Result<(), String> 
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(switches.len());
     for edit in switches {
-        if let Some(s) = db.switches.iter_mut().find(|s| s.id == edit.id) {
-            s.name = edit.name.clone().into();
-        }
+        let mut s = db.switches.iter().find(|s| s.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut s = lcf_core::generated::ldb_gen::Switch::default();
+            s.id = edit.id;
+            s
+        });
+        s.name = edit.name.clone().into();
+        updated.push(s);
     }
+    db.switches = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -2562,11 +2712,17 @@ pub fn save_variables(path: &str, variables: &[VariableInfo]) -> Result<(), Stri
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(variables.len());
     for edit in variables {
-        if let Some(v) = db.variables.iter_mut().find(|v| v.id == edit.id) {
-            v.name = edit.name.clone().into();
-        }
+        let mut v = db.variables.iter().find(|v| v.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut v = lcf_core::generated::ldb_gen::Variable::default();
+            v.id = edit.id;
+            v
+        });
+        v.name = edit.name.clone().into();
+        updated.push(v);
     }
+    db.variables = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
@@ -3135,6 +3291,72 @@ pub fn reload_save_slot(path: &str, file_name: &str) -> SaveSlotInfo {
     load_save_slot_info(path, file_name.to_string())
 }
 
+pub fn create_blank_save_slot(path: &str) -> Result<String, String> {
+    // Find next available SaveXX.lsd (1..=15)
+    let mut next_slot = None;
+    for i in 1..=15 {
+        let name = format!("Save{:02}.lsd", i);
+        if !Path::new(path).join(&name).exists() {
+            next_slot = Some(name);
+            break;
+        }
+    }
+    let file_name = next_slot.ok_or_else(|| "All 15 save slots are full.".to_string())?;
+    let lsd_path = Path::new(path).join(&file_name);
+
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
+    let engine = engine_version_for(&db);
+
+    let lmt_path = Path::new(path).join("RPG_RT.lmt");
+    let tree = LmtReader::load(&lmt_path, "auto").unwrap_or_default();
+
+    let mut save = lcf_core::generated::lsd_gen::Save::default();
+    save.title.timestamp = 0.0;
+    save.party_location.map_id = tree.start.party_map_id.max(1);
+    save.party_location.position_x = tree.start.party_x;
+    save.party_location.position_y = tree.start.party_y;
+
+    if let Some(first_actor) = db.actors.first() {
+        save.title.hero_name = first_actor.name.clone();
+        save.title.hero_level = first_actor.initial_level.max(1);
+        save.title.hero_hp = 100;
+        save.inventory.party = vec![first_actor.id as i16];
+
+        let mut a = lcf_core::generated::lsd_gen::SaveActor::default();
+        a.id = first_actor.id;
+        a.name = first_actor.name.clone();
+        a.level = first_actor.initial_level.max(1);
+        a.current_hp = 100;
+        a.current_sp = 50;
+        save.actors.push(a);
+    } else {
+        save.title.hero_name = DBString::new("Hero".to_string());
+        save.title.hero_level = 1;
+        save.title.hero_hp = 100;
+        save.inventory.party = vec![1];
+    }
+
+    LsdReader::save(&lsd_path, &save, engine, "auto").map_err(|e| e.to_string())?;
+    Ok(file_name)
+}
+
+pub fn clone_save_slot(path: &str, source_file_name: &str) -> Result<String, String> {
+    let mut next_slot = None;
+    for i in 1..=15 {
+        let name = format!("Save{:02}.lsd", i);
+        if !Path::new(path).join(&name).exists() {
+            next_slot = Some(name);
+            break;
+        }
+    }
+    let dest_name = next_slot.ok_or_else(|| "All 15 save slots are full.".to_string())?;
+    let src_path = Path::new(path).join(source_file_name);
+    let dest_path = Path::new(path).join(&dest_name);
+    fs::copy(&src_path, &dest_path).map_err(|e| e.to_string())?;
+    Ok(dest_name)
+}
+
 pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Result<(), String> {
     let lsd_path = Path::new(path).join(file_name);
     let mut save = LsdReader::load(&lsd_path, "auto").map_err(|e| e.to_string())?;
@@ -3156,12 +3378,22 @@ pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Resul
     save.inventory.item_counts = info.inventory.iter().map(|(_, count)| *count as u8).collect();
     save.inventory.item_usage = vec![0u8; info.inventory.len()];
 
+    save.inventory.party = info.party.iter().map(|p| p.id as i16).collect();
+
     for edit in &info.party {
         if let Some(actor) = save.actors.iter_mut().find(|a| a.id == edit.id) {
             actor.name = edit.name.clone().into();
             actor.level = edit.level;
             actor.current_hp = edit.current_hp;
             actor.current_sp = edit.current_sp;
+        } else {
+            let mut new_actor = lcf_core::generated::lsd_gen::SaveActor::default();
+            new_actor.id = edit.id;
+            new_actor.name = edit.name.clone().into();
+            new_actor.level = edit.level;
+            new_actor.current_hp = edit.current_hp;
+            new_actor.current_sp = edit.current_sp;
+            save.actors.push(new_actor);
         }
     }
 
@@ -3455,13 +3687,6 @@ pub fn save_map_properties(
         }).collect();
     }
 
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let engine = match LdbReader::load(&ldb_path, "auto") {
-        Ok(db) => engine_version_for(&db),
-        Err(_) => EngineVersion::Engine2000,
-    };
-    LmtReader::save(&lmt_path, &tree, engine, "auto").map_err(|e| e.to_string())?;
-
     let map_path = Path::new(path).join(map_filename(map_id));
     let mut map = LmuReader::load(&map_path, "auto").map_err(|e| e.to_string())?;
     backup_file_once(&map_path)?;
@@ -3478,6 +3703,17 @@ pub fn save_map_properties(
     map.parallax_sy = props.parallax_sy;
 
     if map.width != props.width || map.height != props.height {
+        let off_x = match anchor {
+            AnchorOrigin::TopLeft | AnchorOrigin::CenterLeft | AnchorOrigin::BottomLeft => 0,
+            AnchorOrigin::TopCenter | AnchorOrigin::Center | AnchorOrigin::BottomCenter => (props.width - map.width) / 2,
+            AnchorOrigin::TopRight | AnchorOrigin::CenterRight | AnchorOrigin::BottomRight => props.width - map.width,
+        };
+        let off_y = match anchor {
+            AnchorOrigin::TopLeft | AnchorOrigin::TopCenter | AnchorOrigin::TopRight => 0,
+            AnchorOrigin::CenterLeft | AnchorOrigin::Center | AnchorOrigin::CenterRight => (props.height - map.height) / 2,
+            AnchorOrigin::BottomLeft | AnchorOrigin::BottomCenter | AnchorOrigin::BottomRight => props.height - map.height,
+        };
+
         let old_lower: Vec<i32> = map.lower_layer.iter().map(|&v| v as i32).collect();
         let old_upper: Vec<i32> = map.upper_layer.iter().map(|&v| v as i32).collect();
         let (new_lower, new_upper) = resize_map_layers(
@@ -3493,8 +3729,38 @@ pub fn save_map_properties(
         map.height = props.height;
         map.lower_layer = new_lower.into_iter().map(|v| v as i16).collect();
         map.upper_layer = new_upper.into_iter().map(|v| v as i16).collect();
+
+        // Shift event coordinates with anchor offset and clamp to bounds
+        for ev in &mut map.events {
+            ev.x = (ev.x + off_x).clamp(0, props.width.max(1) - 1);
+            ev.y = (ev.y + off_y).clamp(0, props.height.max(1) - 1);
+        }
+
+        // Shift start locations if assigned to this map
+        if tree.start.party_map_id == map_id {
+            tree.start.party_x = (tree.start.party_x + off_x).clamp(0, props.width.max(1) - 1);
+            tree.start.party_y = (tree.start.party_y + off_y).clamp(0, props.height.max(1) - 1);
+        }
+        if tree.start.boat_map_id == map_id {
+            tree.start.boat_x = (tree.start.boat_x + off_x).clamp(0, props.width.max(1) - 1);
+            tree.start.boat_y = (tree.start.boat_y + off_y).clamp(0, props.height.max(1) - 1);
+        }
+        if tree.start.ship_map_id == map_id {
+            tree.start.ship_x = (tree.start.ship_x + off_x).clamp(0, props.width.max(1) - 1);
+            tree.start.ship_y = (tree.start.ship_y + off_y).clamp(0, props.height.max(1) - 1);
+        }
+        if tree.start.airship_map_id == map_id {
+            tree.start.airship_x = (tree.start.airship_x + off_x).clamp(0, props.width.max(1) - 1);
+            tree.start.airship_y = (tree.start.airship_y + off_y).clamp(0, props.height.max(1) - 1);
+        }
     }
 
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let engine = match LdbReader::load(&ldb_path, "auto") {
+        Ok(db) => engine_version_for(&db),
+        Err(_) => EngineVersion::Engine2000,
+    };
+    LmtReader::save(&lmt_path, &tree, engine, "auto").map_err(|e| e.to_string())?;
     LmuReader::save(&map_path, &map, engine, "auto").map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -3815,25 +4081,42 @@ pub fn get_animations(path: &str) -> Vec<AnimationInfo> {
     };
     db.animations
         .into_iter()
-        .map(|a| AnimationInfo {
-            id: a.id,
-            name: a.name.0,
-            animation_name: a.animation_name.0,
-            large: a.large,
-            scope: a.scope,
-            position: a.position,
-            frame_count: a.frames.len(),
-            timings: a.timings.into_iter().map(|t| AnimationTimingInfo {
-                id: t.id,
-                frame: t.frame,
-                se_name: t.se.name.0,
-                flash_scope: t.flash_scope,
-                flash_red: t.flash_red,
-                flash_green: t.flash_green,
-                flash_blue: t.flash_blue,
-                flash_power: t.flash_power,
-                screen_shake: t.screen_shake,
-            }).collect(),
+        .map(|a| {
+            let frames: Vec<AnimationFrameInfo> = a.frames.into_iter().map(|f| AnimationFrameInfo {
+                id: f.id,
+                cells: f.cells.into_iter().map(|c| AnimationCellInfo {
+                    id: c.id,
+                    valid: c.valid != 0,
+                    cell_id: c.cell_id,
+                    x: c.x,
+                    y: c.y,
+                    zoom: c.zoom,
+                    transparency: c.transparency,
+                }).collect(),
+            }).collect();
+            let frame_count = frames.len();
+
+            AnimationInfo {
+                id: a.id,
+                name: a.name.0,
+                animation_name: a.animation_name.0,
+                large: a.large,
+                scope: a.scope,
+                position: a.position,
+                frame_count,
+                frames,
+                timings: a.timings.into_iter().map(|t| AnimationTimingInfo {
+                    id: t.id,
+                    frame: t.frame,
+                    se_name: t.se.name.0,
+                    flash_scope: t.flash_scope,
+                    flash_red: t.flash_red,
+                    flash_green: t.flash_green,
+                    flash_blue: t.flash_blue,
+                    flash_power: t.flash_power,
+                    screen_shake: t.screen_shake,
+                }).collect(),
+            }
         })
         .collect()
 }
@@ -3843,41 +4126,58 @@ pub fn save_animations(path: &str, animations: &[AnimationInfo]) -> Result<(), S
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_file_once(&ldb_path)?;
 
+    let mut updated = Vec::with_capacity(animations.len());
     for edit in animations {
-        if let Some(ldb_a) = db.animations.iter_mut().find(|a| a.id == edit.id) {
-            ldb_a.name = DBString::new(edit.name.clone());
-            ldb_a.animation_name = DBString::new(edit.animation_name.clone());
-            ldb_a.large = edit.large;
-            ldb_a.scope = edit.scope;
-            ldb_a.position = edit.position;
-            
-            if ldb_a.frames.len() != edit.frame_count {
-                ldb_a.frames.resize_with(edit.frame_count, || LdbAnimationFrame::default());
-                for (idx, f) in ldb_a.frames.iter_mut().enumerate() {
-                    f.id = (idx + 1) as i32;
-                }
-            }
-
-            ldb_a.timings = edit.timings.iter().enumerate().map(|(i, t)| {
-                let mut se = LdbSound::default();
-                se.name = DBString::new(t.se_name.clone());
-                se.volume = 100;
-                se.tempo = 100;
-                se.balance = 50;
-                LdbAnimationTiming {
-                    id: (i + 1) as i32,
-                    frame: t.frame,
-                    se,
-                    flash_scope: t.flash_scope,
-                    flash_red: t.flash_red,
-                    flash_green: t.flash_green,
-                    flash_blue: t.flash_blue,
-                    flash_power: t.flash_power,
-                    screen_shake: t.screen_shake,
-                }
+        let mut ldb_a = db.animations.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
+            let mut a = lcf_core::generated::ldb_gen::Animation::default();
+            a.id = edit.id;
+            a
+        });
+        ldb_a.name = DBString::new(edit.name.clone());
+        ldb_a.animation_name = DBString::new(edit.animation_name.clone());
+        ldb_a.large = edit.large;
+        ldb_a.scope = edit.scope;
+        ldb_a.position = edit.position;
+        
+        ldb_a.frames = edit.frames.iter().enumerate().map(|(idx, f)| {
+            let cells = f.cells.iter().enumerate().map(|(c_idx, c)| {
+                let mut cel = lcf_core::generated::ldb_gen::AnimationCellData::default();
+                cel.id = (c_idx + 1) as i32;
+                cel.valid = if c.valid { 1 } else { 0 };
+                cel.cell_id = c.cell_id;
+                cel.x = c.x;
+                cel.y = c.y;
+                cel.zoom = c.zoom;
+                cel.transparency = c.transparency;
+                cel
             }).collect();
-        }
+            LdbAnimationFrame {
+                id: (idx + 1) as i32,
+                cells,
+            }
+        }).collect();
+
+        ldb_a.timings = edit.timings.iter().enumerate().map(|(i, t)| {
+            let mut se = LdbSound::default();
+            se.name = DBString::new(t.se_name.clone());
+            se.volume = 100;
+            se.tempo = 100;
+            se.balance = 50;
+            LdbAnimationTiming {
+                id: (i + 1) as i32,
+                frame: t.frame,
+                se,
+                flash_scope: t.flash_scope,
+                flash_red: t.flash_red,
+                flash_green: t.flash_green,
+                flash_blue: t.flash_blue,
+                flash_power: t.flash_power,
+                screen_shake: t.screen_shake,
+            }
+        }).collect();
+        updated.push(ldb_a);
     }
+    db.animations = updated;
 
     let engine = engine_version_for(&db);
     LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())

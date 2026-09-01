@@ -35,6 +35,9 @@ pub struct EventCommandDialogState {
     pub param4: i32,
     pub param5: i32,
     pub param6: i32,
+    pub choices: [String; 4],
+    pub shop_items: Vec<i32>,
+    pub new_shop_item_id: i32,
     /// Full parameter vector, kept in sync whenever a command is opened and
     /// live-mutated by every Maniac Patch editor arm (bespoke or generic).
     /// This is the actual save-time source of truth for Maniac commands and
@@ -61,6 +64,9 @@ impl Default for EventCommandDialogState {
             param4: 0,
             param5: 0,
             param6: 0,
+            choices: [String::new(), String::new(), String::new(), String::new()],
+            shop_items: Vec::new(),
+            new_shop_item_id: 1,
             raw_params: Vec::new(),
         }
     }
@@ -71,7 +77,7 @@ impl EventCommandDialogState {
     /// needed. Used by every Maniac editor arm (bespoke or generic) instead
     /// of the fixed `param0..5` fields, since several Maniac commands need
     /// more than six parameters (e.g. `ShowStringPicture`'s 23).
-    fn param_mut(&mut self, i: usize) -> &mut i32 {
+    pub fn param_mut(&mut self, i: usize) -> &mut i32 {
         if self.raw_params.len() <= i {
             self.raw_params.resize(i + 1, 0);
         }
@@ -92,6 +98,9 @@ impl EventCommandDialogState {
         self.param4 = 0;
         self.param5 = 0;
         self.param6 = 0;
+        self.choices = [String::new(), String::new(), String::new(), String::new()];
+        self.shop_items = Vec::new();
+        self.new_shop_item_id = 1;
         self.raw_params = Vec::new();
     }
 
@@ -108,18 +117,58 @@ impl EventCommandDialogState {
         self.param4 = cmd.parameters.get(4).copied().unwrap_or(0);
         self.param5 = cmd.parameters.get(5).copied().unwrap_or(0);
         self.param6 = cmd.parameters.get(6).copied().unwrap_or(0);
+        self.new_shop_item_id = 1;
+
+        if cmd.code == 10140 {
+            let parts: Vec<&str> = cmd.string.split('/').collect();
+            self.choices = [
+                parts.first().copied().unwrap_or("").to_string(),
+                parts.get(1).copied().unwrap_or("").to_string(),
+                parts.get(2).copied().unwrap_or("").to_string(),
+                parts.get(3).copied().unwrap_or("").to_string(),
+            ];
+        } else {
+            self.choices = [String::new(), String::new(), String::new(), String::new()];
+        }
+
+        if cmd.code == 10720 {
+            self.shop_items = if cmd.parameters.len() > 2 {
+                cmd.parameters[2..].to_vec()
+            } else {
+                Vec::new()
+            };
+        } else {
+            self.shop_items = Vec::new();
+        }
+
+        if cmd.code == 11110 || cmd.code == 11120 {
+            if cmd.parameters.len() >= 5 {
+                self.param0 = cmd.parameters[0];
+                self.param1 = cmd.parameters.get(2).copied().unwrap_or(0);
+                self.param2 = cmd.parameters.get(3).copied().unwrap_or(0);
+                self.param3 = cmd.parameters.get(6).copied().unwrap_or(0);
+                self.param4 = cmd.parameters.get(4).copied().unwrap_or(100);
+                self.param5 = cmd.parameters.get(5).copied().unwrap_or(0);
+            } else {
+                self.param0 = cmd.parameters.first().copied().unwrap_or(1);
+                self.param1 = cmd.parameters.get(1).copied().unwrap_or(0);
+                self.param2 = cmd.parameters.get(2).copied().unwrap_or(0);
+                self.param4 = 100;
+            }
+        }
+
         // Always the full vector, never truncated - see `raw_params` doc.
         self.raw_params = cmd.parameters.clone();
 
         // Auto-detect category from code
         self.category = match cmd.code {
-            10110..=10150 => CommandCategory::Messages,
+            10110..=10150 | 20110 => CommandCategory::Messages,
             10210..=10330 | 11610 => CommandCategory::Progression,
-            10410..=10490 => CommandCategory::Character,
+            10410..=10650 => CommandCategory::Character,
             10810..=10870 | 11310..=11410 => CommandCategory::Movement,
             11010..=11210 | 11510..=11560 | 11710..=11720 => CommandCategory::AudioVisual,
-            12010..=12410 | 20140..=22210 => CommandCategory::FlowControl,
-            10710..=10740 | 11810..=11960 | 12420 | 12510 => CommandCategory::SystemScenes,
+            12010..=12410 | 20140..=20141 | 22010..=22410 | 23310..=23311 => CommandCategory::FlowControl,
+            10710..=10740 | 11810..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => CommandCategory::SystemScenes,
             3001..=3032 => CommandCategory::Maniac,
             _ => CommandCategory::Messages,
         };
@@ -181,7 +230,16 @@ impl EventCommandDialogState {
                             10470 => "10470: Change SP",
                             10480 => "10480: Change Condition / State",
                             10490 => "10490: Recover All",
+                            10610 => "10610: Change Hero Name",
+                            10620 => "10620: Change Hero Title",
+                            10630 => "10630: Change Hero Graphic",
+                            10640 => "10640: Change Hero Face Graphic",
+                            10650 => "10650: Change Vehicle Graphic",
                             10810 => "10810: Transfer Player (Teleport)",
+                            10820 => "10820: Memorize Location",
+                            10830 => "10830: Recall to Location",
+                            10840 => "10840: Enter/Exit Vehicle",
+                            10850 => "10850: Set Vehicle Location",
                             10860 => "10860: Set Event Location",
                             11330 => "11330: Set Move Route",
                             11410 => "11410: Wait",
@@ -196,7 +254,15 @@ impl EventCommandDialogState {
                             11110 => "11110: Show Picture",
                             11120 => "11120: Move Picture",
                             11130 => "11130: Erase Picture",
+                            11140 => "11140: Show Battle Animation",
                             11210 => "11210: Show Battle Animation",
+                            11610 => "11610: Key Input Processing",
+                            11710 => "11710: Change Map Chipset",
+                            11720 => "11720: Change Parallax Background",
+                            11810 => "11810: Change Teleport Access",
+                            11820 => "11820: Change Escape Access",
+                            11830 => "11830: Change Save Access",
+                            11840 => "11840: Change Main Menu Access",
                             12010 => "12010: Conditional Branch",
                             12210 => "12210: Loop",
                             12220 => "12220: Break Loop",
@@ -229,6 +295,7 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10310, "Change Gold");
                                     ui.selectable_value(&mut self.selected_code, 10320, "Change Items");
                                     ui.selectable_value(&mut self.selected_code, 10330, "Change Party Members");
+                                    ui.selectable_value(&mut self.selected_code, 11610, "Key Input Processing");
                                 }
                                 CommandCategory::Character => {
                                     ui.selectable_value(&mut self.selected_code, 10410, "Change EXP");
@@ -240,10 +307,19 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10470, "Change SP");
                                     ui.selectable_value(&mut self.selected_code, 10480, "Change Condition");
                                     ui.selectable_value(&mut self.selected_code, 10490, "Recover All");
+                                    ui.selectable_value(&mut self.selected_code, 10610, "Change Hero Name");
+                                    ui.selectable_value(&mut self.selected_code, 10620, "Change Hero Title");
+                                    ui.selectable_value(&mut self.selected_code, 10630, "Change Hero Graphic");
+                                    ui.selectable_value(&mut self.selected_code, 10640, "Change Hero Face Graphic");
                                 }
                                 CommandCategory::Movement => {
                                     ui.selectable_value(&mut self.selected_code, 10810, "Transfer Player (Teleport)");
+                                    ui.selectable_value(&mut self.selected_code, 10820, "Memorize Location");
+                                    ui.selectable_value(&mut self.selected_code, 10830, "Recall to Location");
+                                    ui.selectable_value(&mut self.selected_code, 10840, "Enter/Exit Vehicle");
+                                    ui.selectable_value(&mut self.selected_code, 10850, "Set Vehicle Location");
                                     ui.selectable_value(&mut self.selected_code, 10860, "Set Event Location");
+                                    ui.selectable_value(&mut self.selected_code, 10650, "Change Vehicle Graphic");
                                     ui.selectable_value(&mut self.selected_code, 11330, "Set Move Route");
                                     ui.selectable_value(&mut self.selected_code, 11410, "Wait");
                                 }
@@ -260,6 +336,8 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 11120, "Move Picture");
                                     ui.selectable_value(&mut self.selected_code, 11130, "Erase Picture");
                                     ui.selectable_value(&mut self.selected_code, 11210, "Show Battle Animation");
+                                    ui.selectable_value(&mut self.selected_code, 11710, "Change Map Chipset");
+                                    ui.selectable_value(&mut self.selected_code, 11720, "Change Parallax Background");
                                 }
                                 CommandCategory::FlowControl => {
                                     ui.selectable_value(&mut self.selected_code, 12010, "Conditional Branch");
@@ -275,6 +353,10 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10720, "Shop Processing");
                                     ui.selectable_value(&mut self.selected_code, 10730, "Inn Processing");
                                     ui.selectable_value(&mut self.selected_code, 10740, "Hero Name Input");
+                                    ui.selectable_value(&mut self.selected_code, 11810, "Change Teleport Access");
+                                    ui.selectable_value(&mut self.selected_code, 11820, "Change Escape Access");
+                                    ui.selectable_value(&mut self.selected_code, 11830, "Change Save Access");
+                                    ui.selectable_value(&mut self.selected_code, 11840, "Change Main Menu Access");
                                     ui.selectable_value(&mut self.selected_code, 11910, "Open Save Menu");
                                     ui.selectable_value(&mut self.selected_code, 11950, "Open Main Menu");
                                     ui.selectable_value(&mut self.selected_code, 12420, "Game Over");
@@ -309,6 +391,36 @@ impl EventCommandDialogState {
                     .show(ui, |ui| {
                         match self.selected_code {
                             10110 => {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label("Insert Code:");
+                                    if ui.small_button("\\c[n] Color").on_hover_text("Insert Color code \\c[0..7]").clicked() {
+                                        self.string_val.push_str("\\c[1]");
+                                    }
+                                    if ui.small_button("\\v[n] Var").on_hover_text("Insert Variable code \\v[1]").clicked() {
+                                        self.string_val.push_str("\\v[1]");
+                                    }
+                                    if ui.small_button("\\n[n] Name").on_hover_text("Insert Hero Name \\n[1]").clicked() {
+                                        self.string_val.push_str("\\n[1]");
+                                    }
+                                    if ui.small_button("\\. Wait 0.25s").on_hover_text("Pause 0.25 seconds").clicked() {
+                                        self.string_val.push_str("\\.");
+                                    }
+                                    if ui.small_button("\\| Wait 1s").on_hover_text("Pause 1.0 second").clicked() {
+                                        self.string_val.push_str("\\|");
+                                    }
+                                    if ui.small_button("\\! Keypress").on_hover_text("Wait for player button press").clicked() {
+                                        self.string_val.push_str("\\!");
+                                    }
+                                    if ui.small_button("\\$ Gold").on_hover_text("Display Current Gold Window").clicked() {
+                                        self.string_val.push_str("\\$");
+                                    }
+                                    if ui.small_button("\\> Fast").on_hover_text("Show remaining message characters instantly").clicked() {
+                                        self.string_val.push_str("\\>");
+                                    }
+                                    if ui.small_button("\\< Normal").on_hover_text("Resume normal typewriter speed").clicked() {
+                                        self.string_val.push_str("\\<");
+                                    }
+                                });
                                 ui.label("Message text:");
                                 ui.text_edit_multiline(&mut self.string_val);
                             }
@@ -327,8 +439,38 @@ impl EventCommandDialogState {
                                 });
                             }
                             10140 => {
-                                ui.label("Choices (slash-separated, e.g. Yes/No/Cancel):");
-                                ui.text_edit_singleline(&mut self.string_val);
+                                ui.heading("Choice Options (Up to 4)");
+                                egui::Grid::new("choice_options_grid")
+                                    .num_columns(2)
+                                    .spacing([12.0, 6.0])
+                                    .show(ui, |ui| {
+                                        ui.label("Choice 1:");
+                                        ui.text_edit_singleline(&mut self.choices[0]);
+                                        ui.end_row();
+
+                                        ui.label("Choice 2:");
+                                        ui.text_edit_singleline(&mut self.choices[1]);
+                                        ui.end_row();
+
+                                        ui.label("Choice 3:");
+                                        ui.text_edit_singleline(&mut self.choices[2]);
+                                        ui.end_row();
+
+                                        ui.label("Choice 4:");
+                                        ui.text_edit_singleline(&mut self.choices[3]);
+                                        ui.end_row();
+                                    });
+
+                                ui.separator();
+                                ui.label("Cancel Action:");
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Disallow Cancel");
+                                    ui.radio_value(&mut self.param0, 1, "Choice 1");
+                                    ui.radio_value(&mut self.param0, 2, "Choice 2");
+                                    ui.radio_value(&mut self.param0, 3, "Choice 3");
+                                    ui.radio_value(&mut self.param0, 4, "Choice 4");
+                                    ui.radio_value(&mut self.param0, 5, "Cancel Branch");
+                                });
                             }
                             10150 => {
                                 ui.horizontal(|ui| {
@@ -646,6 +788,387 @@ impl EventCommandDialogState {
                                     });
                                 }
                             }
+                            10450 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Slot:");
+                                    egui::ComboBox::from_id_salt("cmd_equip_slot")
+                                        .selected_text(match self.param4 {
+                                            0 => "Weapon", 1 => "Shield", 2 => "Armor", 3 => "Helmet", 4 => "Accessory",
+                                            _ => "Weapon",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param4, 0, "Weapon");
+                                            ui.selectable_value(&mut self.param4, 1, "Shield");
+                                            ui.selectable_value(&mut self.param4, 2, "Armor");
+                                            ui.selectable_value(&mut self.param4, 3, "Helmet");
+                                            ui.selectable_value(&mut self.param4, 4, "Accessory");
+                                        });
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Operation:");
+                                    ui.radio_value(&mut self.param0, 0, "Equip Item");
+                                    ui.radio_value(&mut self.param0, 1, "Unequip / Remove");
+                                });
+                                if self.param0 == 0 {
+                                    ui.horizontal(|ui| {
+                                        ui.label("Item ID:");
+                                        ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                    });
+                                }
+                            }
+                            10610 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("New Name:");
+                                    ui.text_edit_singleline(&mut self.string_val);
+                                });
+                            }
+                            10620 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("New Title:");
+                                    ui.text_edit_singleline(&mut self.string_val);
+                                });
+                            }
+                            10630 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("CharSet Graphic:");
+                                    let mut dummy_dirty = false;
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_charset_combo", &mut self.string_val, "CharSet", None, &mut dummy_dirty, None);
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Graphic Index:");
+                                    ui.add(egui::DragValue::new(&mut self.param2).range(0..=7));
+                                    let mut trans = self.param3 != 0;
+                                    if ui.checkbox(&mut trans, "Translucent").changed() {
+                                        self.param3 = if trans { 1 } else { 0 };
+                                    }
+                                });
+                            }
+                            10640 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("FaceSet Graphic:");
+                                    let mut dummy_dirty = false;
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_faceset_combo", &mut self.string_val, "FaceSet", None, &mut dummy_dirty, None);
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Face Index:");
+                                    ui.add(egui::DragValue::new(&mut self.param2).range(0..=15));
+                                });
+                            }
+                            10650 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Vehicle:");
+                                    egui::ComboBox::from_id_salt("cmd_veh_combo")
+                                        .selected_text(match self.param1 {
+                                            0 => "Skiff / Small Boat", 1 => "Ship", 2 => "Airship", _ => "Vehicle",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param1, 0, "Skiff / Small Boat");
+                                            ui.selectable_value(&mut self.param1, 1, "Ship");
+                                            ui.selectable_value(&mut self.param1, 2, "Airship");
+                                        });
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("CharSet Graphic:");
+                                    let mut dummy_dirty = false;
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_veh_charset_combo", &mut self.string_val, "CharSet", None, &mut dummy_dirty, None);
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Graphic Index:");
+                                    ui.add(egui::DragValue::new(&mut self.param2).range(0..=7));
+                                });
+                            }
+                            10820 => {
+                                ui.label("Memorize Current Location to Variables:");
+                                ui.horizontal(|ui| {
+                                    ui.label("Map ID Var:"); ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                    ui.label("X Var:"); ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                    ui.label("Y Var:"); ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                });
+                            }
+                            10830 => {
+                                ui.label("Recall / Teleport from Variables:");
+                                ui.horizontal(|ui| {
+                                    ui.label("Map ID Var:"); ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                    ui.label("X Var:"); ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000));
+                                    ui.label("Y Var:"); ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                });
+                            }
+                            10840 => {
+                                ui.label("Board / Dismount Vehicle at current location");
+                            }
+                            10850 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Vehicle:");
+                                    egui::ComboBox::from_id_salt("cmd_set_veh_combo")
+                                        .selected_text(match self.param0 {
+                                            0 => "Skiff / Small Boat", 1 => "Ship", 2 => "Airship", _ => "Vehicle",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param0, 0, "Skiff / Small Boat");
+                                            ui.selectable_value(&mut self.param0, 1, "Ship");
+                                            ui.selectable_value(&mut self.param0, 2, "Airship");
+                                        });
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Target Map ID:"); ui.add(egui::DragValue::new(&mut self.param1).range(1..=9999));
+                                    ui.label("X:"); ui.add(egui::DragValue::new(&mut self.param2).range(0..=500));
+                                    ui.label("Y:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=500));
+                                });
+                            }
+                            10860 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Target Event:");
+                                    egui::ComboBox::from_id_salt("cmd_ev_loc_target")
+                                        .selected_text(match self.param0 {
+                                            10001 => "Player / Party Leader",
+                                            10005 => "This Event",
+                                            _ => "Specific Event ID",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param0, 10001, "Player / Party Leader");
+                                            ui.selectable_value(&mut self.param0, 10005, "This Event");
+                                            ui.selectable_value(&mut self.param0, 1, "Specific Event ID");
+                                        });
+                                    if self.param0 != 10001 && self.param0 != 10005 {
+                                        ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000).prefix("#"));
+                                    }
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Position Mode:");
+                                    ui.radio_value(&mut self.param1, 0, "Coordinates");
+                                    ui.radio_value(&mut self.param1, 1, "From Variables");
+                                    ui.radio_value(&mut self.param1, 2, "Swap with Event");
+                                });
+                                ui.horizontal(|ui| {
+                                    if self.param1 == 2 {
+                                        ui.label("Swap with Event ID:");
+                                        ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                    } else if self.param1 == 1 {
+                                        ui.label("X Var ID:"); ui.add(egui::DragValue::new(&mut self.param2).range(1..=5000));
+                                        ui.label("Y Var ID:"); ui.add(egui::DragValue::new(&mut self.param3).range(1..=5000));
+                                    } else {
+                                        ui.label("X Coord:"); ui.add(egui::DragValue::new(&mut self.param2).range(0..=500));
+                                        ui.label("Y Coord:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=500));
+                                    }
+                                });
+                            }
+                            11010 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Screen Transition Effect:");
+                                    egui::ComboBox::from_id_salt("cmd_trans_combo")
+                                        .selected_text(match self.param0 {
+                                            0 => "Fade Out / In", 1 => "Random Blocks", 2 => "Wipe Down",
+                                            3 => "Wipe Up", 4 => "Curtain Open/Close", 5 => "Horizontal Stripes",
+                                            _ => "Default Transition",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param0, 0, "Fade Out / In");
+                                            ui.selectable_value(&mut self.param0, 1, "Random Blocks");
+                                            ui.selectable_value(&mut self.param0, 2, "Wipe Down");
+                                            ui.selectable_value(&mut self.param0, 3, "Wipe Up");
+                                            ui.selectable_value(&mut self.param0, 4, "Curtain Open/Close");
+                                            ui.selectable_value(&mut self.param0, 5, "Horizontal Stripes");
+                                        });
+                                });
+                            }
+                            11040 => {
+                                ui.heading("Flash Screen FX");
+                                ui.horizontal(|ui| {
+                                    let r = (self.param0.clamp(0, 31) * 255 / 31) as u8;
+                                    let g = (self.param1.clamp(0, 31) * 255 / 31) as u8;
+                                    let b = (self.param2.clamp(0, 31) * 255 / 31) as u8;
+                                    let alpha = (self.param3.clamp(0, 31) * 255 / 31) as u8;
+                                    let (swatch_rect, _) = ui.allocate_exact_size(egui::vec2(48.0, 32.0), egui::Sense::hover());
+                                    ui.painter().rect_filled(swatch_rect, 4.0, egui::Color32::from_rgba_unmultiplied(r, g, b, alpha.max(40)));
+                                    ui.painter().rect_stroke(swatch_rect, 4.0, egui::Stroke::new(1.0, egui::Color32::WHITE), egui::StrokeKind::Outside);
+
+                                    ui.vertical(|ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Red:"); ui.add(egui::DragValue::new(&mut self.param0).range(0..=31));
+                                            ui.label("Green:"); ui.add(egui::DragValue::new(&mut self.param1).range(0..=31));
+                                            ui.label("Blue:"); ui.add(egui::DragValue::new(&mut self.param2).range(0..=31));
+                                            ui.label("Power:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=31));
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Duration (tenths):");
+                                            ui.add(egui::DragValue::new(&mut self.param4).range(1..=200));
+                                            ui.label(format!("({:.1}s)", self.param4 as f32 / 10.0));
+                                            let mut wait = self.param5 != 0;
+                                            if ui.checkbox(&mut wait, "Wait for Completion").changed() {
+                                                self.param5 = if wait { 1 } else { 0 };
+                                            }
+                                        });
+                                    });
+                                });
+                            }
+                            11050 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Strength (1..9):"); ui.add(egui::DragValue::new(&mut self.param0).range(1..=9));
+                                    ui.label("Speed (1..9):"); ui.add(egui::DragValue::new(&mut self.param1).range(1..=9));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Duration (tenths of sec):");
+                                    ui.add(egui::DragValue::new(&mut self.param2).range(1..=200));
+                                    let mut wait = self.param3 != 0;
+                                    if ui.checkbox(&mut wait, "Wait for Completion").changed() {
+                                        self.param3 = if wait { 1 } else { 0 };
+                                    }
+                                });
+                            }
+                            11210 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Battle Animation ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Target:");
+                                    egui::ComboBox::from_id_salt("cmd_anim_target")
+                                        .selected_text(match self.param1 {
+                                            10001 => "Player / Party Leader",
+                                            10005 => "This Event",
+                                            _ => "Specific Event ID",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param1, 10001, "Player / Party Leader");
+                                            ui.selectable_value(&mut self.param1, 10005, "This Event");
+                                            ui.selectable_value(&mut self.param1, 1, "Specific Event ID");
+                                        });
+                                    if self.param1 != 10001 && self.param1 != 10005 {
+                                        ui.add(egui::DragValue::new(&mut self.param1).range(1..=5000).prefix("#"));
+                                    }
+                                });
+                                ui.horizontal(|ui| {
+                                    let mut wait = self.param2 != 0;
+                                    if ui.checkbox(&mut wait, "Wait for Completion").changed() {
+                                        self.param2 = if wait { 1 } else { 0 };
+                                    }
+                                });
+                            }
+                            11520 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Fade Out Duration (Seconds):");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=20));
+                                });
+                            }
+                            11610 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Store Pressed Key in Variable ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                });
+                                ui.horizontal(|ui| {
+                                    let mut wait = self.param1 != 0;
+                                    if ui.checkbox(&mut wait, "Wait for Key Press").changed() {
+                                        self.param1 = if wait { 1 } else { 0 };
+                                    }
+                                });
+                            }
+                            11710 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Switch Map Chipset to ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                });
+                            }
+                            11720 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Parallax Background (Panorama):");
+                                    let mut dummy_dirty = false;
+                                    crate::widgets::resource_dropdown::resource_combo_box(ui, "cmd_panorama_combo", &mut self.string_val, "Panorama", None, &mut dummy_dirty, None);
+                                });
+                                ui.horizontal(|ui| {
+                                    let mut lx = self.param0 != 0;
+                                    if ui.checkbox(&mut lx, "Loop Horizontally (X)").changed() { self.param0 = if lx { 1 } else { 0 }; }
+                                    let mut ly = self.param1 != 0;
+                                    if ui.checkbox(&mut ly, "Loop Vertically (Y)").changed() { self.param1 = if ly { 1 } else { 0 }; }
+                                });
+                            }
+                            11810..=11840 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Access Permission:");
+                                    ui.radio_value(&mut self.param0, 1, "✅ Allow / Enable");
+                                    ui.radio_value(&mut self.param0, 0, "❌ Forbid / Disable");
+                                });
+                            }
+                            10720 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Shop Type:");
+                                    ui.radio_value(&mut self.param0, 0, "Standard (Buy & Sell)");
+                                    ui.radio_value(&mut self.param0, 1, "Buy Only");
+                                    ui.radio_value(&mut self.param0, 2, "Sell Only");
+                                });
+
+                                ui.separator();
+                                ui.horizontal(|ui| {
+                                    ui.heading("Sold Items (Goods List)");
+                                    ui.label("Item ID:");
+                                    ui.add(egui::DragValue::new(&mut self.new_shop_item_id).range(1..=5000));
+                                    if ui.button("➕ Add Item").clicked() {
+                                        self.shop_items.push(self.new_shop_item_id);
+                                    }
+                                });
+
+                                if self.shop_items.is_empty() {
+                                    ui.label("(No specific items added - shop inventory empty or default)");
+                                } else {
+                                    let mut remove_idx = None;
+                                    egui::ScrollArea::vertical()
+                                        .id_salt("shop_goods_scroll")
+                                        .max_height(100.0)
+                                        .show(ui, |ui| {
+                                            for (idx, &item_id) in self.shop_items.iter().enumerate() {
+                                                ui.horizontal(|ui| {
+                                                    ui.label(format!("#{}: Item ID {}", idx + 1, item_id));
+                                                    if ui.small_button("🗑").clicked() {
+                                                        remove_idx = Some(idx);
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    if let Some(idx) = remove_idx {
+                                        self.shop_items.remove(idx);
+                                    }
+                                }
+                            }
+                            10730 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Inn Type:");
+                                    ui.radio_value(&mut self.param0, 0, "Standard Inn");
+                                    ui.radio_value(&mut self.param0, 1, "Custom Messages");
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Cost (Gold):");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(0..=99999));
+                                });
+                            }
+                            10740 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Hero / Actor ID:");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000));
+                                    let mut allow_def = self.param1 != 0;
+                                    if ui.checkbox(&mut allow_def, "Allow Default Name").changed() {
+                                        self.param1 = if allow_def { 1 } else { 0 };
+                                    }
+                                });
+                            }
                             10810 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Target Map ID:");
@@ -657,6 +1180,78 @@ impl EventCommandDialogState {
                                     ui.label("Y coordinate:");
                                     ui.add(egui::DragValue::new(&mut self.param3).range(0..=500));
                                 });
+                            }
+                            11330 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Target Character:");
+                                    egui::ComboBox::from_id_salt("cmd_mr_target")
+                                        .selected_text(match self.param0 {
+                                            10001 => "Player / Party Leader",
+                                            10005 => "This Event",
+                                            _ => "Specific Event ID",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(&mut self.param0, 10001, "Player / Party Leader");
+                                            ui.selectable_value(&mut self.param0, 10005, "This Event");
+                                            ui.selectable_value(&mut self.param0, 1, "Specific Event ID");
+                                        });
+                                    if self.param0 != 10001 && self.param0 != 10005 {
+                                        ui.add(egui::DragValue::new(&mut self.param0).range(1..=5000).prefix("#"));
+                                    }
+                                });
+
+                                ui.horizontal(|ui| {
+                                    ui.label("Move Frequency:");
+                                    ui.add(egui::Slider::new(&mut self.param1, 1..=8));
+                                });
+
+                                ui.horizontal(|ui| {
+                                    let mut rep = self.param2 != 0;
+                                    if ui.checkbox(&mut rep, "🔁 Repeat Route").changed() {
+                                        self.param2 = if rep { 1 } else { 0 };
+                                    }
+                                    let mut skip = self.param3 != 0;
+                                    if ui.checkbox(&mut skip, "⏩ Skip if Blocked").changed() {
+                                        self.param3 = if skip { 1 } else { 0 };
+                                    }
+                                });
+
+                                ui.separator();
+                                ui.label(format!("Movement Steps ({})", self.raw_params.len().saturating_sub(5)));
+
+                                // Quick Step Palette
+                                ui.horizontal_wrapped(|ui| {
+                                    if ui.button("⬆ Up").clicked() { self.raw_params.push(0); }
+                                    if ui.button("⬇ Down").clicked() { self.raw_params.push(2); }
+                                    if ui.button("⬅ Left").clicked() { self.raw_params.push(3); }
+                                    if ui.button("➡ Right").clicked() { self.raw_params.push(1); }
+                                    if ui.button("⏳ Wait").clicked() { self.raw_params.push(23); }
+                                    if ui.button("🚶 Forward").clicked() { self.raw_params.push(11); }
+                                    if ui.button("🎯 Toward Hero").clicked() { self.raw_params.push(9); }
+                                    if ui.button("🏃 Away Hero").clicked() { self.raw_params.push(10); }
+                                    if ui.button("🧹 Clear").clicked() { self.raw_params.truncate(5); }
+                                });
+
+                                egui::ScrollArea::vertical()
+                                    .id_salt("cmd_mr_steps_scroll")
+                                    .max_height(140.0)
+                                    .show(ui, |ui| {
+                                        let mut remove_step = None;
+                                        let start_idx = 5.min(self.raw_params.len());
+                                        for i in start_idx..self.raw_params.len() {
+                                            ui.horizontal(|ui| {
+                                                let cmd_id = self.raw_params[i];
+                                                let dummy_cmd = lcf_core::MoveCommand { code: cmd_id, ..Default::default() };
+                                                ui.label(format!("#{:02}: {}", i - start_idx + 1, crate::dialogs::move_route_dialog::move_command_label(&dummy_cmd)));
+                                                if ui.small_button("✕").clicked() {
+                                                    remove_step = Some(i);
+                                                }
+                                            });
+                                        }
+                                        if let Some(i) = remove_step {
+                                            self.raw_params.remove(i);
+                                        }
+                                    });
                             }
                             11410 => {
                                 ui.horizontal(|ui| {
@@ -692,22 +1287,42 @@ impl EventCommandDialogState {
                                 });
                             }
                             11030 => {
-                                ui.label("Screen Color Tint:");
+                                ui.heading("Screen Color Tint");
                                 ui.horizontal(|ui| {
-                                    ui.label("Red:"); ui.add(egui::DragValue::new(&mut self.param0).range(-31..=31));
-                                    ui.label("Green:"); ui.add(egui::DragValue::new(&mut self.param1).range(-31..=31));
-                                    ui.label("Blue:"); ui.add(egui::DragValue::new(&mut self.param2).range(-31..=31));
-                                    ui.label("Chroma:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=31));
+                                    let r = (((self.param0.clamp(-31, 31) + 31) as f32 / 62.0) * 255.0) as u8;
+                                    let g = (((self.param1.clamp(-31, 31) + 31) as f32 / 62.0) * 255.0) as u8;
+                                    let b = (((self.param2.clamp(-31, 31) + 31) as f32 / 62.0) * 255.0) as u8;
+                                    let (swatch_rect, _) = ui.allocate_exact_size(egui::vec2(48.0, 32.0), egui::Sense::hover());
+                                    ui.painter().rect_filled(swatch_rect, 4.0, egui::Color32::from_rgb(r, g, b));
+                                    ui.painter().rect_stroke(swatch_rect, 4.0, egui::Stroke::new(1.0, egui::Color32::WHITE), egui::StrokeKind::Outside);
+
+                                    ui.vertical(|ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Red:"); ui.add(egui::DragValue::new(&mut self.param0).range(-31..=31));
+                                            ui.label("Green:"); ui.add(egui::DragValue::new(&mut self.param1).range(-31..=31));
+                                            ui.label("Blue:"); ui.add(egui::DragValue::new(&mut self.param2).range(-31..=31));
+                                            ui.label("Chroma:"); ui.add(egui::DragValue::new(&mut self.param3).range(0..=31));
+                                        });
+                                    });
                                 });
                             }
                             11070 => {
+                                ui.heading("Weather Effects");
                                 ui.horizontal(|ui| {
-                                    ui.label("Weather Effect:");
-                                    ui.radio_value(&mut self.param0, 0, "None");
-                                    ui.radio_value(&mut self.param0, 1, "Rain");
-                                    ui.radio_value(&mut self.param0, 2, "Snow");
-                                    ui.radio_value(&mut self.param0, 3, "Sandstorm");
+                                    ui.label("Effect Type:");
+                                    ui.radio_value(&mut self.param0, 0, "None / Clear");
+                                    ui.radio_value(&mut self.param0, 1, "🌧 Rain");
+                                    ui.radio_value(&mut self.param0, 2, "❄ Snow");
+                                    ui.radio_value(&mut self.param0, 3, "🌪 Sandstorm");
                                 });
+                                if self.param0 != 0 {
+                                    ui.horizontal(|ui| {
+                                        ui.label("Severity:");
+                                        ui.radio_value(&mut self.param1, 0, "Low");
+                                        ui.radio_value(&mut self.param1, 1, "Medium");
+                                        ui.radio_value(&mut self.param1, 2, "High");
+                                    });
+                                }
                             }
                             11110 | 11120 => {
                                 ui.horizontal(|ui| {
@@ -722,7 +1337,60 @@ impl EventCommandDialogState {
                                 ui.horizontal(|ui| {
                                     ui.label("X:"); ui.add(egui::DragValue::new(&mut self.param1).range(0..=640));
                                     ui.label("Y:"); ui.add(egui::DragValue::new(&mut self.param2).range(0..=480));
+                                    let mut is_fixed = self.param3 != 0;
+                                    if ui.checkbox(&mut is_fixed, "Pin to Map (Scrolls with Map)").changed() {
+                                        self.param3 = if is_fixed { 1 } else { 0 };
+                                    }
                                 });
+                                ui.horizontal(|ui| {
+                                    ui.label("Magnification %:");
+                                    if self.param4 == 0 { self.param4 = 100; }
+                                    ui.add(egui::DragValue::new(&mut self.param4).range(10..=400));
+                                    ui.label("Transparency %:");
+                                    ui.add(egui::DragValue::new(&mut self.param5).range(0..=100));
+                                });
+                                ui.group(|ui| {
+                                    ui.label("Color Tint (-31..31):");
+                                    ui.horizontal(|ui| {
+                                        let r = self.param_mut(7);
+                                        ui.colored_label(egui::Color32::from_rgb(255, 100, 100), "R:");
+                                        ui.add(egui::DragValue::new(r).range(-31..=31));
+                                        let g = self.param_mut(8);
+                                        ui.colored_label(egui::Color32::from_rgb(100, 255, 100), "G:");
+                                        ui.add(egui::DragValue::new(g).range(-31..=31));
+                                        let b = self.param_mut(9);
+                                        ui.colored_label(egui::Color32::from_rgb(100, 150, 255), "B:");
+                                        ui.add(egui::DragValue::new(b).range(-31..=31));
+                                        let sat = self.param_mut(10);
+                                        ui.label("Chroma:");
+                                        ui.add(egui::DragValue::new(sat).range(0..=31));
+                                    });
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Effect:");
+                                    let effect_mode = self.param_mut(11);
+                                    ui.radio_value(effect_mode, 0, "None");
+                                    ui.radio_value(effect_mode, 1, "Rotate");
+                                    ui.radio_value(effect_mode, 2, "Wave");
+                                    if *effect_mode != 0 {
+                                        ui.label("Speed:");
+                                        let speed = self.param_mut(12);
+                                        ui.add(egui::DragValue::new(speed).range(1..=10));
+                                    }
+                                });
+                                if self.selected_code == 11120 {
+                                    ui.horizontal(|ui| {
+                                        ui.label("Move Duration (0.1s):");
+                                        let dur = self.param_mut(13);
+                                        if *dur == 0 { *dur = 10; }
+                                        ui.add(egui::DragValue::new(dur).range(1..=1000));
+                                        let wait = self.param_mut(14);
+                                        let mut wait_bool = *wait != 0;
+                                        if ui.checkbox(&mut wait_bool, "Wait for Completion").changed() {
+                                            *wait = if wait_bool { 1 } else { 0 };
+                                        }
+                                    });
+                                }
                             }
                             11130 => {
                                 ui.horizontal(|ui| {
@@ -930,9 +1598,89 @@ impl EventCommandDialogState {
                                     _ => {}
                                 }
                             }
+                            12210 => {
+                                ui.label("Loop");
+                                ui.colored_label(egui::Color32::GRAY, "Begins a loop structure. Commands between Loop and Repeat Above will continuously repeat until a Break Loop command is encountered.");
+                            }
+                            12220 => {
+                                ui.label("Break Loop");
+                                ui.colored_label(egui::Color32::GRAY, "Breaks out of the innermost enclosing loop and jumps to the command following Repeat Above.");
+                            }
+                            12310 => {
+                                ui.label("Exit Event Processing");
+                                ui.colored_label(egui::Color32::GRAY, "Immediately terminates execution of the current event page.");
+                            }
+                            12320 => {
+                                ui.label("Erase Event");
+                                ui.colored_label(egui::Color32::GRAY, "Temporarily removes this event from the current map until the player exits and re-enters the map.");
+                            }
+                            12420 => {
+                                ui.label("Game Over");
+                                ui.colored_label(egui::Color32::GRAY, "Immediately halts gameplay and transitions to the Game Over screen.");
+                            }
+                            12510 => {
+                                ui.label("Return to Title Screen");
+                                ui.colored_label(egui::Color32::GRAY, "Immediately ends the current game session and returns to the Title Screen.");
+                            }
+                            11910 => {
+                                ui.label("Open Save Menu");
+                                ui.colored_label(egui::Color32::GRAY, "Opens the standard in-game Save Menu, allowing the player to save their progress.");
+                            }
+                            11950 => {
+                                ui.label("Open Main Menu");
+                                ui.colored_label(egui::Color32::GRAY, "Opens the standard in-game Main Menu (Items, Skills, Equipment, Status).");
+                            }
                             12410 => {
                                 ui.label("Comment:");
                                 ui.text_edit_singleline(&mut self.string_val);
+                            }
+                            20110 => {
+                                ui.label("Show Message (Continuation line):");
+                                ui.text_edit_singleline(&mut self.string_val);
+                            }
+                            22410 => {
+                                ui.label("Comment (Continuation line):");
+                                ui.text_edit_singleline(&mut self.string_val);
+                            }
+                            20710 => {
+                                ui.label("When [Victory]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the party wins the battle.");
+                            }
+                            20711 => {
+                                ui.label("When [Escape]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the party successfully flees the battle.");
+                            }
+                            20712 => {
+                                ui.label("When [Defeat]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the party is defeated in battle.");
+                            }
+                            20713 => {
+                                ui.label("End Battle Processing");
+                                ui.colored_label(egui::Color32::GRAY, "Marks the conclusion of battle branch handling.");
+                            }
+                            20720 => {
+                                ui.label("When [Transaction]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the player completes a transaction in the shop.");
+                            }
+                            20721 => {
+                                ui.label("When [Cancel]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the player exits the shop without buying.");
+                            }
+                            20722 => {
+                                ui.label("End Shop Processing");
+                                ui.colored_label(egui::Color32::GRAY, "Marks the conclusion of shop branch handling.");
+                            }
+                            20730 => {
+                                ui.label("When [Stay / Rest]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the player pays and rests at the inn.");
+                            }
+                            20731 => {
+                                ui.label("When [Cancel]");
+                                ui.colored_label(egui::Color32::GRAY, "Executes if the player declines to stay at the inn.");
+                            }
+                            20732 => {
+                                ui.label("End Inn Processing");
+                                ui.colored_label(egui::Color32::GRAY, "Marks the conclusion of inn branch handling.");
                             }
 
                             // ---- Maniac Patch: Tier-1 bespoke forms ----
@@ -1253,95 +2001,7 @@ impl EventCommandDialogState {
                 ui.separator();
                 ui.horizontal(|ui| {
                     if ui.button("OK").clicked() {
-                        // Every arm below now unconditionally assigns
-                        // `params` (the old `_` fallback used to leave it
-                        // as an empty Vec conditionally - now it always
-                        // clones `raw_params`), so no initial value is
-                        // needed.
-                        let params: Vec<i32>;
-                        match self.selected_code {
-                            10120 => {
-                                params = vec![self.param0, self.param1];
-                            }
-                            10150 => {
-                                params = vec![self.param1, self.param2];
-                            }
-                            10210 => {
-                                params = vec![0, self.param1, self.param1, self.param3];
-                            }
-                            10220 => {
-                                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4, self.param5, self.param6];
-                            }
-                            10310 => {
-                                params = vec![self.param0, 0, self.param2];
-                            }
-                            10320 => {
-                                params = vec![self.param0, 0, self.param1, self.param2];
-                            }
-                            10330 => {
-                                params = vec![self.param0, self.param1];
-                            }
-                            10410..=10430 => {
-                                params = vec![0, self.param1, self.param0, 0, self.param2];
-                            }
-                            10440 => {
-                                params = vec![0, self.param1, self.param0, self.param2];
-                            }
-                            10460 | 10470 => {
-                                params = vec![0, self.param1, self.param0, 0, self.param2];
-                            }
-                            10480 => {
-                                params = vec![0, self.param1, self.param0, self.param2];
-                            }
-                            10490 => {
-                                params = vec![self.param0, self.param1];
-                            }
-                            10810 => {
-                                params = vec![0, self.param1, self.param2, self.param3, 0];
-                            }
-                            11410 => {
-                                params = vec![self.param0];
-                            }
-                            11510 | 11550 => {
-                                params = vec![self.param1, self.param2, 50];
-                            }
-                            11030 => {
-                                params = vec![self.param0, self.param1, self.param2, self.param3];
-                            }
-                            11070 => {
-                                params = vec![self.param0];
-                            }
-                            11110 | 11120 => {
-                                params = vec![self.param0, self.param1, self.param2];
-                            }
-                            11130 => {
-                                params = vec![self.param0];
-                            }
-                            12010 => {
-                                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4];
-                            }
-                            12330 => {
-                                params = vec![self.param0];
-                            }
-                            10710 => {
-                                params = vec![0, self.param1];
-                            }
-                            // Every Maniac command (Tier-1 bespoke or the
-                            // generic Tier-2 editor) and any other
-                            // unrecognized code edits `raw_params` directly,
-                            // so it's always the full, lossless parameter
-                            // vector - no per-command pack arm needed here.
-                            _ => {
-                                params = self.raw_params.clone();
-                            }
-                        }
-
-                        let cmd = EventCommandInfo {
-                            code: self.selected_code,
-                            indent: self.indent,
-                            string: self.string_val.clone(),
-                            parameters: params,
-                        };
+                        let cmd = self.to_event_command();
                         result = Some((self.edit_index, cmd));
                         self.is_open = false;
                     }
@@ -1356,6 +2016,190 @@ impl EventCommandDialogState {
         }
 
         result
+    }
+
+    pub fn to_event_command(&mut self) -> EventCommandInfo {
+        let params: Vec<i32>;
+        match self.selected_code {
+            10120 => {
+                params = vec![self.param0, self.param1];
+            }
+            10140 => {
+                let active_choices: Vec<String> = self.choices.iter().filter(|c| !c.trim().is_empty()).cloned().collect();
+                if !active_choices.is_empty() {
+                    self.string_val = active_choices.join("/");
+                }
+                params = vec![self.param0];
+            }
+            10150 => {
+                params = vec![self.param1, self.param2];
+            }
+            10210 => {
+                params = vec![0, self.param1, self.param1, self.param3];
+            }
+            10220 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4, self.param5, self.param6];
+            }
+            10310 => {
+                params = vec![self.param0, 0, self.param2];
+            }
+            10320 => {
+                params = vec![self.param0, 0, self.param1, self.param2];
+            }
+            10330 => {
+                params = vec![self.param0, self.param1];
+            }
+            10410..=10430 => {
+                params = vec![0, self.param1, self.param0, 0, self.param2];
+            }
+            10440 => {
+                params = vec![0, self.param1, self.param0, self.param2];
+            }
+            10460 | 10470 => {
+                params = vec![0, self.param1, self.param0, 0, self.param2];
+            }
+            10480 => {
+                params = vec![0, self.param1, self.param0, self.param2];
+            }
+            10490 => {
+                params = vec![self.param0, self.param1];
+            }
+            10450 => {
+                params = vec![0, self.param1, self.param0, self.param2, self.param4];
+            }
+            10610 | 10620 => {
+                params = vec![self.param1];
+            }
+            10630 => {
+                params = vec![self.param1, self.param2, self.param3];
+            }
+            10640 | 10650 => {
+                params = vec![self.param1, self.param2];
+            }
+            10810 => {
+                params = vec![0, self.param1, self.param2, self.param3, 0];
+            }
+            10820 | 10830 => {
+                params = vec![self.param0, self.param1, self.param2];
+            }
+            10840 => {
+                params = vec![];
+            }
+            10850 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3];
+            }
+            10860 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3, 0];
+            }
+            11010 => {
+                params = vec![self.param0];
+            }
+            11040 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4, self.param5];
+            }
+            11050 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3];
+            }
+            11210 => {
+                params = vec![self.param0, self.param1, self.param2];
+            }
+            11410 => {
+                params = vec![self.param0];
+            }
+            11510 | 11550 => {
+                params = vec![self.param1, self.param2, 50];
+            }
+            11520 => {
+                params = vec![self.param0];
+            }
+            11030 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3];
+            }
+            11070 => {
+                params = vec![self.param0];
+            }
+            11110 | 11120 => {
+                let mut p = vec![
+                    self.param0.max(1),
+                    0, // Constant position mode
+                    self.param1, // X
+                    self.param2, // Y
+                    if self.param4 == 0 { 100 } else { self.param4 }, // Magnification
+                    self.param5, // Transparency
+                    self.param3, // Fixed to map
+                    self.raw_params.get(7).copied().unwrap_or(0), // Red
+                    self.raw_params.get(8).copied().unwrap_or(0), // Green
+                    self.raw_params.get(9).copied().unwrap_or(0), // Blue
+                    self.raw_params.get(10).copied().unwrap_or(0), // Saturation
+                    self.raw_params.get(11).copied().unwrap_or(0), // Effect Mode
+                    self.raw_params.get(12).copied().unwrap_or(0), // Effect Power
+                ];
+                if self.selected_code == 11120 {
+                    p.push(self.raw_params.get(13).copied().unwrap_or(10)); // Duration
+                    p.push(self.raw_params.get(14).copied().unwrap_or(0)); // Wait
+                }
+                params = p;
+            }
+            11130 => {
+                params = vec![self.param0];
+            }
+            11610 => {
+                params = vec![self.param0, self.param1];
+            }
+            11710 => {
+                params = vec![self.param0];
+            }
+            11720 => {
+                params = vec![self.param0, self.param1, 0, 0];
+            }
+            11810..=11840 => {
+                params = vec![self.param0];
+            }
+            10720 => {
+                let mut p = vec![self.param0, 0];
+                p.extend_from_slice(&self.shop_items);
+                params = p;
+            }
+            10730 => {
+                params = vec![self.param0, self.param1];
+            }
+            10740 => {
+                params = vec![self.param0, self.param1];
+            }
+            12010 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3, self.param4];
+            }
+            12330 => {
+                params = vec![self.param0];
+            }
+            12210 | 12220 | 12310 | 12320 | 12410 | 12420 | 12510 | 11910 | 11950 | 20110 | 22410 | 20710..=20732 | 23310..=23311 => {
+                params = vec![];
+            }
+            10710 => {
+                params = vec![0, self.param1];
+            }
+            11330 => {
+                while self.raw_params.len() < 5 {
+                    self.raw_params.push(0);
+                }
+                self.raw_params[0] = self.param0;
+                self.raw_params[1] = self.param1;
+                self.raw_params[2] = self.param2;
+                self.raw_params[3] = self.param3;
+                self.raw_params[4] = (self.raw_params.len() - 5) as i32;
+                params = self.raw_params.clone();
+            }
+            _ => {
+                params = self.raw_params.clone();
+            }
+        }
+
+        EventCommandInfo {
+            code: self.selected_code,
+            indent: self.indent,
+            string: self.string_val.clone(),
+            parameters: params,
+        }
     }
 
     /// Safe, lossless fallback editor: one row per `raw_params` entry (with

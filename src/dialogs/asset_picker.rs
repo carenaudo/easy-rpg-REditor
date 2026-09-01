@@ -235,7 +235,7 @@ impl AssetPickerState {
                                 draw_checkerboard(&painter, rect, 8.0, is_dark);
                                 painter.image(tex.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
                             }
-                        } else if self.category == "Music" || self.category == "Sound" || self.category == "Title" {
+                        } else if self.category == "Music" || self.category == "Sound" {
                             cols[1].group(|ui| {
                                 let icon = if self.category == "Music" { "🎵" } else { "🔊" };
                                 ui.heading(format!("{} Audio Track", icon));

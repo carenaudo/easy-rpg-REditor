@@ -9,6 +9,7 @@ pub struct AnimationsView {
     pub scrub_frame: usize,
     pub fps: f32,
     pub show_target: bool,
+    pub search_query: String,
 }
 
 impl Default for AnimationsView {
@@ -19,6 +20,7 @@ impl Default for AnimationsView {
             scrub_frame: 0,
             fps: 15.0,
             show_target: true,
+            search_query: String::new(),
         }
     }
 }
@@ -44,6 +46,7 @@ impl AnimationsView {
                     scope: 0,
                     position: 1,
                     frame_count: 5,
+                    frames: Vec::new(),
                     timings: Vec::new(),
                 });
                 *dirty = true;
@@ -54,7 +57,7 @@ impl AnimationsView {
         ui.columns(2, |cols| {
             // Master list
             cols[0].group(|ui| {
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.heading("Battle Animations");
                     if ui.small_button("+ Add").clicked() {
                         let new_id = (animations.len() + 1) as i32;
@@ -66,6 +69,7 @@ impl AnimationsView {
                             scope: 0,
                             position: 1,
                             frame_count: 5,
+                            frames: Vec::new(),
                             timings: Vec::new(),
                         });
                         self.selected_idx = animations.len() - 1;
@@ -79,6 +83,24 @@ impl AnimationsView {
                         self.selected_idx = animations.len() - 1;
                         *dirty = true;
                     }
+                    if ui.add_enabled(animations.len() > 1 && self.selected_idx < animations.len(), egui::Button::new("🗑 Del").small()).clicked() {
+                        animations.remove(self.selected_idx);
+                        for (i, entry) in animations.iter_mut().enumerate() {
+                            entry.id = (i + 1) as i32;
+                        }
+                        if self.selected_idx >= animations.len() {
+                            self.selected_idx = animations.len().saturating_sub(1);
+                        }
+                        *dirty = true;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("🔍");
+                    ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Filter animations...").desired_width(120.0));
+                    if !self.search_query.is_empty() && ui.small_button("✕").clicked() {
+                        self.search_query.clear();
+                    }
                 });
 
                 ui.separator();
@@ -87,7 +109,11 @@ impl AnimationsView {
                     .id_salt("anim_master_scroll")
                     .max_height(450.0)
                     .show(ui, |ui| {
+                        let q = self.search_query.trim().to_lowercase();
                         for (idx, a) in animations.iter().enumerate() {
+                            if !q.is_empty() && !a.name.to_lowercase().contains(&q) && !a.id.to_string().contains(&q) {
+                                continue;
+                            }
                             let label = format!("{:04}: {}", a.id, a.name);
                             if ui.selectable_label(self.selected_idx == idx, label).clicked() {
                                 self.selected_idx = idx;
@@ -243,29 +269,63 @@ impl AnimationsView {
                                     painter.text(egui::pos2(center.x, center.y + 4.0), egui::Align2::CENTER_CENTER, "👾", egui::FontId::proportional(22.0), dummy_col);
                                 }
 
-                                // Draw animation frame
+                                // Sync frames count
+                                if a.frames.len() != a.frame_count {
+                                    a.frames.resize_with(a.frame_count, || crate::lcf_bridge::AnimationFrameInfo::default());
+                                    for (i, f) in a.frames.iter_mut().enumerate() {
+                                        f.id = (i + 1) as i32;
+                                    }
+                                }
+
+                                // Draw animation frame cells
                                 if let Some(proj) = project_path {
                                     let tex_opt = cache.get_or_load(ui.ctx(), proj, "Battle", &a.animation_name)
                                         .or_else(|| cache.get_or_load(ui.ctx(), proj, "Battle2", &a.animation_name));
 
                                     if let Some(tex) = tex_opt {
-                                        let cell_idx = active_frame % 25;
-                                        let cell_col = (cell_idx % 5) as f32;
-                                        let cell_row = (cell_idx / 5) as f32;
-
-                                        let u0 = cell_col / 5.0;
-                                        let u1 = (cell_col + 1.0) / 5.0;
-                                        let v0 = cell_row / 5.0;
-                                        let v1 = (cell_row + 1.0) / 5.0;
-
-                                        let cell_sz = if a.large { 128.0 } else { 96.0 };
                                         let center = match a.position {
                                             0 => egui::pos2(stage_rect.center().x, stage_rect.min.y + 40.0),
                                             2 => egui::pos2(stage_rect.center().x, stage_rect.max.y - 40.0),
                                             _ => stage_rect.center(),
                                         };
-                                        let draw_rect = egui::Rect::from_center_size(center, egui::vec2(cell_sz, cell_sz));
-                                        painter.image(tex.id(), draw_rect, egui::Rect::from_min_max(egui::pos2(u0, v0), egui::pos2(u1, v1)), egui::Color32::WHITE);
+
+                                        let frame_opt = a.frames.get(active_frame);
+                                        let has_cells = frame_opt.map_or(false, |f| !f.cells.is_empty());
+
+                                        if !has_cells {
+                                            let cell_idx = active_frame % 25;
+                                            let cell_col = (cell_idx % 5) as f32;
+                                            let cell_row = (cell_idx / 5) as f32;
+
+                                            let u0 = cell_col / 5.0;
+                                            let u1 = (cell_col + 1.0) / 5.0;
+                                            let v0 = cell_row / 5.0;
+                                            let v1 = (cell_row + 1.0) / 5.0;
+
+                                            let cell_sz = if a.large { 128.0 } else { 96.0 };
+                                            let draw_rect = egui::Rect::from_center_size(center, egui::vec2(cell_sz, cell_sz));
+                                            painter.image(tex.id(), draw_rect, egui::Rect::from_min_max(egui::pos2(u0, v0), egui::pos2(u1, v1)), egui::Color32::WHITE);
+                                        } else if let Some(frame) = frame_opt {
+                                            for cell in &frame.cells {
+                                                if !cell.valid { continue; }
+                                                let cell_idx = (cell.cell_id.max(0) as usize) % 25;
+                                                let cell_col = (cell_idx % 5) as f32;
+                                                let cell_row = (cell_idx / 5) as f32;
+
+                                                let u0 = cell_col / 5.0;
+                                                let u1 = (cell_col + 1.0) / 5.0;
+                                                let v0 = cell_row / 5.0;
+                                                let v1 = (cell_row + 1.0) / 5.0;
+
+                                                let base_sz = if a.large { 128.0 } else { 96.0 };
+                                                let zoom_scale = (cell.zoom.max(10) as f32) / 100.0;
+                                                let cell_sz = base_sz * zoom_scale;
+                                                let cell_pos = egui::pos2(center.x + cell.x as f32, center.y + cell.y as f32);
+                                                let draw_rect = egui::Rect::from_center_size(cell_pos, egui::vec2(cell_sz, cell_sz));
+                                                let alpha = (255 * (100 - cell.transparency.clamp(0, 100)) / 100) as u8;
+                                                painter.image(tex.id(), draw_rect, egui::Rect::from_min_max(egui::pos2(u0, v0), egui::pos2(u1, v1)), egui::Color32::from_rgba_unmultiplied(255, 255, 255, alpha));
+                                            }
+                                        }
                                     }
                                 }
 
@@ -280,7 +340,113 @@ impl AnimationsView {
 
                                 ui.separator();
 
-                                // 2. Sound Effects & Screen Flash Timings Table
+                                // 2. Frame Cell Composer
+                                if active_frame < a.frames.len() {
+                                    let mut copy_prev = false;
+                                    let mut add_cell = false;
+                                    let mut clear_cells = false;
+                                    let mut center_all = false;
+                                    let mut reset_zoom = false;
+
+                                    let cell_count = a.frames[active_frame].cells.len();
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.heading(format!("🎞 Frame {} Cell Composer ({})", active_frame + 1, cell_count));
+                                        if ui.button("➕ Add Cell").clicked() {
+                                            add_cell = true;
+                                        }
+                                        if active_frame > 0 && ui.button("📋 Copy Prev Frame").clicked() {
+                                            copy_prev = true;
+                                        }
+                                        if cell_count > 0 && ui.button("🎯 Center All").on_hover_text("Align all cells to center (X=0, Y=0)").clicked() {
+                                            center_all = true;
+                                        }
+                                        if cell_count > 0 && ui.button("🔄 Reset Zoom").on_hover_text("Reset scale to 100% and opacity to 100%").clicked() {
+                                            reset_zoom = true;
+                                        }
+                                        if cell_count > 0 && ui.button("🗑 Clear").clicked() {
+                                            clear_cells = true;
+                                        }
+                                    });
+
+                                    if copy_prev {
+                                        let prev_cells = a.frames[active_frame - 1].cells.clone();
+                                        a.frames[active_frame].cells = prev_cells;
+                                        *dirty = true;
+                                    }
+                                    if add_cell {
+                                        let new_id = (a.frames[active_frame].cells.len() + 1) as i32;
+                                        a.frames[active_frame].cells.push(crate::lcf_bridge::AnimationCellInfo {
+                                            id: new_id,
+                                            valid: true,
+                                            cell_id: (active_frame % 25) as i32,
+                                            x: 0,
+                                            y: 0,
+                                            zoom: 100,
+                                            transparency: 0,
+                                        });
+                                        *dirty = true;
+                                    }
+                                    if center_all {
+                                        for cell in &mut a.frames[active_frame].cells {
+                                            cell.x = 0;
+                                            cell.y = 0;
+                                        }
+                                        *dirty = true;
+                                    }
+                                    if reset_zoom {
+                                        for cell in &mut a.frames[active_frame].cells {
+                                            cell.zoom = 100;
+                                            cell.transparency = 0;
+                                        }
+                                        *dirty = true;
+                                    }
+                                    if clear_cells {
+                                        a.frames[active_frame].cells.clear();
+                                        *dirty = true;
+                                    }
+
+                                    let frame = &mut a.frames[active_frame];
+                                    if frame.cells.is_empty() {
+                                        ui.colored_label(egui::Color32::GRAY, "No bespoke cells placed on this frame (plays default cell sequentially).");
+                                    } else {
+                                        let mut cell_to_del = None;
+                                        egui::Grid::new("anim_frame_cells_grid")
+                                            .num_columns(7)
+                                            .spacing([6.0, 4.0])
+                                            .show(ui, |ui| {
+                                                ui.label("#");
+                                                ui.label("Sub-Cell (0..49)");
+                                                ui.label("X Offset");
+                                                ui.label("Y Offset");
+                                                ui.label("Zoom %");
+                                                ui.label("Transp %");
+                                                ui.label("");
+                                                ui.end_row();
+
+                                                for (c_idx, cell) in frame.cells.iter_mut().enumerate() {
+                                                    ui.label(format!("#{}", c_idx + 1));
+                                                    if ui.add(egui::DragValue::new(&mut cell.cell_id).range(0..=49)).changed() { *dirty = true; }
+                                                    if ui.add(egui::DragValue::new(&mut cell.x).range(-200..=200)).changed() { *dirty = true; }
+                                                    if ui.add(egui::DragValue::new(&mut cell.y).range(-200..=200)).changed() { *dirty = true; }
+                                                    if ui.add(egui::DragValue::new(&mut cell.zoom).range(10..=300).suffix("%")).changed() { *dirty = true; }
+                                                    if ui.add(egui::DragValue::new(&mut cell.transparency).range(0..=100).suffix("%")).changed() { *dirty = true; }
+                                                    if ui.small_button("🗑").clicked() {
+                                                        cell_to_del = Some(c_idx);
+                                                    }
+                                                    ui.end_row();
+                                                }
+                                            });
+
+                                        if let Some(del_idx) = cell_to_del {
+                                            frame.cells.remove(del_idx);
+                                            *dirty = true;
+                                        }
+                                    }
+                                }
+
+                                ui.separator();
+
+                                // 3. Sound Effects & Screen Flash Timings Table
                                 ui.horizontal(|ui| {
                                     ui.heading(format!("⚡ Sound & Flash Timing Cues ({})", a.timings.len()));
                                     if ui.button("➕ Add Timing").clicked() {

@@ -224,6 +224,15 @@ impl<W: Write + Seek> LcfWriter<W> {
         self.write_chunk(id, &buf)
     }
 
+    pub fn write_bit_array_chunk(&mut self, id: u32, bits: &DBBitArray) -> Result<(), LcfError> {
+        let mut buf = Vec::new();
+        {
+            let mut sub_w = LcfWriter::new(std::io::Cursor::new(&mut buf), self.engine, self.encoder.encoding_name());
+            sub_w.write_bit_array(bits)?;
+        }
+        self.write_chunk(id, &buf)
+    }
+
     pub fn write_sub_chunk<F>(&mut self, id: u32, f: F) -> Result<(), LcfError>
     where
         F: FnOnce(&mut LcfWriter<std::io::Cursor<Vec<u8>>>) -> Result<(), LcfError>,

@@ -3,6 +3,13 @@ use std::path::Path;
 use crate::app_state::{AppPersistentData, EditorAppState};
 
 #[derive(Clone, Debug)]
+pub struct BrokenReferenceReport {
+    pub category: String,
+    pub source: String,
+    pub description: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct MissingAssetReport {
     pub category: String,
     pub file_name: String,
@@ -31,6 +38,7 @@ pub struct ProjectAnalyzerDialog {
     pub total_switches: usize,
     pub total_variables: usize,
     pub missing_assets: Vec<MissingAssetReport>,
+    pub broken_references: Vec<BrokenReferenceReport>,
     /// Every Maniac Patch event command found across maps, common events,
     /// and troop battle events during the last full scan - the deep,
     /// definitive counterpart to `EditorAppState::maniac`'s cheap heuristic.
@@ -216,6 +224,89 @@ impl ProjectAnalyzerDialog {
             }
         }
 
+        // 8. Broken reference check across Maps, Events, and Common Events
+        self.broken_references.clear();
+        if let Some(path) = proj_path {
+            for (mid, mname) in &app.maps {
+                let events = crate::lcf_bridge::get_map_events(path, *mid);
+                let mut seen_ids = std::collections::HashSet::new();
+                for ev in &events {
+                    if !seen_ids.insert(ev.id) {
+                        self.broken_references.push(BrokenReferenceReport {
+                            category: "Duplicate Event ID".to_string(),
+                            source: format!("Map #{:04} ({})", mid, mname),
+                            description: format!("Duplicate Event ID #{:04} ('{}') found on map", ev.id, ev.name),
+                        });
+                    }
+                    for page in &ev.pages {
+                        let cond = &page.condition;
+                        if cond.switch1_flag && cond.switch1_id > 0 && cond.switch1_id as usize > self.total_switches {
+                            self.broken_references.push(BrokenReferenceReport {
+                                category: "Switch".to_string(),
+                                source: format!("Map #{:04} ({}) -> Event #{:04} ({}) Page {}", mid, mname, ev.id, ev.name, page.id),
+                                description: format!("Precondition references Switch #{:04} (Max in DB: {})", cond.switch1_id, self.total_switches),
+                            });
+                        }
+                        if cond.switch2_flag && cond.switch2_id > 0 && cond.switch2_id as usize > self.total_switches {
+                            self.broken_references.push(BrokenReferenceReport {
+                                category: "Switch".to_string(),
+                                source: format!("Map #{:04} ({}) -> Event #{:04} ({}) Page {}", mid, mname, ev.id, ev.name, page.id),
+                                description: format!("Precondition references Switch #{:04} (Max in DB: {})", cond.switch2_id, self.total_switches),
+                            });
+                        }
+                        if cond.var_flag && cond.var_id > 0 && cond.var_id as usize > self.total_variables {
+                            self.broken_references.push(BrokenReferenceReport {
+                                category: "Variable".to_string(),
+                                source: format!("Map #{:04} ({}) -> Event #{:04} ({}) Page {}", mid, mname, ev.id, ev.name, page.id),
+                                description: format!("Precondition references Variable #{:04} (Max in DB: {})", cond.var_id, self.total_variables),
+                            });
+                        }
+                        if cond.item_flag && cond.item_id > 0 && cond.item_id as usize > self.total_items {
+                            self.broken_references.push(BrokenReferenceReport {
+                                category: "Item".to_string(),
+                                source: format!("Map #{:04} ({}) -> Event #{:04} ({}) Page {}", mid, mname, ev.id, ev.name, page.id),
+                                description: format!("Precondition references Item #{:04} (Max in DB: {})", cond.item_id, self.total_items),
+                            });
+                        }
+                        if cond.actor_flag && cond.actor_id > 0 && cond.actor_id as usize > self.total_actors {
+                            self.broken_references.push(BrokenReferenceReport {
+                                category: "Actor".to_string(),
+                                source: format!("Map #{:04} ({}) -> Event #{:04} ({}) Page {}", mid, mname, ev.id, ev.name, page.id),
+                                description: format!("Precondition references Actor #{:04} (Max in DB: {})", cond.actor_id, self.total_actors),
+                            });
+                        }
+
+                        // Event Commands
+                        for cmd in &page.commands {
+                            if cmd.code == 10810 { // Teleport
+                                if let Some(&target_map) = cmd.parameters.get(1) {
+                                    if target_map > 0 && !app.maps.iter().any(|(id, _)| *id == target_map) {
+                                        self.broken_references.push(BrokenReferenceReport {
+                                            category: "Teleport".to_string(),
+                                            source: format!("Map #{:04} -> Event #{:04} Page {}", mid, ev.id, page.id),
+                                            description: format!("Teleports to non-existent Map #{:04}", target_map),
+                                        });
+                                    }
+                                }
+                            } else if cmd.code == 12110 { // Call Event
+                                if cmd.parameters.first().copied().unwrap_or(0) == 0 {
+                                    if let Some(&ce_id) = cmd.parameters.get(1) {
+                                        if ce_id > 0 && ce_id as usize > self.total_common_events {
+                                            self.broken_references.push(BrokenReferenceReport {
+                                                category: "Common Event".to_string(),
+                                                source: format!("Map #{:04} -> Event #{:04} Page {}", mid, ev.id, page.id),
+                                                description: format!("Calls non-existent Common Event #{:04}", ce_id),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         self.is_scanned = true;
     }
 
@@ -290,6 +381,42 @@ impl ProjectAnalyzerDialog {
                                         ui.colored_label(egui::Color32::from_rgb(100, 160, 240), &item.category);
                                         ui.colored_label(egui::Color32::from_rgb(255, 120, 120), &item.file_name);
                                         ui.label(&item.referenced_by);
+                                        ui.end_row();
+                                    }
+                                });
+                        });
+                }
+
+                ui.separator();
+                ui.heading("Logical Reference Integrity");
+
+                if self.broken_references.is_empty() {
+                    ui.horizontal(|ui| {
+                        ui.colored_label(egui::Color32::from_rgb(0, 180, 0), "✅ No broken switch, variable, teleport, or common event references found.");
+                    });
+                } else {
+                    ui.horizontal(|ui| {
+                        ui.colored_label(egui::Color32::from_rgb(255, 140, 0), format!("⚠️ Found {} broken logical reference(s):", self.broken_references.len()));
+                    });
+
+                    egui::ScrollArea::vertical()
+                        .id_salt("broken_refs_scroll")
+                        .max_height(200.0)
+                        .show(ui, |ui| {
+                            egui::Grid::new("broken_refs_grid")
+                                .num_columns(3)
+                                .spacing([12.0, 6.0])
+                                .striped(true)
+                                .show(ui, |ui| {
+                                    ui.strong("Type");
+                                    ui.strong("Source Location");
+                                    ui.strong("Issue");
+                                    ui.end_row();
+
+                                    for ref_issue in &self.broken_references {
+                                        ui.colored_label(egui::Color32::from_rgb(255, 180, 50), &ref_issue.category);
+                                        ui.label(&ref_issue.source);
+                                        ui.colored_label(egui::Color32::from_rgb(255, 100, 100), &ref_issue.description);
                                         ui.end_row();
                                     }
                                 });

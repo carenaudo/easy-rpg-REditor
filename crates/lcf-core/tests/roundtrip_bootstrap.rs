@@ -557,7 +557,7 @@ fn test_reader_util_and_setup() {
     bits.set_bit(5, false);
     assert!(!bits.get_bit(5));
 
-    let mut actor = lcf_core::Actor::default();
+    let mut actor = lcf_core::Actor::default_for_engine(true);
     lcf_core::Setup::actor(&mut actor, true);
     assert_eq!(actor.final_level, 99);
     assert_eq!(actor.exp_base, 300);

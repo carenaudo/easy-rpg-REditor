@@ -15,6 +15,7 @@ pub struct EventDialogState {
     pub copied_page: Option<EventPageInfo>,
     pub cmd_dialog: EventCommandDialogState,
     pub asset_picker: AssetPickerState,
+    pub move_route_dialog: crate::dialogs::move_route_dialog::MoveRouteDialogState,
     pub command_search: String,
 }
 
@@ -28,6 +29,7 @@ impl Default for EventDialogState {
             copied_page: None,
             cmd_dialog: EventCommandDialogState::default(),
             asset_picker: AssetPickerState::default(),
+            move_route_dialog: crate::dialogs::move_route_dialog::MoveRouteDialogState::default(),
             command_search: String::new(),
         }
     }
@@ -155,12 +157,17 @@ impl EventDialogState {
                         }
                     }
 
-                    if ui.add_enabled(self.event.pages.len() > 1, egui::Button::new("Delete Page")).clicked() {
-                        self.event.pages.remove(self.selected_page);
-                        if self.selected_page >= self.event.pages.len() && self.selected_page > 0 {
-                            self.selected_page -= 1;
+                    if ui.add_enabled(self.event.pages.len() > 1 && self.selected_page < self.event.pages.len(), egui::Button::new("Delete Page")).clicked() {
+                        if self.selected_page < self.event.pages.len() && self.event.pages.len() > 1 {
+                            self.event.pages.remove(self.selected_page);
+                            for (i, p) in self.event.pages.iter_mut().enumerate() {
+                                p.id = (i + 1) as i32;
+                            }
+                            if self.selected_page >= self.event.pages.len() {
+                                self.selected_page = self.event.pages.len().saturating_sub(1);
+                            }
+                            self.selected_command = None;
                         }
-                        self.selected_command = None;
                     }
                 });
 
@@ -327,6 +334,11 @@ impl EventDialogState {
                                             ui.selectable_value(&mut page.move_type, m, event_move_type_label(m));
                                         }
                                     });
+                                if page.move_type == 6 {
+                                    if ui.button(format!("🛠 Custom Route ({})", page.move_route.move_commands.len())).clicked() {
+                                        self.move_route_dialog.open_for_event_page(&page.move_route);
+                                    }
+                                }
                             });
 
                             ui.horizontal(|ui| {
@@ -442,6 +454,12 @@ impl EventDialogState {
 
         if !is_open {
             self.is_open = false;
+        }
+
+        if let Some((new_route, _)) = self.move_route_dialog.show(ctx) {
+            if let Some(page) = self.event.pages.get_mut(self.selected_page) {
+                page.move_route = new_route;
+            }
         }
 
         result

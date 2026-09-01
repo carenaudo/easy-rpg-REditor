@@ -261,9 +261,10 @@ impl ChipsetsView {
                                     painter.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, border_col), egui::StrokeKind::Outside);
 
                                     // 2. High-Contrast Passability Overlay
-                                    let (symbol, color, tooltip) = match self.edit_mode {
+                                    let mut resp = resp;
+                                    match self.edit_mode {
                                         PassabilityEditMode::General => {
-                                            if (flag & 0x20) != 0 {
+                                            let (symbol, color, tooltip) = if (flag & 0x20) != 0 {
                                                 ("★", egui::Color32::from_rgb(80, 220, 255), "Above Hero (Star ★)")
                                             } else if (flag & 0x10) != 0 {
                                                 ("△", egui::Color32::from_rgb(255, 220, 0), "Counter / Bridge (Triangle △)")
@@ -273,16 +274,38 @@ impl ChipsetsView {
                                                 ("✕", egui::Color32::from_rgb(255, 80, 80), "Blocked (Cross ✕)")
                                             } else {
                                                 ("🠅", egui::Color32::from_rgb(255, 160, 60), "Directional Block")
-                                            }
+                                            };
+
+                                            let badge_r = (tile_size * 0.36).min(14.0);
+                                            painter.circle_filled(rect.center(), badge_r, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 185));
+                                            let font_sz = (tile_size * 0.44).clamp(10.0, 18.0);
+                                            painter.text(rect.center(), egui::Align2::CENTER_CENTER, symbol, egui::FontId::proportional(font_sz), color);
+                                            resp = resp.on_hover_text(tooltip);
                                         }
                                         PassabilityEditMode::Directional => {
-                                            let d = flag & 0x0F;
-                                            let s = match d {
-                                                15 => "ALL",
-                                                0 => "NONE",
-                                                _ => "DIR",
-                                            };
-                                            (s, egui::Color32::from_rgb(255, 180, 50), "Directional Passability")
+                                            let up_ok = (flag & 0x08) != 0;
+                                            let down_ok = (flag & 0x01) != 0;
+                                            let left_ok = (flag & 0x02) != 0;
+                                            let right_ok = (flag & 0x04) != 0;
+
+                                            let c_ok = egui::Color32::from_rgb(80, 255, 80);
+                                            let c_no = egui::Color32::from_rgba_unmultiplied(255, 60, 60, 80);
+                                            let arrow_sz = (tile_size * 0.28).clamp(8.0, 14.0);
+                                            let offset = tile_size * 0.27;
+
+                                            // Center badge
+                                            let badge_r = (tile_size * 0.40).min(16.0);
+                                            painter.circle_filled(rect.center(), badge_r, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 175));
+
+                                            // Up (0x08)
+                                            painter.text(rect.center() + egui::vec2(0.0, -offset), egui::Align2::CENTER_CENTER, "▲", egui::FontId::proportional(arrow_sz), if up_ok { c_ok } else { c_no });
+                                            // Down (0x01)
+                                            painter.text(rect.center() + egui::vec2(0.0, offset), egui::Align2::CENTER_CENTER, "▼", egui::FontId::proportional(arrow_sz), if down_ok { c_ok } else { c_no });
+                                            // Left (0x02)
+                                            painter.text(rect.center() + egui::vec2(-offset, 0.0), egui::Align2::CENTER_CENTER, "◀", egui::FontId::proportional(arrow_sz), if left_ok { c_ok } else { c_no });
+                                            // Right (0x04)
+                                            painter.text(rect.center() + egui::vec2(offset, 0.0), egui::Align2::CENTER_CENTER, "▶", egui::FontId::proportional(arrow_sz), if right_ok { c_ok } else { c_no });
+                                            resp = resp.on_hover_text("Click edge arrows to toggle directional passage (▲▼◀▶), or click center to toggle All/None.");
                                         }
                                         PassabilityEditMode::Terrain => {
                                             let tid = cs.terrain_data.get(idx).copied().unwrap_or(1);
@@ -291,16 +314,13 @@ impl ChipsetsView {
                                                 5 => "T5", 6 => "T6", 7 => "T7", 8 => "T8",
                                                 _ => "T+",
                                             };
-                                            (sym, egui::Color32::from_rgb(220, 150, 255), "Terrain Assignment")
+                                            let badge_r = (tile_size * 0.36).min(14.0);
+                                            painter.circle_filled(rect.center(), badge_r, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 185));
+                                            let font_sz = (tile_size * 0.44).clamp(10.0, 18.0);
+                                            painter.text(rect.center(), egui::Align2::CENTER_CENTER, sym, egui::FontId::proportional(font_sz), egui::Color32::from_rgb(220, 150, 255));
+                                            resp = resp.on_hover_text("Terrain Assignment");
                                         }
                                     };
-
-                                    // Badge pill for readability
-                                    let badge_r = (tile_size * 0.36).min(14.0);
-                                    painter.circle_filled(rect.center(), badge_r, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 185));
-                                    let font_sz = (tile_size * 0.44).clamp(10.0, 18.0);
-                                    painter.text(rect.center(), egui::Align2::CENTER_CENTER, symbol, egui::FontId::proportional(font_sz), color);
-                                    let resp = resp.on_hover_text(tooltip);
 
                                     if resp.clicked() {
                                         match self.edit_mode {
@@ -314,8 +334,35 @@ impl ChipsetsView {
                                                 *dirty = true;
                                             }
                                             PassabilityEditMode::Directional => {
-                                                data[idx] = (flag + 1) & 0x0F;
-                                                *dirty = true;
+                                                if let Some(pos) = resp.interact_pointer_pos() {
+                                                    let dx = pos.x - rect.center().x;
+                                                    let dy = pos.y - rect.center().y;
+                                                    let dist = (dx * dx + dy * dy).sqrt();
+                                                    let upper_flags = flag & 0xF0;
+                                                    let mut dir = flag & 0x0F;
+                                                    if dist < tile_size * 0.18 {
+                                                        // Center click: toggle all/none
+                                                        dir = if dir == 15 { 0 } else { 15 };
+                                                    } else if dy.abs() > dx.abs() {
+                                                        if dy < 0.0 {
+                                                            // Up (0x08)
+                                                            dir ^= 0x08;
+                                                        } else {
+                                                            // Down (0x01)
+                                                            dir ^= 0x01;
+                                                        }
+                                                    } else {
+                                                        if dx < 0.0 {
+                                                            // Left (0x02)
+                                                            dir ^= 0x02;
+                                                        } else {
+                                                            // Right (0x04)
+                                                            dir ^= 0x04;
+                                                        }
+                                                    }
+                                                    data[idx] = upper_flags | dir;
+                                                    *dirty = true;
+                                                }
                                             }
                                             PassabilityEditMode::Terrain => {
                                                 if idx < cs.terrain_data.len() {

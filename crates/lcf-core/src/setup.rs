@@ -7,16 +7,16 @@ impl Setup {
     /// Sets up default parameters, level caps, and stats for an Actor.
     pub fn actor(actor: &mut Actor, is_2k3: bool) {
         let max_final_level: usize = if is_2k3 {
-            if actor.final_level == -1 || actor.final_level == 0 || actor.final_level == 50 {
+            if actor.final_level == -1 || actor.final_level == 0 {
                 actor.final_level = 99;
             }
-            if actor.exp_base == -1 || actor.exp_base == 0 || actor.exp_base == 30 {
+            if actor.exp_base == -1 || actor.exp_base == 0 {
                 actor.exp_base = 300;
             }
-            if actor.exp_inflation == -1 || actor.exp_inflation == 0 || actor.exp_inflation == 30 {
+            if actor.exp_inflation == -1 || actor.exp_inflation == 0 {
                 actor.exp_inflation = 300;
             }
-            99
+            actor.final_level.max(1) as usize
         } else {
             if actor.final_level == -1 || actor.final_level == 0 {
                 actor.final_level = 50;
@@ -27,7 +27,7 @@ impl Setup {
             if actor.exp_inflation == -1 || actor.exp_inflation == 0 {
                 actor.exp_inflation = 30;
             }
-            50
+            actor.final_level.max(1) as usize
         };
 
         Self::parameters(&mut actor.parameters, max_final_level);

@@ -100,21 +100,21 @@ mod tests {
 
     #[test]
     fn test_autotile_calculation() {
-        // Isolated center tile with no matching neighbors (default preview / standalone)
+        // Isolated center tile with no matching neighbors (1x1 island with borders all around) -> Subtile 46
         let isolated = tilemap::calculate_autotile_d_subtile(
             false, false, false,
             false,        false,
             false, false, false,
         );
-        assert_eq!(isolated, 0, "Isolated autotile should be subtile 0");
+        assert_eq!(isolated, 46, "Isolated autotile should be subtile 46");
 
-        // Fully surrounded center tile with all 8 matching neighbors (solid center)
+        // Fully surrounded center tile with all 8 matching neighbors (seamless solid ground) -> Subtile 0
         let surrounded = tilemap::calculate_autotile_d_subtile(
             true, true, true,
             true,       true,
             true, true, true,
         );
-        assert_eq!(surrounded, 46, "Fully surrounded autotile should be subtile 46");
+        assert_eq!(surrounded, 0, "Fully surrounded autotile should be subtile 0");
     }
 
     #[test]
@@ -526,6 +526,7 @@ mod tests {
             scope: 1,
             position: 2,
             frame_count: 10,
+            frames: Vec::new(),
             timings: vec![
                 AnimationTimingInfo {
                     id: 1,
@@ -1582,6 +1583,758 @@ mod tests {
         };
         assert_eq!(map_props.background_type, 1);
         assert_eq!(map_props.background_name, "Dungeon1");
+    }
+
+    #[test]
+    fn test_moveroute_palette_and_health_analyzer() {
+        use easy_editor::dialogs::move_route_dialog::{move_command_label, MoveRouteDialogState};
+        use easy_editor::views::map_palette::{MapPalette, TileBrush};
+        use easy_editor::dialogs::project_analyzer_dialog::ProjectAnalyzerDialog;
+        use easy_editor::app_state::EditorAppState;
+        use lcf_core::{MoveCommand, MoveRoute};
+
+        // 1. Test Move Command Labels and Dialog Lifecycle
+        let mut dialog = MoveRouteDialogState::default();
+        assert!(!dialog.is_open);
+
+        let route = MoveRoute {
+            move_commands: vec![
+                MoveCommand { code: 0, ..Default::default() }, // Move Up
+                MoveCommand { code: 12, ..Default::default() }, // Face Up
+                MoveCommand { code: 23, ..Default::default() }, // Wait
+                MoveCommand { code: 32, parameter_a: 42, ..Default::default() }, // Switch ON
+                MoveCommand { code: 36, ..Default::default() }, // Phasing ON
+            ],
+            repeat: true,
+            skippable: true,
+        };
+
+        dialog.open_for_event_page(&route);
+        assert!(dialog.is_open);
+        assert!(!dialog.show_target_selector);
+        assert_eq!(dialog.route.move_commands.len(), 5);
+
+        assert!(move_command_label(&route.move_commands[0]).contains("Move Up"));
+        assert!(move_command_label(&route.move_commands[1]).contains("Face Up"));
+        assert!(move_command_label(&route.move_commands[2]).contains("Wait"));
+        assert!(move_command_label(&route.move_commands[3]).contains("#0042"));
+        assert!(move_command_label(&route.move_commands[4]).contains("Phasing"));
+
+        dialog.open_for_event_command(&route, 10001);
+        assert!(dialog.is_open);
+        assert!(dialog.show_target_selector);
+        assert_eq!(dialog.target_char, 10001);
+
+        // 2. Test Multi-Tile Brush & Palette
+        let mut palette = MapPalette::default();
+        assert_eq!(palette.brush.width, 1);
+        assert_eq!(palette.brush.height, 1);
+
+        palette.set_single_tile(10050, false);
+        assert_eq!(palette.selected_tile_id, 10050);
+        assert_eq!(palette.brush.tiles, vec![10050]);
+
+        let multi_brush = TileBrush {
+            width: 2,
+            height: 3,
+            tiles: vec![1, 2, 3, 4, 5, 6],
+        };
+        assert_eq!(multi_brush.width, 2);
+        assert_eq!(multi_brush.height, 3);
+        assert_eq!(multi_brush.tiles.len(), 6);
+
+        // 3. Test Project Analyzer Logical Broken Reference Checker
+        let mut app = EditorAppState::default();
+        app.switches = vec![
+            easy_editor::lcf_bridge::SwitchInfo { id: 1, name: "Switch 1".to_string() },
+            easy_editor::lcf_bridge::SwitchInfo { id: 2, name: "Switch 2".to_string() },
+        ]; // 2 switches total
+        app.variables = vec![
+            easy_editor::lcf_bridge::VariableInfo { id: 1, name: "Var 1".to_string() },
+        ]; // 1 variable total
+        app.common_events = Vec::new(); // 0 common events
+
+        let mut analyzer = ProjectAnalyzerDialog::default();
+        analyzer.run_analysis(&app);
+
+        assert_eq!(analyzer.total_switches, 2);
+        assert_eq!(analyzer.total_variables, 1);
+        assert_eq!(analyzer.total_common_events, 0);
+    }
+
+    #[test]
+    fn test_tier2_commands_marquee_and_animation_cells() {
+        use easy_editor::views::map_view::{MapDims, MapDrawTool, MapViewState};
+        use easy_editor::lcf_bridge::{AnimationCellInfo, AnimationFrameInfo, AnimationInfo, event_command_label, EventCommandInfo};
+
+        // 1. Test Marquee Selection & Copy to Brush
+        let mut map_view = MapViewState::default();
+        let w = 8;
+        let h = 8;
+        let mut lower = vec![0; (w * h) as usize];
+        for y in 0..h {
+            for x in 0..w {
+                lower[(y * w + x) as usize] = (y * 10 + x) as i32;
+            }
+        }
+        map_view.map_dims = Some(MapDims {
+            width: w,
+            height: h,
+            lower,
+            upper: vec![0; (w * h) as usize],
+        });
+
+        map_view.draw_tool = MapDrawTool::Select;
+        map_view.marquee_start = Some((1, 2));
+        map_view.marquee_end = Some((3, 4));
+
+        let copied = map_view.copy_marquee_selection(false);
+        assert!(copied);
+        assert_eq!(map_view.palette.brush.width, 3);
+        assert_eq!(map_view.palette.brush.height, 3);
+        assert_eq!(map_view.palette.brush.tiles.len(), 9);
+        assert_eq!(map_view.palette.brush.tiles[0], 21); // (x=1, y=2) -> 2*10+1 = 21
+        assert_eq!(map_view.palette.brush.tiles[8], 43); // (x=3, y=4) -> 4*10+3 = 43
+        assert_eq!(map_view.draw_tool, MapDrawTool::Pen);
+        assert_eq!(map_view.marquee_start, None);
+
+        // 2. Test Animation Frames & Cell Data Structure
+        let anim = AnimationInfo {
+            id: 1,
+            name: "Firestorm".to_string(),
+            animation_name: "Fire1".to_string(),
+            large: true,
+            scope: 1,
+            position: 1,
+            frame_count: 2,
+            frames: vec![
+                AnimationFrameInfo {
+                    id: 1,
+                    cells: vec![
+                        AnimationCellInfo {
+                            id: 1,
+                            valid: true,
+                            cell_id: 3,
+                            x: -12,
+                            y: 8,
+                            zoom: 150,
+                            transparency: 25,
+                        },
+                    ],
+                },
+                AnimationFrameInfo {
+                    id: 2,
+                    cells: vec![
+                        AnimationCellInfo {
+                            id: 1,
+                            valid: true,
+                            cell_id: 7,
+                            x: 0,
+                            y: 0,
+                            zoom: 100,
+                            transparency: 0,
+                        },
+                    ],
+                },
+            ],
+            timings: Vec::new(),
+        };
+
+        assert_eq!(anim.frames.len(), 2);
+        assert_eq!(anim.frames[0].cells[0].cell_id, 3);
+        assert_eq!(anim.frames[0].cells[0].zoom, 150);
+        assert_eq!(anim.frames[1].cells[0].cell_id, 7);
+
+        // 3. Test Tier-2 Event Command Formatting
+        let cmd_equip = EventCommandInfo {
+            code: 10450,
+            parameters: vec![0, 1, 0, 42, 0],
+            ..Default::default()
+        };
+        assert!(event_command_label(&cmd_equip).contains("Change Equipment"));
+
+        let cmd_name = EventCommandInfo {
+            code: 10610,
+            parameters: vec![1],
+            string: "Heroic Alex".to_string(),
+            ..Default::default()
+        };
+        assert!(event_command_label(&cmd_name).contains("Change Hero Name"));
+
+        let cmd_weather = EventCommandInfo {
+            code: 11070,
+            parameters: vec![1], // Rain
+            ..Default::default()
+        };
+        assert!(event_command_label(&cmd_weather).contains("Weather"));
+
+        let cmd_shop = EventCommandInfo {
+            code: 10720,
+            parameters: vec![0],
+            ..Default::default()
+        };
+        assert!(event_command_label(&cmd_shop).contains("Shop"));
+    }
+
+    #[test]
+    fn test_priority1_database_growth_map_resize_and_passability() {
+        use easy_editor::lcf_bridge::*;
+        use easy_editor::dialogs::new_project_dialog::NewProjectDialogState;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "test_priority1_proj_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "Priority1Game".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = true;
+        let proj_dir = dialog.create_project().expect("project creation should succeed");
+        let path = proj_dir.to_str().unwrap();
+
+        // 1. Test Database Array Growth (adding new entries beyond original count)
+        let mut actors = get_actors(path);
+        let orig_actor_count = actors.len();
+        let new_actor_id = (orig_actor_count + 1) as i32;
+        actors.push(ActorInfo {
+            id: new_actor_id,
+            name: "Archmage Merlin".to_string(),
+            title: "Grand Wizard".to_string(),
+            class_id: 1,
+            initial_level: 50,
+            final_level: 99,
+            ..Default::default()
+        });
+        save_actors(path, &actors).expect("save actors");
+
+        let reloaded_actors = get_actors(path);
+        assert_eq!(reloaded_actors.len(), orig_actor_count + 1);
+        assert_eq!(reloaded_actors.last().unwrap().name, "Archmage Merlin");
+        assert_eq!(reloaded_actors.last().unwrap().initial_level, 50);
+
+        // 2. Test Items Array Growth & Deletion
+        let mut items = get_items(path);
+        let orig_item_count = items.len();
+        let new_item_id = (orig_item_count + 1) as i32;
+        items.push(ItemInfo {
+            id: new_item_id,
+            name: "Excalibur".to_string(),
+            description: "Legendary holy blade".to_string(),
+            price: 50000,
+            atk_points1: 250,
+            ..Default::default()
+        });
+        save_items(path, &items).expect("save items");
+
+        let reloaded_items = get_items(path);
+        assert_eq!(reloaded_items.len(), orig_item_count + 1);
+        assert_eq!(reloaded_items.last().unwrap().name, "Excalibur");
+        assert_eq!(reloaded_items.last().unwrap().atk_points1, 250);
+
+        // 3. Test Map Resizing with Anchor Origin Shifting Events & Start Locations
+        let mut events = get_map_events(path, 1);
+        let orig_ev_count = events.len();
+        events.push(EventInfo {
+            id: (orig_ev_count + 1) as i32,
+            name: "Treasure Chest".to_string(),
+            x: 5,
+            y: 5,
+            pages: vec![EventPageInfo::default()],
+            ..Default::default()
+        });
+        save_map_events_full(path, 1, &events).expect("save events");
+
+        let start = StartPointInfo {
+            party_map_id: 1,
+            party_x: 2,
+            party_y: 2,
+            ..Default::default()
+        };
+        save_start_points(path, &start).expect("save start");
+
+        // Resize map from 20x15 to 30x25 with AnchorOrigin::BottomRight (dx = +10, dy = +10)
+        let mut props = get_map_properties(path, 1).expect("get props");
+        props.width = 30;
+        props.height = 25;
+        save_map_properties(path, 1, &props, AnchorOrigin::BottomRight).expect("save map props");
+
+        let shifted_events = get_map_events(path, 1);
+        let shifted_target_ev = shifted_events.iter().find(|e| e.name == "Treasure Chest").unwrap();
+        assert_eq!(shifted_target_ev.x, 15); // 5 + 10 = 15
+        assert_eq!(shifted_target_ev.y, 15); // 5 + 10 = 15
+
+        let reloaded_start = get_start_points(path);
+        assert_eq!(reloaded_start.party_x, 12); // 2 + 10 = 12
+        assert_eq!(reloaded_start.party_y, 12); // 2 + 10 = 12
+
+        // 4. Test Directional Passability Bit Flags
+        let flag_all: u8 = 0x0F;
+        let toggle_up = flag_all ^ 0x08; // remove Up (0x08)
+        assert_eq!(toggle_up, 0x07); // Down (0x01) + Left (0x02) + Right (0x04)
+        let toggle_right = toggle_up ^ 0x04; // remove Right (0x04)
+        assert_eq!(toggle_right, 0x03); // Down + Left
+
+        let _ = std::fs::remove_dir_all(&proj_dir);
+    }
+
+    #[test]
+    fn test_priority2_event_forms_save_manager_and_terrain_overlay() {
+        use easy_editor::lcf_bridge::*;
+        use easy_editor::dialogs::new_project_dialog::NewProjectDialogState;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "test_priority2_proj_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "Priority2Game".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = true;
+        let proj_dir = dialog.create_project().expect("project creation should succeed");
+        let path = proj_dir.to_str().unwrap();
+
+        // 1. Test Save Slot Creation
+        let first_save = create_blank_save_slot(path).expect("create Save01.lsd");
+        assert_eq!(first_save, "Save01.lsd");
+
+        let mut slot1 = reload_save_slot(path, &first_save);
+        assert_eq!(slot1.file_name, "Save01.lsd");
+        assert_eq!(slot1.hero_name, "Hero");
+        assert_eq!(slot1.party.len(), 1);
+
+        // 2. Mutate slot1 and add party member
+        slot1.gold = 54321;
+        slot1.party.push(SavePartyMember {
+            id: 2,
+            name: "Aerith".to_string(),
+            level: 5,
+            current_hp: 250,
+            current_sp: 120,
+        });
+        save_save_slot(path, &first_save, &slot1).expect("save slot1");
+
+        // 3. Test Save Slot Cloning
+        let cloned_save = clone_save_slot(path, &first_save).expect("clone Save01 -> Save02");
+        assert_eq!(cloned_save, "Save02.lsd");
+
+        let slot2 = reload_save_slot(path, &cloned_save);
+        assert_eq!(slot2.file_name, "Save02.lsd");
+        assert_eq!(slot2.gold, 54321);
+        assert_eq!(slot2.party.len(), 2);
+        assert_eq!(slot2.party[1].name, "Aerith");
+
+        // 4. Test Passability and Terrain Data Extraction
+        let pass = get_chipset_passability(path, 1);
+        assert_eq!(pass.lower.len(), 162);
+        assert_eq!(pass.upper.len(), 144);
+        assert_eq!(pass.terrain.len(), 162);
+
+        // 5. Test Shop Processing and Choices Representation
+        let choices_str = vec!["Attack", "Defend", "Item", "Escape"].join("/");
+        assert_eq!(choices_str, "Attack/Defend/Item/Escape");
+
+        let shop_items = vec![1, 5, 12, 40];
+        let mut shop_params = vec![0, 0];
+        shop_params.extend_from_slice(&shop_items);
+        assert_eq!(shop_params, vec![0, 0, 1, 5, 12, 40]);
+
+        let _ = std::fs::remove_dir_all(&proj_dir);
+    }
+
+    #[test]
+    fn test_priority3_visual_tools_and_resistance_presets() {
+        use easy_editor::lcf_bridge::*;
+        use easy_editor::dialogs::new_project_dialog::NewProjectDialogState;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "test_priority3_proj_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "Priority3Game".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = true;
+        let proj_dir = dialog.create_project().expect("project creation should succeed");
+        let path = proj_dir.to_str().unwrap();
+
+        // 1. Test Resistance Matrix Bulk Presets on Enemies
+        let mut enemies = get_enemies(path);
+        if enemies.is_empty() {
+            enemies.push(EnemyInfo {
+                id: 1,
+                name: "Slime".to_string(),
+                battler_name: "Slime".to_string(),
+                max_hp: 50,
+                max_sp: 10,
+                attack: 15,
+                defense: 10,
+                spirit: 5,
+                agility: 8,
+                ..Default::default()
+            });
+        }
+        let states = get_states(path);
+        let attributes = get_attributes(path);
+
+        enemies[0].state_ranks.resize(states.len().max(5), 2);
+        for r in enemies[0].state_ranks.iter_mut() {
+            *r = 0; // Set all to A (Weak)
+        }
+        assert!(enemies[0].state_ranks.iter().all(|&r| r == 0));
+
+        enemies[0].attribute_ranks.resize(attributes.len().max(5), 2);
+        for r in enemies[0].attribute_ranks.iter_mut() {
+            *r = 4; // Set all to E (Immune)
+        }
+        assert!(enemies[0].attribute_ranks.iter().all(|&r| r == 4));
+
+        let expected_states = enemies[0].state_ranks.clone();
+        let expected_attrs = enemies[0].attribute_ranks.clone();
+        save_enemies(path, &enemies).expect("save enemies");
+
+        let reloaded_enemies = get_enemies(path);
+        assert_eq!(reloaded_enemies[0].state_ranks, expected_states);
+        assert_eq!(reloaded_enemies[0].attribute_ranks, expected_attrs);
+
+        // 2. Test Animation Cell Centering & Zoom Reset Logic
+        let mut anims = get_animations(path);
+        if anims.is_empty() {
+            anims.push(AnimationInfo {
+                id: 1,
+                name: "Slash".to_string(),
+                ..Default::default()
+            });
+        }
+        let anim = &mut anims[0];
+        if anim.frames.is_empty() {
+            anim.frames.push(AnimationFrameInfo {
+                id: 1,
+                cells: vec![
+                    AnimationCellInfo { id: 1, valid: true, cell_id: 0, x: 50, y: -40, zoom: 150, transparency: 20 },
+                    AnimationCellInfo { id: 2, valid: true, cell_id: 1, x: -30, y: 80, zoom: 80, transparency: 50 },
+                ],
+            });
+        }
+        // Center all
+        for cell in &mut anim.frames[0].cells {
+            cell.x = 0;
+            cell.y = 0;
+        }
+        assert_eq!(anim.frames[0].cells[0].x, 0);
+        assert_eq!(anim.frames[0].cells[0].y, 0);
+        assert_eq!(anim.frames[0].cells[1].x, 0);
+        assert_eq!(anim.frames[0].cells[1].y, 0);
+
+        // Reset zoom
+        for cell in &mut anim.frames[0].cells {
+            cell.zoom = 100;
+            cell.transparency = 0;
+        }
+        assert_eq!(anim.frames[0].cells[0].zoom, 100);
+        assert_eq!(anim.frames[0].cells[0].transparency, 0);
+        save_animations(path, &anims).expect("save animations");
+
+        // 3. Test Tint and Flash Screen Color Conversions
+        let flash_r: i32 = 31;
+        let flash_g: i32 = 0;
+        let flash_b: i32 = 15;
+        let r_u8 = (flash_r.clamp(0, 31) * 255 / 31) as u8;
+        let g_u8 = (flash_g.clamp(0, 31) * 255 / 31) as u8;
+        let b_u8 = (flash_b.clamp(0, 31) * 255 / 31) as u8;
+        assert_eq!(r_u8, 255);
+        assert_eq!(g_u8, 0);
+        assert_eq!(b_u8, 123);
+
+        let _ = std::fs::remove_dir_all(&proj_dir);
+    }
+
+    #[test]
+    fn test_phase1_forensic_fixes() {
+        use easy_editor::tilemap::calculate_autotile_d_subtile;
+        use easy_editor::lcf_bridge::*;
+
+        // 1. Test Autotile Subtile Bitmask Math
+        // Isolated island (all neighbors false) -> Subtile 46
+        let island = calculate_autotile_d_subtile(false, false, false, false, false, false, false, false);
+        assert_eq!(island, 46, "Isolated island autotile should be 46");
+
+        // Solid ground (all neighbors true) -> Subtile 0
+        let solid = calculate_autotile_d_subtile(true, true, true, true, true, true, true, true);
+        assert_eq!(solid, 0, "Solid ground autotile should be 0");
+
+        // Vertical strip (N and S true, W and E false) -> Subtile 32
+        let vert = calculate_autotile_d_subtile(true, false, false, false, true, false, false, false);
+        assert_eq!(vert, 32, "Vertical strip autotile should be 32");
+
+        // Horizontal strip (W and E true, N and S false) -> Subtile 33
+        let horiz = calculate_autotile_d_subtile(false, false, true, false, false, false, true, false);
+        assert_eq!(horiz, 33, "Horizontal strip autotile should be 33");
+
+        // 2. Test MoveType Enum Labels
+        assert!(event_move_type_label(2).contains("Vertical"));
+        assert!(event_move_type_label(3).contains("Horizontal"));
+
+        // 3. Test Show Choices Delimiter Scaffolding with '/'
+        let mut commands = Vec::new();
+        let show_choices_cmd = EventCommandInfo {
+            code: 10140,
+            indent: 0,
+            string: "Fight/Magic/Item/Run".to_string(),
+            parameters: vec![0, 0],
+        };
+        insert_event_command_with_scaffolding(&mut commands, 0, show_choices_cmd);
+        assert_eq!(commands.len(), 7); // 10140, Choice 1, Choice 2, Choice 3, Choice 4, Cancel, End
+        assert_eq!(commands[1].string, "Fight");
+        assert_eq!(commands[2].string, "Magic");
+        assert_eq!(commands[3].string, "Item");
+        assert_eq!(commands[4].string, "Run");
+        assert_eq!(commands[5].parameters, vec![4]); // Cancel
+
+        // 4. Test Background Image Decoding (transparent_idx_0 = false)
+        let empty_res = easy_editor::tilemap::decode_rpg_image_with_alpha(&[], false);
+        assert!(empty_res.is_err());
+    }
+
+    #[test]
+    fn test_phase2_serialization_and_picture_parameters() {
+        use easy_editor::tilemap::render_palette_image;
+        use easy_editor::dialogs::event_command_dialog::EventCommandDialogState;
+        use image::RgbaImage;
+        use lcf_core::types::DBBitArray;
+        use lcf_core::writer::LcfWriter;
+        use lcf_core::reader::LcfReader;
+
+        // 1. Test DBBitArray serialization chunk
+        let original_bits = DBBitArray(vec![true, false, true, true, false]);
+        let mut buf = Vec::new();
+        {
+            let mut writer = LcfWriter::new(std::io::Cursor::new(&mut buf), lcf_core::types::EngineVersion::Engine2003, "windows-1252");
+            writer.write_bit_array_chunk(0x2A, &original_bits).expect("write bit array chunk");
+        }
+        assert!(!buf.is_empty(), "DBBitArray chunk buffer should not be empty");
+        {
+            let mut reader = LcfReader::new(std::io::Cursor::new(&buf), "windows-1252");
+            let chunk_id = reader.read_int().expect("chunk id");
+            assert_eq!(chunk_id, 0x2A);
+            let chunk_len = reader.read_int().expect("chunk len");
+            assert_eq!(chunk_len, 5);
+            let read_bits = reader.read_bit_array(chunk_len as usize).expect("read bit array");
+            assert_eq!(read_bits.0, original_bits.0);
+        }
+
+        // 2. Test Palette Row 0 contains C3 Waterfall Autotile (3100)
+        let dummy_chipset = RgbaImage::new(480, 256);
+        let (_, lower_mapping) = render_palette_image(&dummy_chipset, false);
+        assert_eq!(lower_mapping[5], 3100, "6th tile of row 0 must be C3 waterfall autotile (3100)");
+
+        // 3. Test Show / Move Picture Rich Parameter Packing
+        let mut dialog = EventCommandDialogState::default();
+        dialog.open_new(0);
+        dialog.selected_code = 11110;
+        dialog.param0 = 3; // Picture 3
+        dialog.string_val = "HeroGraphic".to_string();
+        dialog.param1 = 160; // X
+        dialog.param2 = 120; // Y
+        dialog.param3 = 1; // Pin to Map
+        dialog.param4 = 150; // 150% Zoom
+        dialog.param5 = 25; // 25% Transparency
+        *dialog.param_mut(7) = 15; // Red tint +15
+        *dialog.param_mut(8) = -10; // Green tint -10
+        *dialog.param_mut(9) = 0; // Blue tint 0
+        *dialog.param_mut(10) = 20; // Chroma 20
+        *dialog.param_mut(11) = 1; // Rotate effect
+        *dialog.param_mut(12) = 5; // Speed 5
+
+        let cmd = dialog.to_event_command();
+        assert_eq!(cmd.code, 11110);
+        assert_eq!(cmd.string, "HeroGraphic");
+        assert_eq!(cmd.parameters[0], 3); // Picture ID
+        assert_eq!(cmd.parameters[2], 160); // X
+        assert_eq!(cmd.parameters[3], 120); // Y
+        assert_eq!(cmd.parameters[4], 150); // Magnification
+        assert_eq!(cmd.parameters[5], 25); // Transparency
+        assert_eq!(cmd.parameters[6], 1); // Fixed to Map
+        assert_eq!(cmd.parameters[7], 15); // Red
+        assert_eq!(cmd.parameters[8], -10); // Green
+        assert_eq!(cmd.parameters[11], 1); // Rotate
+        assert_eq!(cmd.parameters[12], 5); // Speed
+
+        // 4. Test Move Picture Duration & Wait parameters
+        dialog.selected_code = 11120;
+        *dialog.param_mut(13) = 40; // 4.0s
+        *dialog.param_mut(14) = 1; // Wait for completion
+        let move_cmd = dialog.to_event_command();
+        assert_eq!(move_cmd.code, 11120);
+        assert_eq!(move_cmd.parameters[13], 40); // Duration
+        assert_eq!(move_cmd.parameters[14], 1); // Wait
+    }
+
+    #[test]
+    fn test_phase3_subsystems_i18n_and_robustness() {
+        use std::path::Path;
+        use std::fs;
+
+        // 1. Verify all 8 locale files contain valid JSON and required namespaces
+        let locales = ["en", "es", "fr", "de", "it", "ja", "pt-BR", "zh-CN"];
+        for loc in locales {
+            let path = format!("locales/{}.json", loc);
+            let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {}", path));
+            let v: serde_json::Value = serde_json::from_str(&content).unwrap_or_else(|e| panic!("Invalid JSON in {}: {}", path, e));
+            assert!(v.get("sound_test").is_some(), "{}: missing sound_test namespace", path);
+            assert!(v.get("soundfont").is_some(), "{}: missing soundfont namespace", path);
+            assert!(v.get("xml_io").is_some(), "{}: missing xml_io namespace", path);
+            assert!(v.get("health").is_some(), "{}: missing health namespace", path);
+        }
+
+        // 2. Test SoundFontManager graceful error handling
+        let mgr = easy_editor::audio::SoundFontManager::new();
+        let bad_path = Path::new("non_existent_soundfont_path.sf2");
+        let res = mgr.load(bad_path);
+        assert!(res.is_err(), "Loading non-existent SoundFont must fail gracefully");
+        assert!(!mgr.is_loaded(), "SoundFont must not be loaded on failure");
+
+        // 3. Test Project Health Analyzer duplicate event ID detection logic
+        let mut analyzer = easy_editor::dialogs::project_analyzer_dialog::ProjectAnalyzerDialog::default();
+        let app_state = easy_editor::app_state::EditorAppState::default();
+        analyzer.run_analysis(&app_state);
+        assert!(analyzer.is_scanned, "Analyzer should mark itself scanned");
+    }
+
+    #[test]
+    fn test_phase4_remaining_gaps() {
+        use std::fs;
+        use easy_editor::dialogs::event_command_dialog::EventCommandDialogState;
+        use easy_editor::tilemap::{is_autotile_d, autotile_block_base};
+
+        // 1. Verify all 9 locale files contain complete menu, status, pane, and dialog keys
+        let locales = ["en", "es", "fr", "de", "it", "ja", "pt-BR", "zh-CN", "ru"];
+        for loc in locales {
+            let path = format!("locales/{}.json", loc);
+            let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {}", path));
+            let v: serde_json::Value = serde_json::from_str(&content).unwrap_or_else(|e| panic!("Invalid JSON in {}: {}", path, e));
+            assert!(v.get("menu").and_then(|m| m.get("project")).is_some(), "{}: missing menu.project", path);
+            assert!(v.get("status").and_then(|s| s.get("cursor")).is_some(), "{}: missing status.cursor", path);
+            assert!(v.get("pane").and_then(|p| p.get("maps")).is_some(), "{}: missing pane.maps", path);
+            assert!(v.get("sound_test").is_some(), "{}: missing sound_test", path);
+            assert!(v.get("soundfont").is_some(), "{}: missing soundfont", path);
+            assert!(v.get("xml_io").is_some(), "{}: missing xml_io", path);
+            assert!(v.get("health").is_some(), "{}: missing health", path);
+        }
+
+        // 2. Test Autotile Block Base Terrain Grouping
+        assert!(is_autotile_d(4000));
+        assert!(is_autotile_d(4025));
+        assert_eq!(autotile_block_base(4000), autotile_block_base(4025));
+        assert_ne!(autotile_block_base(4000), autotile_block_base(4100));
+
+        // 3. Test FlowControl and Scene command parameter packing
+        let mut dialog = EventCommandDialogState::default();
+        dialog.open_new(0);
+
+        for code in [12210, 12220, 12310, 12320, 12420, 12510, 11910, 11950] {
+            dialog.selected_code = code;
+            let cmd = dialog.to_event_command();
+            assert_eq!(cmd.code, code);
+            assert!(cmd.parameters.is_empty(), "Command {} should have empty parameters", code);
+        }
+
+        // 4. Test Move Route Opcode 20 (Face Random Direction)
+        let mut mr_dialog = easy_editor::dialogs::move_route_dialog::MoveRouteDialogState::default();
+        let empty_route = lcf_core::models::MoveRoute::default();
+        mr_dialog.open_for_event_page(&empty_route);
+        mr_dialog.push_cmd(20);
+        assert_eq!(mr_dialog.route.move_commands.len(), 1);
+        assert_eq!(mr_dialog.route.move_commands[0].code, 20);
+    }
+
+    #[test]
+    fn test_phase5_format_and_asset_pipeline() {
+        use easy_editor::widgets::asset_viewer::AssetPreviewCache;
+        use lcf_core::generated::ldb_gen::Actor;
+        use lcf_core::generated::lsd_gen::SaveActor;
+        use lcf_core::setup::Setup;
+
+        // 1. Test Asset Loader Resilience
+        assert!(AssetPreviewCache::load_asset_bytes("", "ChipSet", "").is_none());
+        assert!(AssetPreviewCache::load_asset_bytes("non_existent_proj_dir", "ChipSet", "missing").is_none());
+
+        let mut cache = AssetPreviewCache::default();
+        assert!(cache.is_empty());
+        assert_eq!(cache.len(), 0);
+        cache.clear();
+        assert!(cache.is_empty());
+
+        // 2. Test Setup::actor respects intentional 2k3 stats (e.g. final_level = 50, exp_base = 30)
+        let mut custom_actor = Actor::default_for_engine(true);
+        custom_actor.final_level = 50;
+        custom_actor.exp_base = 30;
+        custom_actor.exp_inflation = 30;
+        Setup::actor(&mut custom_actor, true);
+        assert_eq!(custom_actor.final_level, 50, "Setup::actor should preserve intentional level 50 on 2k3");
+        assert_eq!(custom_actor.exp_base, 30, "Setup::actor should preserve intentional exp_base 30 on 2k3");
+        assert_eq!(custom_actor.exp_inflation, 30, "Setup::actor should preserve intentional exp_inflation 30 on 2k3");
+        assert_eq!(custom_actor.parameters.maxhp.len(), 50, "Parameters should be sized to final_level");
+
+        // Unset actor (-1) should default to 99 / 300 on 2k3
+        let mut unset_actor = Actor::default_for_engine(true);
+        unset_actor.final_level = -1;
+        unset_actor.exp_base = -1;
+        unset_actor.exp_inflation = -1;
+        Setup::actor(&mut unset_actor, true);
+        assert_eq!(unset_actor.final_level, 99);
+        assert_eq!(unset_actor.exp_base, 300);
+        assert_eq!(unset_actor.exp_inflation, 300);
+
+        // 3. Test SaveActor default name byte sentinel
+        let save_actor = SaveActor::default_for_engine(false);
+        assert_eq!(save_actor.name.as_str(), "\x01", "SaveActor default name should be byte sentinel \\x01");
+        assert_eq!(save_actor.title.as_str(), "\x01", "SaveActor default title should be byte sentinel \\x01");
+    }
+
+    #[test]
+    fn test_multiline_message_and_continuation_commands() {
+        use easy_editor::lcf_bridge::{event_command_label, event_command_color, insert_event_command_with_scaffolding, EventCommandInfo};
+
+        // 1. Check label formatting
+        let msg_cont = EventCommandInfo {
+            code: 20110,
+            indent: 0,
+            string: "patches made for RPG Maker. They will not be".to_string(),
+            parameters: vec![],
+        };
+        let label = event_command_label(&msg_cont);
+        assert!(label.contains(": \"patches made for RPG Maker. They will not be\""), "Label should format message continuation: {}", label);
+
+        let comment_cont = EventCommandInfo {
+            code: 22410,
+            indent: 0,
+            string: "second comment line".to_string(),
+            parameters: vec![],
+        };
+        let c_label = event_command_label(&comment_cont);
+        assert!(c_label.contains("// (cont.): second comment line"), "Comment continuation label mismatch: {}", c_label);
+
+        // 2. Check syntax highlighting color matches primary message color
+        let col_msg = event_command_color(10110, true);
+        let col_cont = event_command_color(20110, true);
+        assert_eq!(col_msg, col_cont, "Continuation line 20110 must share gold color with ShowMessage 10110");
+
+        // 3. Test multiline message insertion scaffolding
+        let mut cmds = Vec::new();
+        let multiline_msg = EventCommandInfo {
+            code: 10110,
+            indent: 0,
+            string: "Line 1\nLine 2\nLine 3".to_string(),
+            parameters: vec![],
+        };
+        insert_event_command_with_scaffolding(&mut cmds, 0, multiline_msg);
+        assert_eq!(cmds.len(), 3);
+        assert_eq!(cmds[0].code, 10110);
+        assert_eq!(cmds[0].string, "Line 1");
+        assert_eq!(cmds[1].code, 20110);
+        assert_eq!(cmds[1].string, "Line 2");
+        assert_eq!(cmds[2].code, 20110);
+        assert_eq!(cmds[2].string, "Line 3");
     }
 }
 

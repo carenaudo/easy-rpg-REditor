@@ -357,8 +357,8 @@ impl SaveActor {
     pub fn default_for_engine(_is_2k3: bool) -> Self {
         Self {
             id: 0,
-            name: DBString::new("kEmptyName"),
-            title: DBString::new("kEmptyName"),
+            name: DBString::new("\x01"),
+            title: DBString::new("\x01"),
             sprite_name: DBString::default(),
             sprite_id: 0,
             transparency: 0,

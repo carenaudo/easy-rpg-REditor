@@ -2390,6 +2390,46 @@ mod tests {
         assert_eq!(event_command_label(&lbl), "◆ Label: #5");
         let jmp = EventCommandInfo { code: 12120, indent: 0, string: String::new(), parameters: vec![5] };
         assert_eq!(event_command_label(&jmp), "◆ Jump to Label: #5");
+
+        // 5. Test Opcode 10 & 0 (END / Blank Slot)
+        let end_cmd = EventCommandInfo { code: 10, indent: 1, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&end_cmd), "  ◆", "Opcode 10 should format as plain indented diamond without Command #10");
+        let zero_cmd = EventCommandInfo { code: 0, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&zero_cmd), "◆");
+    }
+
+    #[test]
+    fn test_easyrpg_extensions_and_all_opcodes_mapped() {
+        use easy_editor::lcf_bridge::{event_command_label, EventCommandInfo};
+
+        // Test EasyRPG Player extension opcodes
+        let trig = EventCommandInfo { code: 2002, indent: 0, string: String::new(), parameters: vec![10, 20] };
+        assert_eq!(event_command_label(&trig), "◆ EasyRPG: Trigger Event At [10, 20]");
+
+        let pathfinder = EventCommandInfo { code: 2003, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&pathfinder), "◆ EasyRPG: Pathfinder");
+
+        let json_proc = EventCommandInfo { code: 2055, indent: 0, string: "test.json".to_string(), parameters: vec![] };
+        assert_eq!(event_command_label(&json_proc), "◆ EasyRPG: Process JSON (test.json)");
+
+        let clone_evt = EventCommandInfo { code: 2056, indent: 0, string: String::new(), parameters: vec![1, 5, 5] };
+        assert_eq!(event_command_label(&clone_evt), "◆ EasyRPG: Clone Map Event [1, 5, 5]");
+
+        // Test Official extensions (5001..5005)
+        let load_menu = EventCommandInfo { code: 5001, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&load_menu), "◆ Open Load Menu");
+
+        let exit_game = EventCommandInfo { code: 5002, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&exit_game), "◆ Exit Game");
+
+        let toggle_atb = EventCommandInfo { code: 5003, indent: 0, string: String::new(), parameters: vec![0] };
+        assert_eq!(event_command_label(&toggle_atb), "◆ Toggle ATB Mode: Active");
+
+        let fullscreen = EventCommandInfo { code: 5004, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&fullscreen), "◆ Toggle Fullscreen");
+
+        let video_opt = EventCommandInfo { code: 5005, indent: 0, string: String::new(), parameters: vec![] };
+        assert_eq!(event_command_label(&video_opt), "◆ Open Video Options");
     }
 }
 

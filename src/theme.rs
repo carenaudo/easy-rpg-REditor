@@ -216,33 +216,37 @@ pub mod colors {
     pub fn event_command(code: i32, is_dark: bool) -> egui::Color32 {
         if is_dark {
             match code {
+                0 | 10 => egui::Color32::from_rgb(148, 163, 184), // End / Blank slot (Muted Slate)
                 10110..=10150 | 20110 | 20140..=20141 => egui::Color32::from_rgb(250, 204, 21), // Messages & Choices (Gold)
-                12010..=12410 | 22010..=22410 | 23310..=23311 => egui::Color32::from_rgb(56, 189, 248), // Flow control & Branches (Cyan)
+                1005 | 12010..=12410 | 22010..=22410 | 23310..=23311 => egui::Color32::from_rgb(56, 189, 248), // Flow control & Branches (Cyan)
                 10210..=10330 | 11610 => egui::Color32::from_rgb(74, 222, 128), // Switches, Variables & Progression (Green)
-                10410..=10490 => egui::Color32::from_rgb(45, 212, 191), // Character Stats, Skills, HP/SP, Equip (Teal)
+                1008..=1009 | 10410..=10490 => egui::Color32::from_rgb(45, 212, 191), // Character Stats, Skills, HP/SP, Equip, Class (Teal)
                 10610..=10690 => egui::Color32::from_rgb(251, 191, 36), // Hero Customization & Graphics (Amber)
                 10810..=10870 | 11310..=11410 | 11810..=11840 => egui::Color32::from_rgb(251, 146, 60), // Movement & Teleport (Orange)
                 10910..=10920 | 11710..=11750 => egui::Color32::from_rgb(163, 230, 53), // Map Environment & Terrain (Lime)
                 11010..=11210 => egui::Color32::from_rgb(167, 139, 250), // Screen & Picture Effects (Violet)
                 11510..=11560 => egui::Color32::from_rgb(232, 121, 249), // Audio & Music (Magenta)
-                10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => egui::Color32::from_rgb(248, 113, 113), // Battle & Scenes (Red)
+                1006..=1007 | 5001..=5005 | 10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => egui::Color32::from_rgb(248, 113, 113), // Battle & Scenes (Red)
+                2002..=2058 => egui::Color32::from_rgb(96, 165, 250), // EasyRPG Extensions (Electric Blue)
                 3001..=3032 => egui::Color32::from_rgb(200, 140, 255), // Maniac Patch (Purple)
                 _ => egui::Color32::from_rgb(226, 232, 240),
             }
         } else {
             match code {
-                10110..=10150 | 20110 | 20140..=20141 => egui::Color32::from_rgb(180, 120, 0), // Messages & Choices (Dark Gold)
-                12010..=12410 | 22010..=22410 | 23310..=23311 => egui::Color32::from_rgb(2, 132, 199), // Flow control & Branches (Dark Cyan)
-                10210..=10330 | 11610 => egui::Color32::from_rgb(22, 163, 74), // Switches, Variables & Progression (Dark Green)
-                10410..=10490 => egui::Color32::from_rgb(13, 148, 136), // Character Stats, Skills, HP/SP, Equip (Dark Teal)
-                10610..=10690 => egui::Color32::from_rgb(217, 119, 6), // Hero Customization & Graphics (Dark Amber)
-                10810..=10870 | 11310..=11410 | 11810..=11840 => egui::Color32::from_rgb(195, 90, 10), // Movement & Teleport (Dark Orange)
-                10910..=10920 | 11710..=11750 => egui::Color32::from_rgb(101, 163, 13), // Map Environment & Terrain (Dark Lime)
-                11010..=11210 => egui::Color32::from_rgb(124, 58, 237), // Screen & Picture Effects (Dark Violet)
-                11510..=11560 => egui::Color32::from_rgb(147, 40, 160), // Audio & Music (Dark Magenta)
-                10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => egui::Color32::from_rgb(210, 35, 35), // Battle & Scenes (Dark Red)
-                3001..=3032 => egui::Color32::from_rgb(147, 51, 178), // Maniac Patch (Dark Purple)
-                _ => egui::Color32::from_rgb(30, 45, 65),
+                0 | 10 => egui::Color32::from_rgb(100, 116, 139), // End / Blank slot (Slate-500)
+                10110..=10150 | 20110 | 20140..=20141 => egui::Color32::from_rgb(146, 64, 14), // Messages & Choices (Amber-800)
+                1005 | 12010..=12410 | 22010..=22410 | 23310..=23311 => egui::Color32::from_rgb(3, 105, 161), // Flow control & Branches (Sky-700)
+                10210..=10330 | 11610 => egui::Color32::from_rgb(21, 128, 61), // Switches, Variables & Progression (Green-700)
+                1008..=1009 | 10410..=10490 => egui::Color32::from_rgb(15, 118, 110), // Character Stats, Skills, HP/SP, Equip, Class (Teal-700)
+                10610..=10690 => egui::Color32::from_rgb(180, 83, 9), // Hero Customization & Graphics (Amber-700)
+                10810..=10870 | 11310..=11410 | 11810..=11840 => egui::Color32::from_rgb(194, 65, 12), // Movement & Teleport (Orange-700)
+                10910..=10920 | 11710..=11750 => egui::Color32::from_rgb(77, 124, 15), // Map Environment & Terrain (Lime-800)
+                11010..=11210 => egui::Color32::from_rgb(109, 40, 217), // Screen & Picture Effects (Violet-700)
+                11510..=11560 => egui::Color32::from_rgb(162, 28, 175), // Audio & Music (Fuchsia-700)
+                1006..=1007 | 5001..=5005 | 10710..=10740 | 11910..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => egui::Color32::from_rgb(185, 28, 28), // Battle & Scenes (Red-700)
+                2002..=2058 => egui::Color32::from_rgb(29, 78, 216), // EasyRPG Extensions (Blue-700)
+                3001..=3032 => egui::Color32::from_rgb(126, 34, 206), // Maniac Patch (Purple-700)
+                _ => egui::Color32::from_rgb(30, 41, 59), // Default text (Slate-800)
             }
         }
     }

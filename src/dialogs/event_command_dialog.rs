@@ -164,11 +164,11 @@ impl EventCommandDialogState {
         self.category = match cmd.code {
             10110..=10150 | 20110 => CommandCategory::Messages,
             10210..=10330 | 11610 => CommandCategory::Progression,
-            10410..=10650 => CommandCategory::Character,
+            1008..=1009 | 10410..=10650 => CommandCategory::Character,
             10810..=10870 | 11310..=11410 => CommandCategory::Movement,
             11010..=11210 | 11510..=11560 | 11710..=11720 => CommandCategory::AudioVisual,
-            12010..=12410 | 20140..=20141 | 22010..=22410 | 23310..=23311 => CommandCategory::FlowControl,
-            10710..=10740 | 11810..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => CommandCategory::SystemScenes,
+            1005 | 12010..=12410 | 20140..=20141 | 22010..=22410 | 23310..=23311 => CommandCategory::FlowControl,
+            1006..=1007 | 5001..=5005 | 10710..=10740 | 11810..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => CommandCategory::SystemScenes,
             3001..=3032 => CommandCategory::Maniac,
             _ => CommandCategory::Messages,
         };

@@ -427,7 +427,11 @@ impl EventDialogState {
                                             self.selected_command = Some(c_idx);
                                         }
                                         if resp.double_clicked() {
-                                            self.cmd_dialog.open_edit(c_idx, cmd);
+                                            if cmd.code == 10 || cmd.code == 0 {
+                                                self.cmd_dialog.open_new(cmd.indent);
+                                            } else {
+                                                self.cmd_dialog.open_edit(c_idx, cmd);
+                                            }
                                         }
                                     }
                                 });

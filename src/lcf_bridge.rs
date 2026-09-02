@@ -160,6 +160,17 @@ pub fn event_pattern_label(pattern: i32) -> &'static str {
 pub fn event_command_label(cmd: &EventCommandInfo) -> String {
     let prefix = "  ".repeat(cmd.indent.max(0) as usize);
     let desc = match cmd.code {
+        0 | 10 => String::new(),
+        1005 => format!("Call Common Event: #{}", cmd.parameters.first().copied().unwrap_or(0)),
+        1006 => "Force Flee (Battle)".to_string(),
+        1007 => format!("Enable Combo: Hero #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        1008 => format!("Change Class: Hero #{:04} -> Class #{:04}", cmd.parameters.first().copied().unwrap_or(0), cmd.parameters.get(1).copied().unwrap_or(0)),
+        1009 => format!("Change Battle Commands: Hero #{:04}", cmd.parameters.first().copied().unwrap_or(0)),
+        5001 => "Open Load Menu".to_string(),
+        5002 => "Exit Game".to_string(),
+        5003 => format!("Toggle ATB Mode: {}", if cmd.parameters.first().copied().unwrap_or(0) == 0 { "Active" } else { "Wait" }),
+        5004 => "Toggle Fullscreen".to_string(),
+        5005 => "Open Video Options".to_string(),
         10110 => format!("Show Message: \"{}\"", cmd.string),
         20110 => format!("  : \"{}\"", cmd.string),
         10120 => "Message Options".to_string(),
@@ -453,6 +464,15 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
                 format!("Maniac: {}", maniac_command_name(code))
             }
         }
+        code if is_easyrpg_command_code(code) => {
+            if !cmd.string.is_empty() {
+                format!("EasyRPG: {} ({})", easyrpg_command_name(code), cmd.string)
+            } else if !cmd.parameters.is_empty() {
+                format!("EasyRPG: {} {:?}", easyrpg_command_name(code), cmd.parameters)
+            } else {
+                format!("EasyRPG: {}", easyrpg_command_name(code))
+            }
+        }
         _ => {
             if !cmd.string.is_empty() {
                 format!("Command #{} ({})", cmd.code, cmd.string)
@@ -463,7 +483,11 @@ pub fn event_command_label(cmd: &EventCommandInfo) -> String {
             }
         }
     };
-    format!("{prefix}◆ {desc}")
+    if desc.is_empty() {
+        format!("{prefix}◆")
+    } else {
+        format!("{prefix}◆ {desc}")
+    }
 }
 
 /// Inserts a new command at `insert_pos`, automatically scaffolding matching
@@ -1422,6 +1446,29 @@ pub fn is_project_2003(path: &str) -> bool {
 /// and EasyRPG's own extensions both live below 3000.
 pub fn is_maniac_command_code(code: i32) -> bool {
     matches!(code, 3001..=3032)
+}
+
+/// True for an event command code defined as an EasyRPG Player extension
+/// (e.g. `EasyRpgTriggerEventAt=2002`, `EasyRpgPathfinder=2003`, etc.).
+pub fn is_easyrpg_command_code(code: i32) -> bool {
+    matches!(code, 2002 | 2003 | 2050..=2058)
+}
+
+/// Human-readable name for an EasyRPG extension event command code.
+pub fn easyrpg_command_name(code: i32) -> &'static str {
+    match code {
+        2002 => "Trigger Event At",
+        2003 => "Pathfinder",
+        2050 => "Call Movement Action",
+        2051 => "Wait For Single Movement",
+        2052 => "Animate Variable",
+        2053 => "Set Interpreter Flag",
+        2055 => "Process JSON",
+        2056 => "Clone Map Event",
+        2057 => "Destroy Map Event",
+        2058 => "String Picture Menu",
+        _ => "EasyRPG Extension",
+    }
 }
 
 /// Human-readable name for a Maniac Patch event command code, for the

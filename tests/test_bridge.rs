@@ -2336,6 +2336,61 @@ mod tests {
         assert_eq!(cmds[2].code, 20110);
         assert_eq!(cmds[2].string, "Line 3");
     }
+
+    #[test]
+    fn test_access_and_system_event_commands() {
+        use easy_editor::lcf_bridge::{event_command_label, EventCommandInfo};
+
+        // 1. Test 11930 (Change Save Access)
+        let save_disable = EventCommandInfo {
+            code: 11930,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![1],
+        };
+        let label = event_command_label(&save_disable);
+        assert_eq!(label, "◆ Change Save Access: Disable");
+
+        let save_enable = EventCommandInfo {
+            code: 11930,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![0],
+        };
+        assert_eq!(event_command_label(&save_enable), "◆ Change Save Access: Enable");
+
+        // 2. Test 11960 (Change Main Menu Access)
+        let menu_disable = EventCommandInfo {
+            code: 11960,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![1],
+        };
+        assert_eq!(event_command_label(&menu_disable), "◆ Change Main Menu Access: Disable");
+
+        // 3. Test 11820 & 11840 (Change Teleport & Escape Access)
+        let teleport_disable = EventCommandInfo {
+            code: 11820,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![1],
+        };
+        assert_eq!(event_command_label(&teleport_disable), "◆ Change Teleport Access: Disable");
+
+        let escape_disable = EventCommandInfo {
+            code: 11840,
+            indent: 0,
+            string: String::new(),
+            parameters: vec![1],
+        };
+        assert_eq!(event_command_label(&escape_disable), "◆ Change Escape Access: Disable");
+
+        // 4. Test 12110 & 12120 (Label and Jump to Label)
+        let lbl = EventCommandInfo { code: 12110, indent: 0, string: String::new(), parameters: vec![5] };
+        assert_eq!(event_command_label(&lbl), "◆ Label: #5");
+        let jmp = EventCommandInfo { code: 12120, indent: 0, string: String::new(), parameters: vec![5] };
+        assert_eq!(event_command_label(&jmp), "◆ Jump to Label: #5");
+    }
 }
 
 

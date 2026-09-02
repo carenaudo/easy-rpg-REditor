@@ -259,11 +259,17 @@ impl EventCommandDialogState {
                             11610 => "11610: Key Input Processing",
                             11710 => "11710: Change Map Chipset",
                             11720 => "11720: Change Parallax Background",
-                            11810 => "11810: Change Teleport Access",
-                            11820 => "11820: Change Escape Access",
-                            11830 => "11830: Change Save Access",
-                            11840 => "11840: Change Main Menu Access",
+                            11810 => "11810: Set Teleport Target",
+                            11820 => "11820: Change Teleport Access",
+                            11830 => "11830: Set Escape Target",
+                            11840 => "11840: Change Escape Access",
+                            11910 => "11910: Open Save Menu",
+                            11930 => "11930: Change Save Access",
+                            11950 => "11950: Open Main Menu",
+                            11960 => "11960: Change Main Menu Access",
                             12010 => "12010: Conditional Branch",
+                            12110 => "12110: Label",
+                            12120 => "12120: Jump to Label",
                             12210 => "12210: Loop",
                             12220 => "12220: Break Loop",
                             12310 => "12310: Exit Event Processing",
@@ -274,8 +280,6 @@ impl EventCommandDialogState {
                             10720 => "10720: Shop Processing",
                             10730 => "10730: Inn Processing",
                             10740 => "10740: Hero Name Input",
-                            11910 => "11910: Open Save Menu",
-                            11950 => "11950: Open Main Menu",
                             12420 => "12420: Game Over",
                             12510 => "12510: Return to Title Screen",
                             _ => "Custom Event Command",
@@ -341,6 +345,8 @@ impl EventCommandDialogState {
                                 }
                                 CommandCategory::FlowControl => {
                                     ui.selectable_value(&mut self.selected_code, 12010, "Conditional Branch");
+                                    ui.selectable_value(&mut self.selected_code, 12110, "Label");
+                                    ui.selectable_value(&mut self.selected_code, 12120, "Jump to Label");
                                     ui.selectable_value(&mut self.selected_code, 12210, "Loop");
                                     ui.selectable_value(&mut self.selected_code, 12220, "Break Loop");
                                     ui.selectable_value(&mut self.selected_code, 12310, "Exit Event Processing");
@@ -353,12 +359,12 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10720, "Shop Processing");
                                     ui.selectable_value(&mut self.selected_code, 10730, "Inn Processing");
                                     ui.selectable_value(&mut self.selected_code, 10740, "Hero Name Input");
-                                    ui.selectable_value(&mut self.selected_code, 11810, "Change Teleport Access");
-                                    ui.selectable_value(&mut self.selected_code, 11820, "Change Escape Access");
-                                    ui.selectable_value(&mut self.selected_code, 11830, "Change Save Access");
-                                    ui.selectable_value(&mut self.selected_code, 11840, "Change Main Menu Access");
+                                    ui.selectable_value(&mut self.selected_code, 11820, "Change Teleport Access");
+                                    ui.selectable_value(&mut self.selected_code, 11840, "Change Escape Access");
                                     ui.selectable_value(&mut self.selected_code, 11910, "Open Save Menu");
+                                    ui.selectable_value(&mut self.selected_code, 11930, "Change Save Access");
                                     ui.selectable_value(&mut self.selected_code, 11950, "Open Main Menu");
+                                    ui.selectable_value(&mut self.selected_code, 11960, "Change Main Menu Access");
                                     ui.selectable_value(&mut self.selected_code, 12420, "Game Over");
                                     ui.selectable_value(&mut self.selected_code, 12510, "Return to Title");
                                 }
@@ -1101,13 +1107,6 @@ impl EventCommandDialogState {
                                     if ui.checkbox(&mut ly, "Loop Vertically (Y)").changed() { self.param1 = if ly { 1 } else { 0 }; }
                                 });
                             }
-                            11810..=11840 => {
-                                ui.horizontal(|ui| {
-                                    ui.label("Access Permission:");
-                                    ui.radio_value(&mut self.param0, 1, "✅ Allow / Enable");
-                                    ui.radio_value(&mut self.param0, 0, "❌ Forbid / Disable");
-                                });
-                            }
                             10720 => {
                                 ui.horizontal(|ui| {
                                     ui.label("Shop Type:");
@@ -1626,9 +1625,45 @@ impl EventCommandDialogState {
                                 ui.label("Open Save Menu");
                                 ui.colored_label(egui::Color32::GRAY, "Opens the standard in-game Save Menu, allowing the player to save their progress.");
                             }
+                            11930 => {
+                                ui.label("Change Save Access:");
+                                ui.horizontal(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Enable (Allow)");
+                                    ui.radio_value(&mut self.param0, 1, "Disable (Forbid)");
+                                });
+                            }
                             11950 => {
                                 ui.label("Open Main Menu");
                                 ui.colored_label(egui::Color32::GRAY, "Opens the standard in-game Main Menu (Items, Skills, Equipment, Status).");
+                            }
+                            11960 => {
+                                ui.label("Change Main Menu Access:");
+                                ui.horizontal(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Enable (Allow)");
+                                    ui.radio_value(&mut self.param0, 1, "Disable (Forbid)");
+                                });
+                            }
+                            11820 => {
+                                ui.label("Change Teleport Access:");
+                                ui.horizontal(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Enable (Allow)");
+                                    ui.radio_value(&mut self.param0, 1, "Disable (Forbid)");
+                                });
+                            }
+                            11840 => {
+                                ui.label("Change Escape Access:");
+                                ui.horizontal(|ui| {
+                                    ui.radio_value(&mut self.param0, 0, "Enable (Allow)");
+                                    ui.radio_value(&mut self.param0, 1, "Disable (Forbid)");
+                                });
+                            }
+                            12110 => {
+                                ui.label("Label Number:");
+                                ui.add(egui::DragValue::new(&mut self.param0).range(1..=1000));
+                            }
+                            12120 => {
+                                ui.label("Jump to Label Number:");
+                                ui.add(egui::DragValue::new(&mut self.param0).range(1..=1000));
                             }
                             12410 => {
                                 ui.label("Comment:");
@@ -2152,9 +2187,6 @@ impl EventCommandDialogState {
             11720 => {
                 params = vec![self.param0, self.param1, 0, 0];
             }
-            11810..=11840 => {
-                params = vec![self.param0];
-            }
             10720 => {
                 let mut p = vec![self.param0, 0];
                 p.extend_from_slice(&self.shop_items);
@@ -2170,6 +2202,9 @@ impl EventCommandDialogState {
                 params = vec![self.param0, self.param1, self.param2, self.param3, self.param4];
             }
             12330 => {
+                params = vec![self.param0];
+            }
+            11820 | 11840 | 11930 | 11960 | 12110 | 12120 => {
                 params = vec![self.param0];
             }
             12210 | 12220 | 12310 | 12320 | 12410 | 12420 | 12510 | 11910 | 11950 | 20110 | 22410 | 20710..=20732 | 23310..=23311 => {

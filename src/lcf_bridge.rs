@@ -5,7 +5,8 @@ use lcf_core::ldb::LdbReader;
 use lcf_core::lmt::LmtReader;
 use lcf_core::lmu::LmuReader;
 use lcf_core::lsd::LsdReader;
-use lcf_core::types::{DBBitArray, DBString, EngineVersion, EventCommand as LcfEventCommand, Sound as LdbSound};
+pub use lcf_core::types::EngineVersion;
+use lcf_core::types::{DBBitArray, DBString, EventCommand as LcfEventCommand, Sound as LdbSound};
 use lcf_core::generated::lmu_gen::{Event as LmuEvent, EventPage as LmuEventPage, Map as LmuMap};
 use lcf_core::generated::lmt_gen::{Encounter as LmtEncounter, MapInfo as LmtMapInfo};
 use lcf_core::generated::ldb_gen::{
@@ -905,6 +906,72 @@ pub struct ClassInfo {
     pub skills: Vec<(i32, i32)>, // (level, skill_id)
     pub state_ranks: Vec<u8>,
     pub attribute_ranks: Vec<u8>,
+}
+
+pub const STANDARD_POSE_NAMES: [&str; 12] = [
+    "Idle",
+    "Right Hand Attack",
+    "Left Hand Attack",
+    "Skill",
+    "Dead",
+    "Damage",
+    "Abnormal Status",
+    "Defend",
+    "Walk Left",
+    "Walk Right",
+    "Victory",
+    "Item",
+];
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BattlerAnimationPoseInfo {
+    pub id: i32,
+    pub name: String,
+    pub battler_name: String,
+    pub battler_index: i32,
+    pub animation_type: i32, // 0 = character motion, 1 = battle animation overlay
+    pub battle_animation_id: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BattlerAnimationWeaponInfo {
+    pub id: i32,
+    pub name: String,
+    pub weapon_name: String,
+    pub weapon_index: i32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BattlerAnimationInfo {
+    pub id: i32,
+    pub name: String,
+    pub speed: i32,
+    pub poses: Vec<BattlerAnimationPoseInfo>,
+    pub weapons: Vec<BattlerAnimationWeaponInfo>,
+}
+
+impl BattlerAnimationInfo {
+    pub fn default_template(id: i32, name: String) -> Self {
+        let poses = STANDARD_POSE_NAMES
+            .iter()
+            .enumerate()
+            .map(|(i, &pose_name)| BattlerAnimationPoseInfo {
+                id: (i + 1) as i32,
+                name: pose_name.to_string(),
+                battler_name: String::new(),
+                battler_index: 0,
+                animation_type: 0,
+                battle_animation_id: 1,
+            })
+            .collect();
+        Self {
+            id,
+            name,
+            speed: 20,
+            poses,
+            weapons: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -2038,11 +2105,121 @@ pub fn get_actors(path: &str) -> Vec<ActorInfo> {
         .collect()
 }
 
-pub fn save_actors(path: &str, actors: &[ActorInfo]) -> Result<(), String> {
+#[derive(Default)]
+pub struct DatabaseEdits<'a> {
+    pub actors: Option<&'a [ActorInfo]>,
+    pub classes: Option<&'a [ClassInfo]>,
+    pub items: Option<&'a [ItemInfo]>,
+    pub skills: Option<&'a [SkillInfo]>,
+    pub attributes: Option<&'a [AttributeInfo]>,
+    pub enemies: Option<&'a [EnemyInfo]>,
+    pub troops: Option<&'a [TroopInfo]>,
+    pub common_events: Option<&'a [CommonEventInfo]>,
+    pub switches: Option<&'a [SwitchInfo]>,
+    pub variables: Option<&'a [VariableInfo]>,
+    pub chipsets: Option<&'a [ChipsetInfo]>,
+    pub states: Option<&'a [StateInfo]>,
+    pub terrains: Option<&'a [TerrainInfo]>,
+    pub animations: Option<&'a [AnimationInfo]>,
+    pub system: Option<&'a SystemInfo>,
+    pub terms: Option<&'a TermsInfo>,
+    pub maniac_string_variables: Option<&'a [ManiacStringVariableInfo]>,
+    pub battler_animations: Option<&'a [BattlerAnimationInfo]>,
+}
+
+impl<'a> DatabaseEdits<'a> {
+    pub fn is_empty(&self) -> bool {
+        self.actors.is_none()
+            && self.classes.is_none()
+            && self.items.is_none()
+            && self.skills.is_none()
+            && self.attributes.is_none()
+            && self.enemies.is_none()
+            && self.troops.is_none()
+            && self.common_events.is_none()
+            && self.switches.is_none()
+            && self.variables.is_none()
+            && self.chipsets.is_none()
+            && self.states.is_none()
+            && self.terrains.is_none()
+            && self.animations.is_none()
+            && self.system.is_none()
+            && self.terms.is_none()
+            && self.maniac_string_variables.is_none()
+            && self.battler_animations.is_none()
+    }
+}
+
+pub fn save_database_batch(path: &str, edits: &DatabaseEdits) -> Result<(), String> {
+    if edits.is_empty() {
+        return Ok(());
+    }
     let ldb_path = Path::new(path).join("RPG_RT.ldb");
     let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
     backup_ldb_once(&ldb_path)?;
 
+    if let Some(actors) = edits.actors {
+        apply_actors_to_db(&mut db, actors);
+    }
+    if let Some(classes) = edits.classes {
+        apply_classes_to_db(&mut db, classes);
+    }
+    if let Some(items) = edits.items {
+        apply_items_to_db(&mut db, items);
+    }
+    if let Some(skills) = edits.skills {
+        apply_skills_to_db(&mut db, skills);
+    }
+    if let Some(attributes) = edits.attributes {
+        apply_attributes_to_db(&mut db, attributes);
+    }
+    if let Some(enemies) = edits.enemies {
+        apply_enemies_to_db(&mut db, enemies);
+    }
+    if let Some(troops) = edits.troops {
+        apply_troops_to_db(&mut db, troops);
+    }
+    if let Some(events) = edits.common_events {
+        apply_common_events_to_db(&mut db, events);
+    }
+    if let Some(switches) = edits.switches {
+        apply_switches_to_db(&mut db, switches);
+    }
+    if let Some(variables) = edits.variables {
+        apply_variables_to_db(&mut db, variables);
+    }
+    if let Some(chipsets) = edits.chipsets {
+        apply_chipsets_to_db(&mut db, chipsets);
+    }
+    if let Some(states) = edits.states {
+        apply_states_to_db(&mut db, states);
+    }
+    if let Some(terrains) = edits.terrains {
+        apply_terrains_to_db(&mut db, terrains);
+    }
+    if let Some(animations) = edits.animations {
+        apply_animations_to_db(&mut db, animations);
+    }
+    if let Some(system) = edits.system {
+        apply_system_to_db(&mut db, system);
+    }
+    if let Some(terms) = edits.terms {
+        apply_terms_to_db(&mut db, terms);
+    }
+    if let Some(vars) = edits.maniac_string_variables {
+        apply_maniac_string_variables_to_db(&mut db, vars);
+    }
+    if let Some(ba) = edits.battler_animations {
+        apply_battler_animations_to_db(&mut db, ba);
+    }
+
+    LdbReader::prepare_save(&mut db);
+    let engine = engine_version_for(&db);
+    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn apply_actors_to_db(db: &mut lcf_core::generated::ldb_gen::Database, actors: &[ActorInfo]) {
     let mut updated = Vec::with_capacity(actors.len());
     for edit in actors {
         let mut actor = db.actors.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2099,10 +2276,13 @@ pub fn save_actors(path: &str, actors: &[ActorInfo]) -> Result<(), String> {
         updated.push(actor);
     }
     db.actors = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_actors(path: &str, actors: &[ActorInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        actors: Some(actors),
+        ..Default::default()
+    })
 }
 
 pub fn get_classes(path: &str) -> Vec<ClassInfo> {
@@ -2140,11 +2320,7 @@ pub fn get_classes(path: &str) -> Vec<ClassInfo> {
         .collect()
 }
 
-pub fn save_classes(path: &str, classes: &[ClassInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_classes_to_db(db: &mut lcf_core::generated::ldb_gen::Database, classes: &[ClassInfo]) {
     let mut updated = Vec::with_capacity(classes.len());
     for edit in classes {
         let mut class = db.classes.iter().find(|c| c.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2191,10 +2367,82 @@ pub fn save_classes(path: &str, classes: &[ClassInfo]) -> Result<(), String> {
         updated.push(class);
     }
     db.classes = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_classes(path: &str, classes: &[ClassInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        classes: Some(classes),
+        ..Default::default()
+    })
+}
+
+pub fn get_battler_animations(path: &str) -> Vec<BattlerAnimationInfo> {
+    let ldb_path = Path::new(path).join("RPG_RT.ldb");
+    let db = match LdbReader::load(&ldb_path, "auto") {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+
+    db.battleranimations
+        .into_iter()
+        .map(|ba| BattlerAnimationInfo {
+            id: ba.id,
+            name: ba.name.0,
+            speed: ba.speed,
+            poses: ba.poses.into_iter().map(|p| BattlerAnimationPoseInfo {
+                id: p.id,
+                name: p.name.0,
+                battler_name: p.battler_name.0,
+                battler_index: p.battler_index,
+                animation_type: p.animation_type,
+                battle_animation_id: p.battle_animation_id,
+            }).collect(),
+            weapons: ba.weapons.into_iter().map(|w| BattlerAnimationWeaponInfo {
+                id: w.id,
+                name: w.name.0,
+                weapon_name: w.weapon_name.0,
+                weapon_index: w.weapon_index,
+            }).collect(),
+        })
+        .collect()
+}
+
+pub fn apply_battler_animations_to_db(db: &mut lcf_core::generated::ldb_gen::Database, edits: &[BattlerAnimationInfo]) {
+    let mut updated = Vec::with_capacity(edits.len());
+    for edit in edits {
+        let mut ba = db.battleranimations.iter().find(|b| b.id == edit.id).cloned().unwrap_or_else(|| {
+            lcf_core::BattlerAnimation {
+                id: edit.id,
+                ..Default::default()
+            }
+        });
+        ba.id = edit.id;
+        ba.name = edit.name.clone().into();
+        ba.speed = edit.speed;
+        ba.poses = edit.poses.iter().map(|p| lcf_core::BattlerAnimationPose {
+            id: p.id,
+            name: p.name.clone().into(),
+            battler_name: p.battler_name.clone().into(),
+            battler_index: p.battler_index,
+            animation_type: p.animation_type,
+            battle_animation_id: p.battle_animation_id,
+        }).collect();
+        ba.weapons = edit.weapons.iter().map(|w| lcf_core::BattlerAnimationWeapon {
+            id: w.id,
+            name: w.name.clone().into(),
+            weapon_name: w.weapon_name.clone().into(),
+            weapon_index: w.weapon_index,
+        }).collect();
+        updated.push(ba);
+    }
+    db.battleranimations = updated;
+}
+
+pub fn save_battler_animations(path: &str, battler_animations: &[BattlerAnimationInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        battler_animations: Some(battler_animations),
+        ..Default::default()
+    })
 }
 
 pub fn get_items(path: &str) -> Vec<ItemInfo> {
@@ -2246,11 +2494,7 @@ pub fn get_items(path: &str) -> Vec<ItemInfo> {
         .collect()
 }
 
-pub fn save_items(path: &str, items: &[ItemInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_items_to_db(db: &mut lcf_core::generated::ldb_gen::Database, items: &[ItemInfo]) {
     let mut updated = Vec::with_capacity(items.len());
     for edit in items {
         let mut item = db.items.iter().find(|i| i.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2295,10 +2539,13 @@ pub fn save_items(path: &str, items: &[ItemInfo]) -> Result<(), String> {
         updated.push(item);
     }
     db.items = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_items(path: &str, items: &[ItemInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        items: Some(items),
+        ..Default::default()
+    })
 }
 
 pub fn get_skills(path: &str) -> Vec<SkillInfo> {
@@ -2345,11 +2592,7 @@ pub fn get_skills(path: &str) -> Vec<SkillInfo> {
         .collect()
 }
 
-pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_skills_to_db(db: &mut lcf_core::generated::ldb_gen::Database, skills: &[SkillInfo]) {
     let mut updated = Vec::with_capacity(skills.len());
     for edit in skills {
         let mut skill = db.skills.iter().find(|s| s.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2389,10 +2632,13 @@ pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
         updated.push(skill);
     }
     db.skills = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_skills(path: &str, skills: &[SkillInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        skills: Some(skills),
+        ..Default::default()
+    })
 }
 
 pub fn get_attributes(path: &str) -> Vec<AttributeInfo> {
@@ -2417,11 +2663,7 @@ pub fn get_attributes(path: &str) -> Vec<AttributeInfo> {
         .collect()
 }
 
-pub fn save_attributes(path: &str, attributes: &[AttributeInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_attributes_to_db(db: &mut lcf_core::generated::ldb_gen::Database, attributes: &[AttributeInfo]) {
     let mut updated = Vec::with_capacity(attributes.len());
     for edit in attributes {
         let mut attr = db.attributes.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2439,10 +2681,13 @@ pub fn save_attributes(path: &str, attributes: &[AttributeInfo]) -> Result<(), S
         updated.push(attr);
     }
     db.attributes = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_attributes(path: &str, attributes: &[AttributeInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        attributes: Some(attributes),
+        ..Default::default()
+    })
 }
 
 pub fn get_enemies(path: &str) -> Vec<EnemyInfo> {
@@ -2496,11 +2741,7 @@ pub fn get_enemies(path: &str) -> Vec<EnemyInfo> {
         .collect()
 }
 
-pub fn save_enemies(path: &str, enemies: &[EnemyInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_enemies_to_db(db: &mut lcf_core::generated::ldb_gen::Database, enemies: &[EnemyInfo]) {
     let mut updated = Vec::with_capacity(enemies.len());
     for edit in enemies {
         let mut e = db.enemies.iter().find(|e| e.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2547,10 +2788,13 @@ pub fn save_enemies(path: &str, enemies: &[EnemyInfo]) -> Result<(), String> {
         updated.push(e);
     }
     db.enemies = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_enemies(path: &str, enemies: &[EnemyInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        enemies: Some(enemies),
+        ..Default::default()
+    })
 }
 
 pub fn get_troops(path: &str) -> Vec<TroopInfo> {
@@ -2615,11 +2859,7 @@ pub fn get_troops(path: &str) -> Vec<TroopInfo> {
         .collect()
 }
 
-pub fn save_troops(path: &str, troops: &[TroopInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_troops_to_db(db: &mut lcf_core::generated::ldb_gen::Database, troops: &[TroopInfo]) {
     let mut updated = Vec::with_capacity(troops.len());
     for edit in troops {
         let mut t = db.troops.iter().find(|t| t.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2674,10 +2914,13 @@ pub fn save_troops(path: &str, troops: &[TroopInfo]) -> Result<(), String> {
         updated.push(t);
     }
     db.troops = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_troops(path: &str, troops: &[TroopInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        troops: Some(troops),
+        ..Default::default()
+    })
 }
 
 pub fn get_common_events(path: &str) -> Vec<CommonEventInfo> {
@@ -2700,11 +2943,7 @@ pub fn get_common_events(path: &str) -> Vec<CommonEventInfo> {
         .collect()
 }
 
-pub fn save_common_events(path: &str, events: &[CommonEventInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_common_events_to_db(db: &mut lcf_core::generated::ldb_gen::Database, events: &[CommonEventInfo]) {
     let mut updated = Vec::with_capacity(events.len());
     for edit in events {
         let mut ce = db.commonevents.iter().find(|c| c.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2720,10 +2959,13 @@ pub fn save_common_events(path: &str, events: &[CommonEventInfo]) -> Result<(), 
         updated.push(ce);
     }
     db.commonevents = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_common_events(path: &str, events: &[CommonEventInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        common_events: Some(events),
+        ..Default::default()
+    })
 }
 
 pub fn get_switches(path: &str) -> Vec<SwitchInfo> {
@@ -2742,11 +2984,7 @@ pub fn get_switches(path: &str) -> Vec<SwitchInfo> {
         .collect()
 }
 
-pub fn save_switches(path: &str, switches: &[SwitchInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_switches_to_db(db: &mut lcf_core::generated::ldb_gen::Database, switches: &[SwitchInfo]) {
     let mut updated = Vec::with_capacity(switches.len());
     for edit in switches {
         let mut s = db.switches.iter().find(|s| s.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2758,10 +2996,13 @@ pub fn save_switches(path: &str, switches: &[SwitchInfo]) -> Result<(), String> 
         updated.push(s);
     }
     db.switches = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_switches(path: &str, switches: &[SwitchInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        switches: Some(switches),
+        ..Default::default()
+    })
 }
 
 pub fn get_variables(path: &str) -> Vec<VariableInfo> {
@@ -2780,11 +3021,7 @@ pub fn get_variables(path: &str) -> Vec<VariableInfo> {
         .collect()
 }
 
-pub fn save_variables(path: &str, variables: &[VariableInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_variables_to_db(db: &mut lcf_core::generated::ldb_gen::Database, variables: &[VariableInfo]) {
     let mut updated = Vec::with_capacity(variables.len());
     for edit in variables {
         let mut v = db.variables.iter().find(|v| v.id == edit.id).cloned().unwrap_or_else(|| {
@@ -2796,10 +3033,13 @@ pub fn save_variables(path: &str, variables: &[VariableInfo]) -> Result<(), Stri
         updated.push(v);
     }
     db.variables = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_variables(path: &str, variables: &[VariableInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        variables: Some(variables),
+        ..Default::default()
+    })
 }
 
 pub fn get_maniac_string_variables(path: &str) -> Vec<ManiacStringVariableInfo> {
@@ -2824,11 +3064,7 @@ pub fn get_maniac_string_variables(path: &str) -> Vec<ManiacStringVariableInfo> 
 /// none. So this replaces `db.maniac_string_variables` wholesale rather
 /// than updating existing entries by id, letting the UI's resize/add flow
 /// actually grow the array on save.
-pub fn save_maniac_string_variables(path: &str, vars: &[ManiacStringVariableInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_maniac_string_variables_to_db(db: &mut lcf_core::generated::ldb_gen::Database, vars: &[ManiacStringVariableInfo]) {
     db.maniac_string_variables = vars
         .iter()
         .map(|v| LdbStringVariable {
@@ -2836,10 +3072,13 @@ pub fn save_maniac_string_variables(path: &str, vars: &[ManiacStringVariableInfo
             name: v.name.clone().into(),
         })
         .collect();
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_maniac_string_variables(path: &str, vars: &[ManiacStringVariableInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        maniac_string_variables: Some(vars),
+        ..Default::default()
+    })
 }
 
 pub fn get_system(path: &str) -> Option<SystemInfo> {
@@ -2887,11 +3126,7 @@ pub fn get_system(path: &str) -> Option<SystemInfo> {
     })
 }
 
-pub fn save_system(path: &str, system: &SystemInfo) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_system_to_db(db: &mut lcf_core::generated::ldb_gen::Database, system: &SystemInfo) {
     let s = &mut db.system;
     s.boat_name = DBString::new(system.boat_name.clone());
     s.ship_name = DBString::new(system.ship_name.clone());
@@ -2928,10 +3163,13 @@ pub fn save_system(path: &str, system: &SystemInfo) -> Result<(), String> {
     s.battle_end_fadeout = system.battle_end_fadeout;
     s.battle_end_fadein = system.battle_end_fadein;
     s.font_id = system.font_id;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+pub fn save_system(path: &str, system: &SystemInfo) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        system: Some(system),
+        ..Default::default()
+    })
 }
 
 pub fn get_terms(path: &str) -> Option<TermsInfo> {
@@ -3109,11 +3347,7 @@ pub fn get_terms(path: &str) -> Option<TermsInfo> {
     })
 }
 
-pub fn save_terms(path: &str, terms: &TermsInfo) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_ldb_once(&ldb_path)?;
-
+pub fn apply_terms_to_db(db: &mut lcf_core::generated::ldb_gen::Database, terms: &TermsInfo) {
     let t = &mut db.terms;
     t.new_game = terms.new_game.clone().into();
     t.load_game = terms.load_game.clone().into();
@@ -3283,9 +3517,13 @@ pub fn save_terms(path: &str, terms: &TermsInfo) -> Result<(), String> {
     t.easyrpg_battle2k3_skill = terms.easyrpg_battle2k3_skill.clone().into();
     t.easyrpg_battle2k3_item = terms.easyrpg_battle2k3_item.clone().into();
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+}
+
+pub fn save_terms(path: &str, terms: &TermsInfo) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        terms: Some(terms),
+        ..Default::default()
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -3430,7 +3668,12 @@ pub fn clone_save_slot(path: &str, source_file_name: &str) -> Result<String, Str
     Ok(dest_name)
 }
 
-pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Result<(), String> {
+pub fn save_save_slot_with_engine(
+    path: &str,
+    file_name: &str,
+    info: &SaveSlotInfo,
+    engine: EngineVersion,
+) -> Result<(), String> {
     let lsd_path = Path::new(path).join(file_name);
     let mut save = LsdReader::load(&lsd_path, "auto").map_err(|e| e.to_string())?;
 
@@ -3470,14 +3713,17 @@ pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Resul
         }
     }
 
+    LsdReader::save(&lsd_path, &save, engine, "auto").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn save_save_slot(path: &str, file_name: &str, info: &SaveSlotInfo) -> Result<(), String> {
     let ldb_path = Path::new(path).join("RPG_RT.ldb");
     let engine = match LdbReader::load(&ldb_path, "auto") {
         Ok(db) => engine_version_for(&db),
         Err(_) => EngineVersion::Engine2000,
     };
-
-    LsdReader::save(&lsd_path, &save, engine, "auto").map_err(|e| e.to_string())?;
-    Ok(())
+    save_save_slot_with_engine(path, file_name, info, engine)
 }
 
 // ---------------------------------------------------------------------------
@@ -3967,11 +4213,7 @@ pub fn get_chipsets(path: &str) -> Vec<ChipsetInfo> {
         .collect()
 }
 
-pub fn save_chipsets(path: &str, chipsets: &[ChipsetInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_file_once(&ldb_path)?;
-
+pub fn apply_chipsets_to_db(db: &mut lcf_core::generated::ldb_gen::Database, chipsets: &[ChipsetInfo]) {
     db.chipsets = chipsets
         .iter()
         .map(|cs| LdbChipset {
@@ -3985,9 +4227,13 @@ pub fn save_chipsets(path: &str, chipsets: &[ChipsetInfo]) -> Result<(), String>
             animation_speed: cs.animation_speed,
         })
         .collect();
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())
+pub fn save_chipsets(path: &str, chipsets: &[ChipsetInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        chipsets: Some(chipsets),
+        ..Default::default()
+    })
 }
 
 pub fn get_states(path: &str) -> Vec<StateInfo> {
@@ -4040,11 +4286,7 @@ pub fn get_states(path: &str) -> Vec<StateInfo> {
         .collect()
 }
 
-pub fn save_states(path: &str, states: &[StateInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_file_once(&ldb_path)?;
-
+pub fn apply_states_to_db(db: &mut lcf_core::generated::ldb_gen::Database, states: &[StateInfo]) {
     db.states = states
         .iter()
         .map(|s| {
@@ -4089,9 +4331,13 @@ pub fn save_states(path: &str, states: &[StateInfo]) -> Result<(), String> {
             ldb_s
         })
         .collect();
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())
+pub fn save_states(path: &str, states: &[StateInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        states: Some(states),
+        ..Default::default()
+    })
 }
 
 pub fn get_terrains(path: &str) -> Vec<TerrainInfo> {
@@ -4118,11 +4364,7 @@ pub fn get_terrains(path: &str) -> Vec<TerrainInfo> {
         .collect()
 }
 
-pub fn save_terrains(path: &str, terrains: &[TerrainInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_file_once(&ldb_path)?;
-
+pub fn apply_terrains_to_db(db: &mut lcf_core::generated::ldb_gen::Database, terrains: &[TerrainInfo]) {
     db.terrains = terrains
         .iter()
         .map(|t| {
@@ -4141,9 +4383,13 @@ pub fn save_terrains(path: &str, terrains: &[TerrainInfo]) -> Result<(), String>
             ldb_t
         })
         .collect();
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())
+pub fn save_terrains(path: &str, terrains: &[TerrainInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        terrains: Some(terrains),
+        ..Default::default()
+    })
 }
 
 pub fn get_animations(path: &str) -> Vec<AnimationInfo> {
@@ -4194,11 +4440,7 @@ pub fn get_animations(path: &str) -> Vec<AnimationInfo> {
         .collect()
 }
 
-pub fn save_animations(path: &str, animations: &[AnimationInfo]) -> Result<(), String> {
-    let ldb_path = Path::new(path).join("RPG_RT.ldb");
-    let mut db = LdbReader::load(&ldb_path, "auto").map_err(|e| e.to_string())?;
-    backup_file_once(&ldb_path)?;
-
+pub fn apply_animations_to_db(db: &mut lcf_core::generated::ldb_gen::Database, animations: &[AnimationInfo]) {
     let mut updated = Vec::with_capacity(animations.len());
     for edit in animations {
         let mut ldb_a = db.animations.iter().find(|a| a.id == edit.id).cloned().unwrap_or_else(|| {
@@ -4251,7 +4493,11 @@ pub fn save_animations(path: &str, animations: &[AnimationInfo]) -> Result<(), S
         updated.push(ldb_a);
     }
     db.animations = updated;
+}
 
-    let engine = engine_version_for(&db);
-    LdbReader::save(&ldb_path, &db, engine, "auto").map_err(|e| e.to_string())
+pub fn save_animations(path: &str, animations: &[AnimationInfo]) -> Result<(), String> {
+    save_database_batch(path, &DatabaseEdits {
+        animations: Some(animations),
+        ..Default::default()
+    })
 }

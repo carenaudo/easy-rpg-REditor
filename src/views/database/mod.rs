@@ -13,3 +13,4 @@ pub mod chipsets;
 pub mod states;
 pub mod terrains;
 pub mod animations;
+pub mod battler_animations;

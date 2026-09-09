@@ -2431,6 +2431,322 @@ mod tests {
         let video_opt = EventCommandInfo { code: 5005, indent: 0, string: String::new(), parameters: vec![] };
         assert_eq!(event_command_label(&video_opt), "◆ Open Video Options");
     }
+
+    #[test]
+    fn test_database_batch_save_multiple_categories() {
+        use easy_editor::lcf_bridge::DatabaseEdits;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "test_batch_save_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+        ));
+        let mut dialog = NewProjectDialogState::default();
+        dialog.project_title = "BatchSaveTest".to_string();
+        dialog.destination_dir = tmp.to_string_lossy().to_string();
+        dialog.is_2003 = false;
+        let proj_dir = dialog.create_project().expect("scratch project creation should succeed");
+        let proj_path = proj_dir.to_string_lossy().to_string();
+
+        let mut actors = lcf_bridge::get_actors(&proj_path);
+        let mut switches = lcf_bridge::get_switches(&proj_path);
+        let mut variables = lcf_bridge::get_variables(&proj_path);
+        let mut items = lcf_bridge::get_items(&proj_path);
+
+        assert!(!actors.is_empty(), "Project should have default actors");
+        actors[0].name = "BatchHeroRenamed".to_string();
+
+        if switches.is_empty() {
+            switches.push(lcf_bridge::SwitchInfo { id: 1, name: "BatchSwitch".to_string() });
+        } else {
+            switches[0].name = "BatchSwitchRenamed".to_string();
+        }
+
+        if variables.is_empty() {
+            variables.push(lcf_bridge::VariableInfo { id: 1, name: "BatchVar".to_string() });
+        } else {
+            variables[0].name = "BatchVarRenamed".to_string();
+        }
+
+        if items.is_empty() {
+            items.push(lcf_bridge::ItemInfo { id: 1, name: "BatchItem".to_string(), description: "Test Item".to_string(), ..Default::default() });
+        } else {
+            items[0].name = "BatchItemRenamed".to_string();
+        }
+
+        let edits = DatabaseEdits {
+            actors: Some(&actors),
+            switches: Some(&switches),
+            variables: Some(&variables),
+            items: Some(&items),
+            ..Default::default()
+        };
+        assert!(!edits.is_empty());
+
+        let save_res = lcf_bridge::save_database_batch(&proj_path, &edits);
+        assert!(save_res.is_ok(), "save_database_batch must succeed: {:?}", save_res);
+
+        // Reload and verify
+        let reloaded_actors = lcf_bridge::get_actors(&proj_path);
+        assert_eq!(reloaded_actors[0].name, "BatchHeroRenamed");
+
+        let reloaded_switches = lcf_bridge::get_switches(&proj_path);
+        assert_eq!(reloaded_switches[0].name, switches[0].name);
+
+        let reloaded_variables = lcf_bridge::get_variables(&proj_path);
+        assert_eq!(reloaded_variables[0].name, variables[0].name);
+
+        let reloaded_items = lcf_bridge::get_items(&proj_path);
+        assert_eq!(reloaded_items[0].name, items[0].name);
+
+        let _ = std::fs::remove_dir_all(&proj_dir);
+    }
+
+    #[test]
+    fn test_event_command_dialog_new_commands_roundtrip() {
+        use easy_editor::dialogs::event_command_dialog::EventCommandDialogState;
+
+        let mut state = EventCommandDialogState::default();
+
+        // 11060: Pan Screen
+        state.selected_code = 11060;
+        state.param0 = 2; // Down
+        state.param1 = 8; // 8 tiles
+        state.param2 = 5; // Fast
+        state.param3 = 1; // Wait
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 11060);
+        assert_eq!(cmd.parameters, vec![2, 8, 5, 1]);
+
+        // 5003: Toggle ATB Mode
+        state.selected_code = 5003;
+        state.param0 = 1; // Wait
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 5003);
+        assert_eq!(cmd.parameters, vec![1]);
+
+        // 11750: Change Encounter Rate
+        state.selected_code = 11750;
+        state.param0 = 40;
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 11750);
+        assert_eq!(cmd.parameters, vec![40]);
+
+        // 11020: Show Screen (0 params)
+        state.selected_code = 11020;
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 11020);
+        assert!(cmd.parameters.is_empty());
+
+        // 5001: Open Load Menu (0 params)
+        state.selected_code = 5001;
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 5001);
+        assert!(cmd.parameters.is_empty());
+
+        // 2056: EasyRPG Clone Map Event (raw params)
+        state.selected_code = 2056;
+        state.raw_params = vec![1, 15, 20];
+        let cmd = state.to_event_command();
+        assert_eq!(cmd.code, 2056);
+        assert_eq!(cmd.parameters, vec![1, 15, 20]);
+    }
+
+    #[test]
+    fn test_ldb_custom_header_tolerance_and_preservation() {
+        use lcf_core::ldb::LdbReader;
+        use lcf_core::types::EngineVersion;
+        use lcf_core::Database;
+        use std::io::Cursor;
+
+        let db = Database::default();
+        let custom_header = "LcfDataCust"; // 11-byte custom header
+
+        let mut buffer = Cursor::new(Vec::new());
+        LdbReader::save_to_writer_with_header(&mut buffer, &db, EngineVersion::Engine2000, "UTF-8", custom_header)
+            .expect("save with custom header should succeed");
+
+        let saved_bytes = buffer.into_inner();
+        // The first byte is the varint length (11), followed by the ASCII header bytes
+        assert_eq!(saved_bytes[0], 11);
+        assert_eq!(&saved_bytes[1..12], custom_header.as_bytes());
+
+        // Verify that load_from_reader accepts the 11-byte custom header without erroring
+        let mut read_cursor = Cursor::new(saved_bytes);
+        let loaded = LdbReader::load_from_reader(&mut read_cursor, "UTF-8");
+        assert!(loaded.is_ok(), "loading non-standard 11-byte header should succeed: {:?}", loaded.err());
+    }
+
+    #[test]
+    fn test_battler_animations_bridge() {
+        use easy_editor::lcf_bridge::{
+            apply_battler_animations_to_db, BattlerAnimationInfo, BattlerAnimationPoseInfo,
+            BattlerAnimationWeaponInfo, DatabaseEdits,
+        };
+        use lcf_core::Database;
+
+        let mut db = Database::default();
+        let default_anim = BattlerAnimationInfo::default_template(1, "Hero Pose".to_string());
+        assert_eq!(default_anim.poses.len(), 12);
+        assert_eq!(default_anim.poses[0].name, "Idle");
+        assert_eq!(default_anim.weapons.len(), 0);
+
+        let custom_anim = BattlerAnimationInfo {
+            id: 2,
+            name: "Mage Battle".to_string(),
+            speed: 12,
+            poses: vec![
+                BattlerAnimationPoseInfo {
+                    id: 1,
+                    name: "Cast".to_string(),
+                    battler_name: "MageCast".to_string(),
+                    battler_index: 2,
+                    animation_type: 1,
+                    battle_animation_id: 15,
+                },
+            ],
+            weapons: vec![
+                BattlerAnimationWeaponInfo {
+                    id: 1,
+                    name: "Staff".to_string(),
+                    weapon_name: "StaffGlow".to_string(),
+                    weapon_index: 0,
+                },
+            ],
+        };
+
+        let anims = vec![default_anim.clone(), custom_anim.clone()];
+        apply_battler_animations_to_db(&mut db, &anims);
+
+        assert_eq!(db.battleranimations.len(), 2);
+        assert_eq!(db.battleranimations[0].name, "Hero Pose");
+        assert_eq!(db.battleranimations[0].poses.len(), 12);
+        assert_eq!(db.battleranimations[1].name, "Mage Battle");
+        assert_eq!(db.battleranimations[1].speed, 12);
+        assert_eq!(db.battleranimations[1].poses.len(), 1);
+        assert_eq!(db.battleranimations[1].poses[0].battler_name, "MageCast");
+        assert_eq!(db.battleranimations[1].poses[0].battler_index, 2);
+        assert_eq!(db.battleranimations[1].poses[0].animation_type, 1);
+        assert_eq!(db.battleranimations[1].poses[0].battle_animation_id, 15);
+        assert_eq!(db.battleranimations[1].weapons.len(), 1);
+        assert_eq!(db.battleranimations[1].weapons[0].name, "Staff");
+        assert_eq!(db.battleranimations[1].weapons[0].weapon_name, "StaffGlow");
+
+        // Test DatabaseEdits
+        let edits = DatabaseEdits {
+            battler_animations: Some(&anims),
+            ..Default::default()
+        };
+        assert!(!edits.is_empty());
+
+        let p2003 = "d:/programacion/test-assets/TestGame/TestGame-2003";
+        if std::path::Path::new(p2003).exists() {
+            let loaded = easy_editor::lcf_bridge::get_battler_animations(p2003);
+            println!("Loaded {} 2003 battler animations from TestGame-2003", loaded.len());
+            for (i, a) in loaded.iter().enumerate() {
+                println!("Anim #{}: name={:?}, speed={}, poses={}, weapons={}", i+1, a.name, a.speed, a.poses.len(), a.weapons.len());
+                for (pi, p) in a.poses.iter().enumerate() {
+                    println!("   Pose #{}: name={:?}, battler_name={:?}, battler_index={}, anim_type={}, anim_id={}",
+                        pi+1, p.name, p.battler_name, p.battler_index, p.animation_type, p.battle_animation_id);
+                }
+                for (wi, w) in a.weapons.iter().enumerate() {
+                    println!("   Weapon #{}: name={:?}, weapon_name={:?}, weapon_index={}",
+                        wi+1, w.name, w.weapon_name, w.weapon_index);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_auto_apply_standard_2003_poses() {
+        use easy_editor::lcf_bridge::BattlerAnimationInfo;
+        use easy_editor::views::database::battler_animations::apply_standard_2003_poses;
+
+        let mut ba = BattlerAnimationInfo {
+            id: 1,
+            name: "Warrior".to_string(),
+            speed: 14,
+            poses: Vec::new(),
+            weapons: Vec::new(),
+        };
+
+        let available = vec![
+            "Armored Warrior A".to_string(),
+            "Armored Warrior B".to_string(),
+            "Mage A".to_string(),
+        ];
+
+        // Selecting Armored Warrior A should auto-map Sheet A to rows 0-7, and Sheet B to rows 0-3
+        apply_standard_2003_poses(&mut ba, "Armored Warrior A", &available);
+        assert_eq!(ba.poses.len(), 12);
+
+        // Poses 1-8 from sheet A with verified RTP row mapping
+        assert_eq!(ba.poses[0].name, "Idle");
+        assert_eq!(ba.poses[0].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[0].battler_index, 7); // Sheet A, Row 7 is Idle
+
+        assert_eq!(ba.poses[1].name, "Right Hand Attack");
+        assert_eq!(ba.poses[1].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[1].battler_index, 5); // Sheet A, Row 5 is Right Hand Attack
+
+        assert_eq!(ba.poses[2].name, "Left Hand Attack");
+        assert_eq!(ba.poses[2].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[2].battler_index, 6); // Sheet A, Row 6 is Left Hand Attack
+
+        assert_eq!(ba.poses[3].name, "Skill");
+        assert_eq!(ba.poses[3].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[3].battler_index, 0); // Sheet A, Row 0 is Skill
+
+        assert_eq!(ba.poses[4].name, "Dead");
+        assert_eq!(ba.poses[4].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[4].battler_index, 3); // Sheet A, Row 3 is Dead
+
+        assert_eq!(ba.poses[5].name, "Damage");
+        assert_eq!(ba.poses[5].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[5].battler_index, 4); // Sheet A, Row 4 is Damage / Low HP
+
+        assert_eq!(ba.poses[6].name, "Abnormal Status");
+        assert_eq!(ba.poses[6].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[6].battler_index, 2); // Sheet A, Row 2 is Abnormal Status (Dazed)
+
+        assert_eq!(ba.poses[7].name, "Defend");
+        assert_eq!(ba.poses[7].battler_name, "Armored Warrior A");
+        assert_eq!(ba.poses[7].battler_index, 1); // Sheet A, Row 1 is Defend
+
+        // Poses 9-12 from sheet B
+        assert_eq!(ba.poses[8].name, "Walk Left");
+        assert_eq!(ba.poses[8].battler_name, "Armored Warrior B");
+        assert_eq!(ba.poses[8].battler_index, 0);
+
+        assert_eq!(ba.poses[9].name, "Walk Right");
+        assert_eq!(ba.poses[9].battler_name, "Armored Warrior B");
+        assert_eq!(ba.poses[9].battler_index, 1);
+
+        assert_eq!(ba.poses[10].name, "Victory");
+        assert_eq!(ba.poses[10].battler_name, "Armored Warrior B");
+        assert_eq!(ba.poses[10].battler_index, 2);
+
+        assert_eq!(ba.poses[11].name, "Item");
+        assert_eq!(ba.poses[11].battler_name, "Armored Warrior B");
+        assert_eq!(ba.poses[11].battler_index, 3);
+
+        let rtp_elf = std::path::Path::new(r"C:\Users\charl\AppData\Roaming\KADOKAWA\Common\RPG Maker 2003 RTP\BattleCharSet\Male Elf A.png");
+        let rtp_elf_b = std::path::Path::new(r"C:\Users\charl\AppData\Roaming\KADOKAWA\Common\RPG Maker 2003 RTP\BattleCharSet\Male Elf B.png");
+        let out_dir = std::path::Path::new(r"C:\Users\charl\.gemini\antigravity\brain\dd0bc0aa-c9ac-4e97-a108-8db770948ed6\scratch");
+        let _ = std::fs::create_dir_all(out_dir);
+
+        if let Ok(img) = image::open(rtp_elf) {
+            for row in 0..8 {
+                let crop = img.crop_imm(48, (row * 48) as u32, 48, 48);
+                let _ = crop.save(out_dir.join(format!("elf_a_row_{}.png", row)));
+            }
+        }
+        if let Ok(img) = image::open(rtp_elf_b) {
+            for row in 0..8 {
+                let crop = img.crop_imm(48, (row * 48) as u32, 48, 48);
+                let _ = crop.save(out_dir.join(format!("elf_b_row_{}.png", row)));
+            }
+        }
+    }
 }
 
 

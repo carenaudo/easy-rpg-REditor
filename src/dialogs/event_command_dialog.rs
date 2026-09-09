@@ -10,6 +10,8 @@ pub enum CommandCategory {
     AudioVisual,
     FlowControl,
     SystemScenes,
+    Battle,
+    EasyRpg,
     Maniac,
 }
 
@@ -164,11 +166,13 @@ impl EventCommandDialogState {
         self.category = match cmd.code {
             10110..=10150 | 20110 => CommandCategory::Messages,
             10210..=10330 | 11610 => CommandCategory::Progression,
-            1008..=1009 | 10410..=10650 => CommandCategory::Character,
-            10810..=10870 | 11310..=11410 => CommandCategory::Movement,
-            11010..=11210 | 11510..=11560 | 11710..=11720 => CommandCategory::AudioVisual,
-            1005 | 12010..=12410 | 20140..=20141 | 22010..=22410 | 23310..=23311 => CommandCategory::FlowControl,
-            1006..=1007 | 5001..=5005 | 10710..=10740 | 11810..=11960 | 12420 | 12510 | 13110..=13410 | 20710..=20732 => CommandCategory::SystemScenes,
+            10410..=10650 => CommandCategory::Character,
+            10810..=10870 | 11060 | 11310..=11410 => CommandCategory::Movement,
+            11010..=11050 | 11070 | 11110..=11210 | 11510..=11560 | 11710..=11750 => CommandCategory::AudioVisual,
+            12010..=12410 | 20140..=20141 | 22010..=22410 | 23310..=23311 => CommandCategory::FlowControl,
+            1006..=1009 | 10710 | 13110..=13410 => CommandCategory::Battle,
+            2002..=2058 | 5001..=5005 | 1005 => CommandCategory::EasyRpg,
+            10720..=10740 | 11810..=11960 | 12420 | 12510 | 20710..=20732 => CommandCategory::SystemScenes,
             3001..=3032 => CommandCategory::Maniac,
             _ => CommandCategory::Messages,
         };
@@ -197,7 +201,9 @@ impl EventCommandDialogState {
                     ui.selectable_value(&mut self.category, CommandCategory::Movement, "🗺 Movement");
                     ui.selectable_value(&mut self.category, CommandCategory::AudioVisual, "🎵 Audio & Screen");
                     ui.selectable_value(&mut self.category, CommandCategory::FlowControl, "🌀 Logic & Flow");
-                    ui.selectable_value(&mut self.category, CommandCategory::SystemScenes, "⚔ Scenes & System");
+                    ui.selectable_value(&mut self.category, CommandCategory::SystemScenes, "🏛 Scenes & System");
+                    ui.selectable_value(&mut self.category, CommandCategory::Battle, "⚔ Battle");
+                    ui.selectable_value(&mut self.category, CommandCategory::EasyRpg, egui::RichText::new("🚀 EasyRPG").color(egui::Color32::from_rgb(100, 200, 255)));
                     ui.selectable_value(&mut self.category, CommandCategory::Maniac, egui::RichText::new("🔧 Maniac Patch").color(egui::Color32::from_rgb(200, 140, 255)));
                 });
 
@@ -210,8 +216,19 @@ impl EventCommandDialogState {
                     egui::ComboBox::from_id_salt("cmd_type_sub_combo")
                         .selected_text(if lcf_bridge::is_maniac_command_code(self.selected_code) {
                             format!("{}: Maniac {}", self.selected_code, lcf_bridge::maniac_command_name(self.selected_code))
+                        } else if lcf_bridge::is_easyrpg_command_code(self.selected_code) {
+                            format!("{}: EasyRPG {}", self.selected_code, lcf_bridge::easyrpg_command_name(self.selected_code))
                         } else {
                             match self.selected_code {
+                            1006 => "1006: Force Flee",
+                            1007 => "1007: Enable Combo",
+                            1008 => "1008: Change Class",
+                            1009 => "1009: Change Battle Commands",
+                            5001 => "5001: Open Load Menu",
+                            5002 => "5002: Exit Game",
+                            5003 => "5003: Toggle ATB Mode",
+                            5004 => "5004: Toggle Fullscreen",
+                            5005 => "5005: Open Video Options",
                             10110 => "10110: Show Message",
                             10120 => "10120: Message Options",
                             10140 => "10140: Show Choices",
@@ -241,24 +258,35 @@ impl EventCommandDialogState {
                             10840 => "10840: Enter/Exit Vehicle",
                             10850 => "10850: Set Vehicle Location",
                             10860 => "10860: Set Event Location",
-                            11330 => "11330: Set Move Route",
-                            11410 => "11410: Wait",
-                            11510 => "11510: Play BGM",
-                            11520 => "11520: Fade Out BGM",
-                            11550 => "11550: Play Sound Effect (SE)",
-                            11010 => "11010: Erase / Show Screen",
+                            11010 => "11010: Erase Screen",
+                            11020 => "11020: Show Screen",
                             11030 => "11030: Tint Screen",
                             11040 => "11040: Flash Screen",
                             11050 => "11050: Shake Screen",
+                            11060 => "11060: Pan Screen",
                             11070 => "11070: Weather Effects",
                             11110 => "11110: Show Picture",
                             11120 => "11120: Move Picture",
                             11130 => "11130: Erase Picture",
                             11140 => "11140: Show Battle Animation",
                             11210 => "11210: Show Battle Animation",
+                            11310 => "11310: Pan Screen (Move Route)",
+                            11320 => "11320: Return Pan Screen",
+                            11330 => "11330: Set Move Route",
+                            11340 => "11340: Wait for Movement",
+                            11350 => "11350: Stop All Movement",
+                            11410 => "11410: Wait",
+                            11510 => "11510: Play BGM",
+                            11520 => "11520: Fade Out BGM",
+                            11530 => "11530: Memorize BGM",
+                            11540 => "11540: Play Memorized BGM",
+                            11550 => "11550: Play Sound Effect (SE)",
+                            11560 => "11560: Play Movie",
                             11610 => "11610: Key Input Processing",
                             11710 => "11710: Change Map Chipset",
                             11720 => "11720: Change Parallax Background",
+                            11740 => "11740: Change Parallax Background (2003)",
+                            11750 => "11750: Change Encounter Rate",
                             11810 => "11810: Set Teleport Target",
                             11820 => "11820: Change Teleport Access",
                             11830 => "11830: Set Escape Target",
@@ -282,6 +310,14 @@ impl EventCommandDialogState {
                             10740 => "10740: Hero Name Input",
                             12420 => "12420: Game Over",
                             12510 => "12510: Return to Title Screen",
+                            13110 => "13110: Change Monster HP",
+                            13120 => "13120: Change Monster SP",
+                            13130 => "13130: Change Monster Condition",
+                            13150 => "13150: Show Hidden Monster",
+                            13210 => "13210: Change Battle Background",
+                            13260 => "13260: Show Battle Animation (Monster)",
+                            13310 => "13310: Battle Conditional Branch",
+                            13410 => "13410: End Battle",
                             _ => "Custom Event Command",
                             }.to_string()
                         })
@@ -311,6 +347,8 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10470, "Change SP");
                                     ui.selectable_value(&mut self.selected_code, 10480, "Change Condition");
                                     ui.selectable_value(&mut self.selected_code, 10490, "Recover All");
+                                    ui.selectable_value(&mut self.selected_code, 1008, "Change Class (2003)");
+                                    ui.selectable_value(&mut self.selected_code, 1009, "Change Battle Commands (2003)");
                                     ui.selectable_value(&mut self.selected_code, 10610, "Change Hero Name");
                                     ui.selectable_value(&mut self.selected_code, 10620, "Change Hero Title");
                                     ui.selectable_value(&mut self.selected_code, 10630, "Change Hero Graphic");
@@ -324,14 +362,23 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 10850, "Set Vehicle Location");
                                     ui.selectable_value(&mut self.selected_code, 10860, "Set Event Location");
                                     ui.selectable_value(&mut self.selected_code, 10650, "Change Vehicle Graphic");
+                                    ui.selectable_value(&mut self.selected_code, 11060, "Pan Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11310, "Pan Screen (Move Route)");
+                                    ui.selectable_value(&mut self.selected_code, 11320, "Return Pan Screen");
                                     ui.selectable_value(&mut self.selected_code, 11330, "Set Move Route");
+                                    ui.selectable_value(&mut self.selected_code, 11340, "Wait for Movement");
+                                    ui.selectable_value(&mut self.selected_code, 11350, "Stop All Movement");
                                     ui.selectable_value(&mut self.selected_code, 11410, "Wait");
                                 }
                                 CommandCategory::AudioVisual => {
                                     ui.selectable_value(&mut self.selected_code, 11510, "Play BGM");
                                     ui.selectable_value(&mut self.selected_code, 11520, "Fade Out BGM");
+                                    ui.selectable_value(&mut self.selected_code, 11530, "Memorize BGM");
+                                    ui.selectable_value(&mut self.selected_code, 11540, "Play Memorized BGM");
                                     ui.selectable_value(&mut self.selected_code, 11550, "Play Sound Effect (SE)");
-                                    ui.selectable_value(&mut self.selected_code, 11010, "Erase / Show Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11560, "Play Movie");
+                                    ui.selectable_value(&mut self.selected_code, 11010, "Erase Screen");
+                                    ui.selectable_value(&mut self.selected_code, 11020, "Show Screen");
                                     ui.selectable_value(&mut self.selected_code, 11030, "Tint Screen");
                                     ui.selectable_value(&mut self.selected_code, 11040, "Flash Screen");
                                     ui.selectable_value(&mut self.selected_code, 11050, "Shake Screen");
@@ -342,6 +389,8 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 11210, "Show Battle Animation");
                                     ui.selectable_value(&mut self.selected_code, 11710, "Change Map Chipset");
                                     ui.selectable_value(&mut self.selected_code, 11720, "Change Parallax Background");
+                                    ui.selectable_value(&mut self.selected_code, 11740, "Change Parallax Background (2003)");
+                                    ui.selectable_value(&mut self.selected_code, 11750, "Change Encounter Rate");
                                 }
                                 CommandCategory::FlowControl => {
                                     ui.selectable_value(&mut self.selected_code, 12010, "Conditional Branch");
@@ -355,11 +404,12 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 12410, "Comment");
                                 }
                                 CommandCategory::SystemScenes => {
-                                    ui.selectable_value(&mut self.selected_code, 10710, "Battle Processing");
                                     ui.selectable_value(&mut self.selected_code, 10720, "Shop Processing");
                                     ui.selectable_value(&mut self.selected_code, 10730, "Inn Processing");
                                     ui.selectable_value(&mut self.selected_code, 10740, "Hero Name Input");
+                                    ui.selectable_value(&mut self.selected_code, 11810, "Set Teleport Target");
                                     ui.selectable_value(&mut self.selected_code, 11820, "Change Teleport Access");
+                                    ui.selectable_value(&mut self.selected_code, 11830, "Set Escape Target");
                                     ui.selectable_value(&mut self.selected_code, 11840, "Change Escape Access");
                                     ui.selectable_value(&mut self.selected_code, 11910, "Open Save Menu");
                                     ui.selectable_value(&mut self.selected_code, 11930, "Change Save Access");
@@ -367,6 +417,32 @@ impl EventCommandDialogState {
                                     ui.selectable_value(&mut self.selected_code, 11960, "Change Main Menu Access");
                                     ui.selectable_value(&mut self.selected_code, 12420, "Game Over");
                                     ui.selectable_value(&mut self.selected_code, 12510, "Return to Title");
+                                }
+                                CommandCategory::Battle => {
+                                    ui.selectable_value(&mut self.selected_code, 10710, "Battle Processing");
+                                    ui.selectable_value(&mut self.selected_code, 1006, "Force Flee (1006)");
+                                    ui.selectable_value(&mut self.selected_code, 1007, "Enable Combo (1007)");
+                                    ui.selectable_value(&mut self.selected_code, 13110, "Change Monster HP (13110)");
+                                    ui.selectable_value(&mut self.selected_code, 13120, "Change Monster SP (13120)");
+                                    ui.selectable_value(&mut self.selected_code, 13130, "Change Monster Condition (13130)");
+                                    ui.selectable_value(&mut self.selected_code, 13150, "Show Hidden Monster (13150)");
+                                    ui.selectable_value(&mut self.selected_code, 13210, "Change Battle Background (13210)");
+                                    ui.selectable_value(&mut self.selected_code, 13260, "Show Battle Animation (Monster) (13260)");
+                                    ui.selectable_value(&mut self.selected_code, 13310, "Battle Conditional Branch (13310)");
+                                    ui.selectable_value(&mut self.selected_code, 13410, "End Battle (13410)");
+                                }
+                                CommandCategory::EasyRpg => {
+                                    ui.label(egui::RichText::new("EasyRPG Extensions:").strong());
+                                    for &code in &[2002, 2003, 2050, 2051, 2052, 2053, 2055, 2056, 2057, 2058] {
+                                        ui.selectable_value(&mut self.selected_code, code, format!("{} ({})", lcf_bridge::easyrpg_command_name(code), code));
+                                    }
+                                    ui.separator();
+                                    ui.label(egui::RichText::new("Engine Control:").strong());
+                                    ui.selectable_value(&mut self.selected_code, 5001, "Open Load Menu (5001)");
+                                    ui.selectable_value(&mut self.selected_code, 5002, "Exit Game (5002)");
+                                    ui.selectable_value(&mut self.selected_code, 5003, "Toggle ATB Mode (5003)");
+                                    ui.selectable_value(&mut self.selected_code, 5004, "Toggle Fullscreen (5004)");
+                                    ui.selectable_value(&mut self.selected_code, 5005, "Video Options (5005)");
                                 }
                                 CommandCategory::Maniac => {
                                     for &code in MANIAC_CODES.iter() {
@@ -2010,13 +2086,59 @@ impl EventCommandDialogState {
                                 }
                             }
 
+                            // EasyRPG Player extensions (2002, 2003, 2050..=2058)
+                            code if lcf_bridge::is_easyrpg_command_code(code) => {
+                                ui.label(format!("EasyRPG: {}", lcf_bridge::easyrpg_command_name(code)));
+                                ui.colored_label(egui::Color32::GRAY, "EasyRPG Player extension command. Edits raw parameters losslessly.");
+                                self.show_generic_param_list(ui, None);
+                            }
+
+                            // Commands with no parameters
+                            11020 | 11340 | 11350 | 11530 | 11540 | 5001 | 5002 | 5004 | 5005 | 1006 | 13410 => {
+                                ui.colored_label(egui::Color32::GRAY, "This command requires no additional parameters.");
+                            }
+
+                            // 5003: Toggle ATB Mode
+                            5003 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("ATB Mode:");
+                                    ui.radio_value(&mut self.param0, 0, "Active");
+                                    ui.radio_value(&mut self.param0, 1, "Wait");
+                                });
+                            }
+
+                            // 11060: Pan Screen
+                            11060 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Direction:");
+                                    ui.radio_value(&mut self.param0, 0, "Up");
+                                    ui.radio_value(&mut self.param0, 1, "Right");
+                                    ui.radio_value(&mut self.param0, 2, "Down");
+                                    ui.radio_value(&mut self.param0, 3, "Left");
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Distance (Tiles):");
+                                    ui.add(egui::DragValue::new(&mut self.param1).range(1..=100));
+                                    ui.label("Speed:");
+                                    ui.add(egui::DragValue::new(&mut self.param2).range(1..=6));
+                                });
+                                ui.horizontal(|ui| {
+                                    let mut wait = self.param3 != 0;
+                                    if ui.checkbox(&mut wait, "Wait until done").changed() {
+                                        self.param3 = if wait { 1 } else { 0 };
+                                    }
+                                });
+                            }
+
+                            // 11750: Change Encounter Rate
+                            11750 => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Step Rate:");
+                                    ui.add(egui::DragValue::new(&mut self.param0).range(1..=1000));
+                                });
+                            }
+
                             // ---- Maniac Patch: everything else ----
-                            // Too complex (deep bitfields, multi-mode
-                            // branching) or entirely unimplemented by
-                            // EasyRPG Player to build a verified bespoke
-                            // form for this pass - see the plan doc. Safe,
-                            // lossless generic editor with per-slot hints
-                            // wherever `maniac_param_hint` has one.
                             code if lcf_bridge::is_maniac_command_code(code) => {
                                 ui.label(format!("Maniac: {} (no dedicated form yet)", lcf_bridge::maniac_command_name(code)));
                                 ui.colored_label(egui::Color32::GRAY, "Editing raw parameters. See the Maniac Patch documentation for this command's exact semantics.");
@@ -2204,10 +2326,13 @@ impl EventCommandDialogState {
             12330 => {
                 params = vec![self.param0];
             }
-            11820 | 11840 | 11930 | 11960 | 12110 | 12120 => {
+            11820 | 11840 | 11930 | 11960 | 12110 | 12120 | 5003 | 11750 => {
                 params = vec![self.param0];
             }
-            12210 | 12220 | 12310 | 12320 | 12410 | 12420 | 12510 | 11910 | 11950 | 20110 | 22410 | 20710..=20732 | 23310..=23311 => {
+            11060 => {
+                params = vec![self.param0, self.param1, self.param2, self.param3];
+            }
+            12210 | 12220 | 12310 | 12320 | 12410 | 12420 | 12510 | 11910 | 11950 | 20110 | 22410 | 20710..=20732 | 23310..=23311 | 11020 | 11340 | 11350 | 11530 | 11540 | 5001 | 5002 | 5004 | 5005 | 1006 | 13410 => {
                 params = vec![];
             }
             10710 => {

@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::lcf_bridge::{ClassInfo, SkillInfo};
+use crate::lcf_bridge::{BattlerAnimationInfo, ClassInfo, SkillInfo};
 use crate::views::database::actors::{generate_growth_curve, GrowthCurvePreset, StatCurveType};
 
 pub struct ClassViewState {
@@ -23,9 +23,11 @@ impl Default for ClassViewState {
 pub fn show_class_form(
     ui: &mut egui::Ui,
     class: &mut ClassInfo,
+    is_2003: bool,
     skills: &[SkillInfo],
     states: &[crate::lcf_bridge::StateInfo],
     attributes: &[crate::lcf_bridge::AttributeInfo],
+    battler_animations: &[BattlerAnimationInfo],
     view_state: &mut ClassViewState,
     dirty: &mut bool,
 ) {
@@ -73,6 +75,31 @@ pub fn show_class_form(
                             ui.label("EXP Inflation:");
                             if ui.add(egui::DragValue::new(&mut class.exp_inflation).range(1..=10000)).changed() { *dirty = true; }
                             ui.end_row();
+
+                            if is_2003 {
+                                ui.label("Battle Character:");
+                                egui::ComboBox::from_id_salt("class_battler_anim_combo")
+                                    .selected_text(
+                                        if class.battler_animation == 0 {
+                                            "(None)".to_string()
+                                        } else {
+                                            battler_animations.iter().find(|b| b.id == class.battler_animation)
+                                                .map(|b| format!("{:03}: {}", b.id, b.name))
+                                                .unwrap_or_else(|| format!("Animation {}", class.battler_animation))
+                                        }
+                                    )
+                                    .show_ui(ui, |ui| {
+                                        if ui.selectable_value(&mut class.battler_animation, 0, "(None)").clicked() {
+                                            *dirty = true;
+                                        }
+                                        for b in battler_animations {
+                                            if ui.selectable_value(&mut class.battler_animation, b.id, format!("{:03}: {}", b.id, b.name)).clicked() {
+                                                *dirty = true;
+                                            }
+                                        }
+                                    });
+                                ui.end_row();
+                            }
                         });
 
                     ui.separator();

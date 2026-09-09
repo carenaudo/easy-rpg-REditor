@@ -23,6 +23,7 @@ impl SaveViewState {
         ui: &mut egui::Ui,
         project_path: Option<&str>,
         saves: &mut Vec<SaveSlotView>,
+        is_2003: bool,
     ) {
         if saves.is_empty() {
             ui.group(|ui| {
@@ -92,7 +93,12 @@ impl SaveViewState {
                         ui.add_enabled_ui(slot.dirty, |ui| {
                             if ui.button("Save Slot").clicked() {
                                 if let Some(proj) = project_path {
-                                    match lcf_bridge::save_save_slot(proj, &slot.info.file_name, &slot.info) {
+                                    let engine = if is_2003 {
+                                        lcf_bridge::EngineVersion::Engine2003
+                                    } else {
+                                        lcf_bridge::EngineVersion::Engine2000
+                                    };
+                                    match lcf_bridge::save_save_slot_with_engine(proj, &slot.info.file_name, &slot.info, engine) {
                                         Ok(()) => {
                                             slot.save_message = Some(Ok("Saved successfully.".to_string()));
                                             slot.dirty = false;

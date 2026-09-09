@@ -9,6 +9,7 @@ pub const MAX_ASSET_CACHE_ENTRIES: usize = 256;
 pub struct AssetPreviewCache {
     textures: HashMap<String, egui::TextureHandle>,
     access_order: Vec<String>,
+    rtp_path: Option<PathBuf>,
 }
 
 impl AssetPreviewCache {
@@ -19,6 +20,19 @@ impl AssetPreviewCache {
     pub fn clear(&mut self) {
         self.textures.clear();
         self.access_order.clear();
+        self.rtp_path = None;
+    }
+
+    pub fn set_rtp_path(&mut self, path: Option<PathBuf>) {
+        self.rtp_path = path;
+    }
+
+    pub fn get_rtp_path(&mut self) -> Option<&Path> {
+        if self.rtp_path.is_none() {
+            let config = AppPersistentData::load();
+            self.rtp_path = config.get_effective_rtp_path();
+        }
+        self.rtp_path.as_deref()
     }
 
     pub fn len(&self) -> usize {
@@ -41,7 +55,7 @@ impl AssetPreviewCache {
         None
     }
 
-    pub fn find_asset_file(project_path: &str, category: &str, file_name: &str) -> Option<PathBuf> {
+    pub fn find_asset_file_with_rtp(project_path: &str, category: &str, file_name: &str, rtp_dir: Option<&Path>) -> Option<PathBuf> {
         if file_name.is_empty() {
             return None;
         }
@@ -50,18 +64,27 @@ impl AssetPreviewCache {
             return Some(p);
         }
         // 2. Fallback to RTP Directory
-        let config = AppPersistentData::load();
-        if let Some(rtp_dir) = config.get_effective_rtp_path() {
-            if let Some(p) = Self::find_file_in_dir(&rtp_dir, category, file_name) {
+        if let Some(rtp) = rtp_dir {
+            if let Some(p) = Self::find_file_in_dir(rtp, category, file_name) {
                 return Some(p);
             }
         }
         None
     }
 
-    pub fn load_asset_bytes(project_path: &str, category: &str, file_name: &str) -> Option<Vec<u8>> {
-        let p = Self::find_asset_file(project_path, category, file_name)?;
+    pub fn find_asset_file(project_path: &str, category: &str, file_name: &str) -> Option<PathBuf> {
+        let config = AppPersistentData::load();
+        Self::find_asset_file_with_rtp(project_path, category, file_name, config.get_effective_rtp_path().as_deref())
+    }
+
+    pub fn load_asset_bytes_with_rtp(project_path: &str, category: &str, file_name: &str, rtp_dir: Option<&Path>) -> Option<Vec<u8>> {
+        let p = Self::find_asset_file_with_rtp(project_path, category, file_name, rtp_dir)?;
         std::fs::read(p).ok()
+    }
+
+    pub fn load_asset_bytes(project_path: &str, category: &str, file_name: &str) -> Option<Vec<u8>> {
+        let config = AppPersistentData::load();
+        Self::load_asset_bytes_with_rtp(project_path, category, file_name, config.get_effective_rtp_path().as_deref())
     }
 
     pub fn get_or_load(
@@ -85,7 +108,8 @@ impl AssetPreviewCache {
             return Some(tex.clone());
         }
 
-        let bytes = Self::load_asset_bytes(project_path, category, file_name)?;
+        let rtp_dir = self.get_rtp_path().map(|p| p.to_path_buf());
+        let bytes = Self::load_asset_bytes_with_rtp(project_path, category, file_name, rtp_dir.as_deref())?;
         let is_opaque_bg = category == "Panorama" || category == "Title" || category == "GameOver" || category == "Battle" || category == "Battle2";
         let img = crate::tilemap::decode_rpg_image_with_alpha(&bytes, !is_opaque_bg).ok()?;
 

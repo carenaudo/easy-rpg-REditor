@@ -164,12 +164,16 @@ impl<W: Write + Seek> LcfWriter<W> {
     }
 
     pub fn write_int_chunk(&mut self, id: u32, val: i32) -> Result<(), LcfError> {
-        let mut buf = Vec::new();
-        {
-            let mut sub_w = LcfWriter::new(std::io::Cursor::new(&mut buf), self.engine, self.encoder.encoding_name());
-            sub_w.write_int(val)?;
+        let value = val as u32;
+        let mut buf = [0u8; 5];
+        let mut len = 0;
+        for i in (0..=28).rev().step_by(7) {
+            if value >= (1u32 << i) || i == 0 {
+                buf[len] = (((value >> i) & 0x7F) | if i > 0 { 0x80 } else { 0 }) as u8;
+                len += 1;
+            }
         }
-        self.write_chunk(id, &buf)
+        self.write_chunk(id, &buf[..len])
     }
 
     pub fn write_bool_chunk(&mut self, id: u32, val: bool) -> Result<(), LcfError> {
@@ -203,11 +207,11 @@ impl<W: Write + Seek> LcfWriter<W> {
 
 
     pub fn write_rect_chunk(&mut self, id: u32, rect: &Rect) -> Result<(), LcfError> {
-        let mut buf = Vec::new();
-        {
-            let mut sub_w = LcfWriter::new(std::io::Cursor::new(&mut buf), self.engine, self.encoder.encoding_name());
-            sub_w.write_rect(rect)?;
-        }
+        let mut buf = [0u8; 16];
+        buf[0..4].copy_from_slice(&rect.l.to_le_bytes());
+        buf[4..8].copy_from_slice(&rect.t.to_le_bytes());
+        buf[8..12].copy_from_slice(&rect.r.to_le_bytes());
+        buf[12..16].copy_from_slice(&rect.b.to_le_bytes());
         self.write_chunk(id, &buf)
     }
 
@@ -216,19 +220,17 @@ impl<W: Write + Seek> LcfWriter<W> {
     }
 
     pub fn write_vector_i16_chunk(&mut self, id: u32, vec: &[i16]) -> Result<(), LcfError> {
-        let mut buf = Vec::new();
-        {
-            let mut sub_w = LcfWriter::new(std::io::Cursor::new(&mut buf), self.engine, self.encoder.encoding_name());
-            sub_w.write_vector_i16(vec)?;
+        let mut buf = Vec::with_capacity(vec.len() * 2);
+        for &val in vec {
+            buf.extend_from_slice(&val.to_le_bytes());
         }
         self.write_chunk(id, &buf)
     }
 
     pub fn write_bit_array_chunk(&mut self, id: u32, bits: &DBBitArray) -> Result<(), LcfError> {
-        let mut buf = Vec::new();
-        {
-            let mut sub_w = LcfWriter::new(std::io::Cursor::new(&mut buf), self.engine, self.encoder.encoding_name());
-            sub_w.write_bit_array(bits)?;
+        let mut buf = Vec::with_capacity(bits.0.len());
+        for &val in &bits.0 {
+            buf.push(if val { 1 } else { 0 });
         }
         self.write_chunk(id, &buf)
     }
@@ -237,9 +239,9 @@ impl<W: Write + Seek> LcfWriter<W> {
     where
         F: FnOnce(&mut LcfWriter<std::io::Cursor<Vec<u8>>>) -> Result<(), LcfError>,
     {
-        let encoding_name = self.encoder.encoding_name().to_string();
+        let encoding_name = self.encoder.encoding_name();
         let engine = self.engine;
-        let mut sub_w = LcfWriter::new(std::io::Cursor::new(Vec::new()), engine, &encoding_name);
+        let mut sub_w = LcfWriter::new(std::io::Cursor::new(Vec::new()), engine, encoding_name);
         f(&mut sub_w)?;
         let buf = sub_w.stream.into_inner();
         self.write_chunk(id, &buf)?;

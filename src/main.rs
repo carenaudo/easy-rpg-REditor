@@ -810,7 +810,8 @@ impl EditorApp {
                         ui.selectable_value(&mut self.state.db_category, DbCategory::Actors, format!("  Actors ({})", self.state.actors.len()));
                         if self.state.is_2003 {
                             ui.selectable_value(&mut self.state.db_category, DbCategory::Classes, format!("  Classes ({})", self.state.classes.len()));
-                        } else if self.state.db_category == DbCategory::Classes {
+                            ui.selectable_value(&mut self.state.db_category, DbCategory::BattlerAnimations, format!("  Battle Characters ({})", self.state.battler_animations.len()));
+                        } else if self.state.db_category == DbCategory::Classes || self.state.db_category == DbCategory::BattlerAnimations {
                             self.state.db_category = DbCategory::Actors;
                         }
 
@@ -1247,7 +1248,7 @@ impl eframe::App for EditorApp {
                     self.database_view.show(ui, &mut self.state, &mut self.asset_cache, self.audio.as_ref());
                 }
                 ViewMode::Saves => {
-                    self.save_view.show(ui, self.state.project_path.as_deref(), &mut self.state.saves);
+                    self.save_view.show(ui, self.state.project_path.as_deref(), &mut self.state.saves, self.state.is_2003);
                 }
             }
         });

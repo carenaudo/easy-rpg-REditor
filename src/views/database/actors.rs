@@ -1,6 +1,6 @@
 use eframe::egui;
 use crate::dialogs::asset_picker::AssetPickerState;
-use crate::lcf_bridge::{ActorInfo, AttributeInfo, ClassInfo, ItemInfo, SkillInfo, StateInfo};
+use crate::lcf_bridge::{ActorInfo, AttributeInfo, BattlerAnimationInfo, ClassInfo, ItemInfo, SkillInfo, StateInfo};
 use crate::widgets::asset_viewer::{draw_checkerboard, AssetPreviewCache};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -76,6 +76,7 @@ pub fn show_actor_form(
     classes: &[ClassInfo],
     states: &[StateInfo],
     attributes: &[AttributeInfo],
+    battler_animations: &[BattlerAnimationInfo],
     picker: &mut AssetPickerState,
     cache: &mut AssetPreviewCache,
     view_state: &mut ActorViewState,
@@ -162,8 +163,27 @@ pub fn show_actor_form(
                             ui.end_row();
 
                             if is_2003 {
-                                ui.label("Battler Animation ID:");
-                                if ui.add(egui::DragValue::new(&mut actor.battler_animation).range(0..=500)).on_hover_text("RPG2003 Battle Animation / Sprite layout").changed() { *dirty = true; }
+                                ui.label("Battle Character:");
+                                egui::ComboBox::from_id_salt("actor_battler_anim_combo")
+                                    .selected_text(
+                                        if actor.battler_animation == 0 {
+                                            "(None)".to_string()
+                                        } else {
+                                            battler_animations.iter().find(|b| b.id == actor.battler_animation)
+                                                .map(|b| format!("{:03}: {}", b.id, b.name))
+                                                .unwrap_or_else(|| format!("Animation {}", actor.battler_animation))
+                                        }
+                                    )
+                                    .show_ui(ui, |ui| {
+                                        if ui.selectable_value(&mut actor.battler_animation, 0, "(None)").clicked() {
+                                            *dirty = true;
+                                        }
+                                        for b in battler_animations {
+                                            if ui.selectable_value(&mut actor.battler_animation, b.id, format!("{:03}: {}", b.id, b.name)).clicked() {
+                                                *dirty = true;
+                                            }
+                                        }
+                                    });
                                 ui.end_row();
                             }
                         });

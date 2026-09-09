@@ -39,11 +39,14 @@ impl LdbReader {
         let mut reader = LcfReader::new(stream, encoding);
         let header_len = reader.read_int()? as usize;
         let header = reader.read_raw_string(header_len)?;
-        if header != LDB_HEADER {
+        if header.len() != 11 {
             return Err(LcfError::InvalidHeader {
                 expected: LDB_HEADER,
                 found: header,
             });
+        }
+        if header != LDB_HEADER {
+            eprintln!("Warning: Header {} != {} and might not be a valid RPG2000 database.", header, LDB_HEADER);
         }
         let mut db = Database::read_lcf(&mut reader)?;
         let engine = ReaderUtil::get_engine_version(&db);
@@ -54,20 +57,28 @@ impl LdbReader {
     }
 
     pub fn save<P: AsRef<Path>>(path: P, db: &Database, engine: EngineVersion, encoding: &str) -> Result<(), LcfError> {
+        Self::save_with_header(path, db, engine, encoding, LDB_HEADER)
+    }
+
+    pub fn save_with_header<P: AsRef<Path>>(path: P, db: &Database, engine: EngineVersion, encoding: &str, header: &str) -> Result<(), LcfError> {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
-        Self::save_to_writer(&mut writer, db, engine, encoding)
+        Self::save_to_writer_with_header(&mut writer, db, engine, encoding, header)
     }
 
     pub fn save_to_writer<W: Write + Seek>(stream: &mut W, db: &Database, engine: EngineVersion, encoding: &str) -> Result<(), LcfError> {
+        Self::save_to_writer_with_header(stream, db, engine, encoding, LDB_HEADER)
+    }
+
+    pub fn save_to_writer_with_header<W: Write + Seek>(stream: &mut W, db: &Database, engine: EngineVersion, encoding: &str, header: &str) -> Result<(), LcfError> {
         let actual_engine = if engine.is_2k3() || ReaderUtil::get_engine_version(db).is_2k3() {
             EngineVersion::Engine2003
         } else {
             engine
         };
         let mut writer = LcfWriter::new(stream, actual_engine, encoding);
-        writer.write_int(LDB_HEADER.len() as i32)?;
-        writer.write_bytes(LDB_HEADER.as_bytes())?;
+        writer.write_int(header.len() as i32)?;
+        writer.write_bytes(header.as_bytes())?;
         db.write_lcf(&mut writer)?;
         Ok(())
     }

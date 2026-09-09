@@ -134,15 +134,33 @@ impl Default for MapViewState {
 impl MapViewState {
     pub fn refresh_texture(&mut self, ctx: &egui::Context, chipset: &RgbaImage) {
         if let Some(dims) = &self.map_dims {
-            let empty_lower = vec![0; (dims.width * dims.height) as usize];
-            let empty_upper = vec![10000; (dims.width * dims.height) as usize];
-            let lower_ref = if self.show_lower_layer { &dims.lower } else { &empty_lower };
-            let upper_ref = if self.show_upper_layer { &dims.upper } else { &empty_upper };
+            let dummy_lower;
+            let lower_ref = if self.show_lower_layer {
+                &dims.lower
+            } else {
+                dummy_lower = vec![0; (dims.width * dims.height) as usize];
+                &dummy_lower
+            };
+            let dummy_upper;
+            let upper_ref = if self.show_upper_layer {
+                &dims.upper
+            } else {
+                dummy_upper = vec![10000; (dims.width * dims.height) as usize];
+                &dummy_upper
+            };
 
             let map_img = tilemap::render_map(chipset, dims.width, dims.height, lower_ref, upper_ref);
             let size = [map_img.width() as usize, map_img.height() as usize];
             let color_img = egui::ColorImage::from_rgba_unmultiplied(size, &map_img);
-            self.map_texture = Some(ctx.load_texture("map_canvas", color_img, egui::TextureOptions::NEAREST));
+            if let Some(tex) = &mut self.map_texture {
+                if tex.size() == size {
+                    tex.set(color_img, egui::TextureOptions::NEAREST);
+                } else {
+                    self.map_texture = Some(ctx.load_texture("map_canvas", color_img, egui::TextureOptions::NEAREST));
+                }
+            } else {
+                self.map_texture = Some(ctx.load_texture("map_canvas", color_img, egui::TextureOptions::NEAREST));
+            }
         }
     }
 

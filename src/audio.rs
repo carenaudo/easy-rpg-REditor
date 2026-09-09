@@ -52,13 +52,13 @@ impl Iterator for MidiSource {
             if self.sequencer.end_of_sequence() {
                 return None;
             }
-            self.buffer.clear();
+            self.buffer.resize(1024, 0.0);
             let mut left = [0.0f32; 512];
             let mut right = [0.0f32; 512];
             self.sequencer.render(&mut left, &mut right);
             for i in 0..512 {
-                self.buffer.push(left[i]);
-                self.buffer.push(right[i]);
+                self.buffer[i * 2] = left[i];
+                self.buffer[i * 2 + 1] = right[i];
             }
             self.read_pos = 0;
         }

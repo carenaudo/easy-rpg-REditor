@@ -19,6 +19,7 @@ pub struct DatabaseViewState {
     pub states_view: states::StatesView,
     pub terrains_view: terrains::TerrainsView,
     pub animations_view: animations::AnimationsView,
+    pub battler_animations_view: battler_animations::BattlerAnimationsView,
     pub actor_view_state: actors::ActorViewState,
     pub class_view_state: classes::ClassViewState,
     pub troop_view_state: troops::TroopViewState,
@@ -46,6 +47,7 @@ impl Default for DatabaseViewState {
             states_view: states::StatesView::default(),
             terrains_view: terrains::TerrainsView::default(),
             animations_view: animations::AnimationsView::default(),
+            battler_animations_view: battler_animations::BattlerAnimationsView::default(),
             actor_view_state: actors::ActorViewState::default(),
             class_view_state: classes::ClassViewState::default(),
             troop_view_state: troops::TroopViewState::default(),
@@ -90,6 +92,30 @@ impl DatabaseViewState {
                     if let Some(enemy) = app.enemies.get_mut(self.selected_enemy) {
                         enemy.battler_name = graphic_file;
                         app.enemies_dirty = true;
+                    }
+                }
+                "BattleCharSet" => {
+                    if let Some(ba) = app.battler_animations.get_mut(self.battler_animations_view.selected_idx) {
+                        if self.asset_picker.auto_apply_standard_poses {
+                            crate::views::database::battler_animations::apply_standard_2003_poses(
+                                ba,
+                                &graphic_file,
+                                &self.asset_picker.available_files,
+                            );
+                        } else if let Some(pose) = ba.poses.get_mut(self.battler_animations_view.selected_pose_idx) {
+                            pose.battler_name = graphic_file;
+                            pose.battler_index = sub_idx;
+                        }
+                        app.battler_animations_dirty = true;
+                    }
+                }
+                "BattleWeapon" => {
+                    if let Some(ba) = app.battler_animations.get_mut(self.battler_animations_view.selected_idx) {
+                        if let Some(weapon) = ba.weapons.get_mut(self.battler_animations_view.selected_weapon_idx) {
+                            weapon.weapon_name = graphic_file;
+                            weapon.weapon_index = sub_idx;
+                            app.battler_animations_dirty = true;
+                        }
                     }
                 }
                 _ => {}
@@ -148,6 +174,7 @@ impl DatabaseViewState {
             crate::app_state::DbCategory::Terms => (app.terms_dirty, app.terms_save_message.clone()),
             crate::app_state::DbCategory::System => (app.system_dirty, app.system_save_message.clone()),
             crate::app_state::DbCategory::ManiacStringVariables => (app.maniac_string_variables_dirty, app.maniac_string_variables_save_message.clone()),
+            crate::app_state::DbCategory::BattlerAnimations => (app.battler_animations_dirty, app.battler_animations_save_message.clone()),
         };
 
         ui.horizontal(|ui| {
@@ -224,6 +251,18 @@ impl DatabaseViewState {
             }
             crate::app_state::DbCategory::ManiacStringVariables => {
                 switches_vars::show_maniac_string_variables_table(ui, &mut app.maniac_string_variables, &mut self.switch_var_view_state, &mut app.maniac_string_variables_dirty);
+                return;
+            }
+            crate::app_state::DbCategory::BattlerAnimations => {
+                self.battler_animations_view.show(
+                    ui,
+                    &mut app.battler_animations,
+                    &app.animations,
+                    proj.as_deref(),
+                    &mut self.asset_picker,
+                    asset_cache,
+                    &mut app.battler_animations_dirty,
+                );
                 return;
             }
             _ => {}
@@ -673,6 +712,7 @@ impl DatabaseViewState {
                                         &app.classes,
                                         &app.states,
                                         &app.attributes,
+                                        &app.battler_animations,
                                         &mut self.asset_picker,
                                         asset_cache,
                                         &mut self.actor_view_state,
@@ -685,9 +725,11 @@ impl DatabaseViewState {
                                     classes::show_class_form(
                                         ui,
                                         class,
+                                        app.is_2003,
                                         &app.skills,
                                         &app.states,
                                         &app.attributes,
+                                        &app.battler_animations,
                                         &mut self.class_view_state,
                                         &mut app.classes_dirty,
                                     );

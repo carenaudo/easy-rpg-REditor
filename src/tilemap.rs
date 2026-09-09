@@ -42,22 +42,19 @@ pub fn decode_rpg_image_with_alpha(bytes: &[u8], transparent_idx_0: bool) -> ima
 
         let palette = &decompressed[..768];
         let pixels = &decompressed[768..768 + total_pixels];
-        let mut out = RgbaImage::new(width, height);
+        let mut raw = vec![0u8; total_pixels * 4];
 
         for (i, &palette_idx) in pixels.iter().enumerate() {
-            let x = (i as u32) % width;
-            let y = (i as u32) / width;
-            if palette_idx == 0 && transparent_idx_0 {
-                out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
-            } else {
+            if !(palette_idx == 0 && transparent_idx_0) {
                 let p_offset = (palette_idx as usize) * 3;
-                let r = palette[p_offset];
-                let g = palette[p_offset + 1];
-                let b = palette[p_offset + 2];
-                out.put_pixel(x, y, Rgba([r, g, b, 255]));
+                let dst_offset = i * 4;
+                raw[dst_offset] = palette[p_offset];
+                raw[dst_offset + 1] = palette[p_offset + 1];
+                raw[dst_offset + 2] = palette[p_offset + 2];
+                raw[dst_offset + 3] = 255;
             }
         }
-        return Ok(out);
+        return Ok(RgbaImage::from_raw(width, height, raw).unwrap());
     }
 
     // Try indexed PNG decoding directly (so only palette index 0 is transparent when requested)
@@ -70,24 +67,19 @@ pub fn decode_rpg_image_with_alpha(bytes: &[u8], transparent_idx_0: bool) -> ima
                 if let Ok(_) = reader.next_frame(&mut img_data) {
                     let w = info.width;
                     let h = info.height;
-                    let mut out = RgbaImage::new(w, h);
-                    for y in 0..h {
-                        for x in 0..w {
-                            let idx = (y * w + x) as usize;
-                            if idx < img_data.len() {
-                                let p_idx = img_data[idx] as usize;
-                                if p_idx == 0 && transparent_idx_0 {
-                                    out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
-                                } else if (p_idx * 3 + 2) < palette.len() {
-                                    let r = palette[p_idx * 3];
-                                    let g = palette[p_idx * 3 + 1];
-                                    let b = palette[p_idx * 3 + 2];
-                                    out.put_pixel(x, y, Rgba([r, g, b, 255]));
-                                }
-                            }
+                    let total = (w * h) as usize;
+                    let mut raw = vec![0u8; total * 4];
+                    for (i, &p_idx_u8) in img_data.iter().take(total).enumerate() {
+                        let p_idx = p_idx_u8 as usize;
+                        if !(p_idx == 0 && transparent_idx_0) && (p_idx * 3 + 2) < palette.len() {
+                            let dst = i * 4;
+                            raw[dst] = palette[p_idx * 3];
+                            raw[dst + 1] = palette[p_idx * 3 + 1];
+                            raw[dst + 2] = palette[p_idx * 3 + 2];
+                            raw[dst + 3] = 255;
                         }
                     }
-                    return Ok(out);
+                    return Ok(RgbaImage::from_raw(w, h, raw).unwrap());
                 }
             }
         }
@@ -104,25 +96,25 @@ pub fn decode_rpg_image_with_alpha(bytes: &[u8], transparent_idx_0: bool) -> ima
                 let palette = &bytes[54..offset];
                 let row_size = ((width + 3) / 4) * 4; // BMP rows are 4-byte padded
                 if bytes.len() >= offset + (row_size * height) as usize {
-                    let mut out = RgbaImage::new(width, height);
+                    let mut raw = vec![0u8; (width * height * 4) as usize];
                     for y in 0..height {
                         // BMP stores rows bottom-to-top
                         let src_y = height - 1 - y;
                         let row_start = offset + (src_y * row_size) as usize;
+                        let dst_row_start = (y * width * 4) as usize;
                         for x in 0..width {
                             let p_idx = bytes[row_start + x as usize] as usize;
-                            if p_idx == 0 && transparent_idx_0 {
-                                out.put_pixel(x, y, Rgba([0, 0, 0, 0]));
-                            } else if (p_idx * 4 + 2) < palette.len() {
+                            if !(p_idx == 0 && transparent_idx_0) && (p_idx * 4 + 2) < palette.len() {
                                 // BMP palette entries are BGRX
-                                let b = palette[p_idx * 4];
-                                let g = palette[p_idx * 4 + 1];
-                                let r = palette[p_idx * 4 + 2];
-                                out.put_pixel(x, y, Rgba([r, g, b, 255]));
+                                let dst = dst_row_start + (x as usize * 4);
+                                raw[dst] = palette[p_idx * 4 + 2];
+                                raw[dst + 1] = palette[p_idx * 4 + 1];
+                                raw[dst + 2] = palette[p_idx * 4];
+                                raw[dst + 3] = 255;
                             }
                         }
                     }
-                    return Ok(out);
+                    return Ok(RgbaImage::from_raw(width, height, raw).unwrap());
                 }
             }
         }

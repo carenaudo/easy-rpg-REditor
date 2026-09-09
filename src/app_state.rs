@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use crate::lcf_bridge::{
-    self, ActorInfo, AnimationInfo, AttributeInfo, ChipsetInfo, ClassInfo, CommonEventInfo,
-    EnemyInfo, ItemInfo, ManiacStringVariableInfo, MapTreeItem, SkillInfo, StateInfo, SwitchInfo,
-    SystemInfo, TermsInfo, TerrainInfo, TroopInfo, VariableInfo,
+    self, ActorInfo, AnimationInfo, AttributeInfo, BattlerAnimationInfo, ChipsetInfo, ClassInfo,
+    CommonEventInfo, EnemyInfo, ItemInfo, ManiacStringVariableInfo, MapTreeItem, SkillInfo,
+    StateInfo, SwitchInfo, SystemInfo, TermsInfo, TerrainInfo, TroopInfo, VariableInfo,
 };
 use crate::theme::AppTheme;
 use crate::views::save_view::SaveSlotView;
@@ -35,6 +35,7 @@ pub enum DbCategory {
     System,
     Terms,
     ManiacStringVariables,
+    BattlerAnimations,
 }
 
 impl DbCategory {
@@ -59,6 +60,7 @@ impl DbCategory {
             DbCategory::System => rust_i18n::t!("db.system").to_string(),
             DbCategory::Terms => rust_i18n::t!("db.terms").to_string(),
             DbCategory::ManiacStringVariables => rust_i18n::t!("db.maniac_string_variables").to_string(),
+            DbCategory::BattlerAnimations => rust_i18n::t!("db.battler_animations").to_string(),
         }
     }
 }
@@ -343,6 +345,10 @@ pub struct EditorAppState {
     pub maniac_string_variables_dirty: bool,
     pub maniac_string_variables_save_message: Option<Result<String, String>>,
 
+    pub battler_animations: Vec<BattlerAnimationInfo>,
+    pub battler_animations_dirty: bool,
+    pub battler_animations_save_message: Option<Result<String, String>>,
+
     // Saves
     pub saves: Vec<SaveSlotView>,
 
@@ -415,6 +421,9 @@ impl Default for EditorAppState {
             maniac_string_variables: Vec::new(),
             maniac_string_variables_dirty: false,
             maniac_string_variables_save_message: None,
+            battler_animations: Vec::new(),
+            battler_animations_dirty: false,
+            battler_animations_save_message: None,
             saves: Vec::new(),
             config,
         }
@@ -440,6 +449,7 @@ impl EditorAppState {
             || self.system_dirty
             || self.terms_dirty
             || self.maniac_string_variables_dirty
+            || self.battler_animations_dirty
             || self.saves.iter().any(|s| s.dirty)
     }
 
@@ -464,6 +474,7 @@ impl EditorAppState {
             DbCategory::System => (1, self.system_dirty),
             DbCategory::Terms => (1, self.terms_dirty),
             DbCategory::ManiacStringVariables => (self.maniac_string_variables.len(), self.maniac_string_variables_dirty),
+            DbCategory::BattlerAnimations => (self.battler_animations.len(), self.battler_animations_dirty),
         }
     }
 
@@ -538,6 +549,9 @@ impl EditorAppState {
             self.maniac_string_variables = lcf_bridge::get_maniac_string_variables(&path_str);
             self.maniac_string_variables_dirty = false;
             self.maniac_string_variables_save_message = None;
+            self.battler_animations = lcf_bridge::get_battler_animations(&path_str);
+            self.battler_animations_dirty = false;
+            self.battler_animations_save_message = None;
             self.saves = lcf_bridge::list_saves(&path_str)
                 .into_iter()
                 .map(|info| SaveSlotView { info, dirty: false, save_message: None })
@@ -556,6 +570,7 @@ impl EditorAppState {
             self.common_events.clear();
             self.switches.clear();
             self.variables.clear();
+            self.battler_animations.clear();
             self.system = None;
             self.terms = None;
             self.maniac = lcf_bridge::ManiacDetection::default();
@@ -579,37 +594,81 @@ impl EditorAppState {
         let Some(path) = self.project_path.clone() else { return Vec::new() };
         let mut errors = Vec::new();
 
-        macro_rules! save_if_dirty {
-            ($category:expr, $dirty_field:ident, $label:literal) => {
-                if self.$dirty_field {
-                    self.save_category(&path, $category);
-                    if self.$dirty_field {
-                        errors.push(format!("{} failed to save.", $label));
-                    }
-                }
+        let any_db_dirty = self.actors_dirty
+            || self.classes_dirty
+            || self.items_dirty
+            || self.skills_dirty
+            || self.attributes_dirty
+            || self.enemies_dirty
+            || self.troops_dirty
+            || self.common_events_dirty
+            || self.switches_dirty
+            || self.variables_dirty
+            || self.chipsets_dirty
+            || self.states_dirty
+            || self.terrains_dirty
+            || self.animations_dirty
+            || self.system_dirty
+            || self.terms_dirty
+            || self.battler_animations_dirty;
+
+        if any_db_dirty {
+            let edits = lcf_bridge::DatabaseEdits {
+                actors: if self.actors_dirty { Some(&self.actors) } else { None },
+                classes: if self.classes_dirty { Some(&self.classes) } else { None },
+                items: if self.items_dirty { Some(&self.items) } else { None },
+                skills: if self.skills_dirty { Some(&self.skills) } else { None },
+                attributes: if self.attributes_dirty { Some(&self.attributes) } else { None },
+                enemies: if self.enemies_dirty { Some(&self.enemies) } else { None },
+                troops: if self.troops_dirty { Some(&self.troops) } else { None },
+                common_events: if self.common_events_dirty { Some(&self.common_events) } else { None },
+                switches: if self.switches_dirty { Some(&self.switches) } else { None },
+                variables: if self.variables_dirty { Some(&self.variables) } else { None },
+                chipsets: if self.chipsets_dirty { Some(&self.chipsets) } else { None },
+                states: if self.states_dirty { Some(&self.states) } else { None },
+                terrains: if self.terrains_dirty { Some(&self.terrains) } else { None },
+                animations: if self.animations_dirty { Some(&self.animations) } else { None },
+                system: if self.system_dirty { self.system.as_ref() } else { None },
+                terms: if self.terms_dirty { self.terms.as_ref() } else { None },
+                maniac_string_variables: None,
+                battler_animations: if self.battler_animations_dirty { Some(&self.battler_animations) } else { None },
             };
+
+            match lcf_bridge::save_database_batch(&path, &edits) {
+                Ok(()) => {
+                    if self.actors_dirty { self.actors_save_message = Some(Ok("Actors saved successfully.".to_string())); self.actors_dirty = false; }
+                    if self.classes_dirty { self.classes_save_message = Some(Ok("Classes saved successfully.".to_string())); self.classes_dirty = false; }
+                    if self.items_dirty { self.items_save_message = Some(Ok("Items saved successfully.".to_string())); self.items_dirty = false; }
+                    if self.skills_dirty { self.skills_save_message = Some(Ok("Skills saved successfully.".to_string())); self.skills_dirty = false; }
+                    if self.attributes_dirty { self.attributes_save_message = Some(Ok("Attributes saved successfully.".to_string())); self.attributes_dirty = false; }
+                    if self.enemies_dirty { self.enemies_save_message = Some(Ok("Enemies saved successfully.".to_string())); self.enemies_dirty = false; }
+                    if self.troops_dirty { self.troops_save_message = Some(Ok("Troops saved successfully.".to_string())); self.troops_dirty = false; }
+                    if self.common_events_dirty { self.common_events_save_message = Some(Ok("Common Events saved successfully.".to_string())); self.common_events_dirty = false; }
+                    if self.switches_dirty { self.switches_save_message = Some(Ok("Switches saved successfully.".to_string())); self.switches_dirty = false; }
+                    if self.variables_dirty { self.variables_save_message = Some(Ok("Variables saved successfully.".to_string())); self.variables_dirty = false; }
+                    if self.chipsets_dirty { self.chipsets_save_message = Some(Ok("Chipsets saved successfully.".to_string())); self.chipsets_dirty = false; }
+                    if self.states_dirty { self.states_save_message = Some(Ok("States saved successfully.".to_string())); self.states_dirty = false; }
+                    if self.terrains_dirty { self.terrains_save_message = Some(Ok("Terrains saved successfully.".to_string())); self.terrains_dirty = false; }
+                    if self.animations_dirty { self.animations_save_message = Some(Ok("Animations saved successfully.".to_string())); self.animations_dirty = false; }
+                    if self.system_dirty { self.system_save_message = Some(Ok("System saved successfully.".to_string())); self.system_dirty = false; }
+                    if self.terms_dirty { self.terms_save_message = Some(Ok("Terms saved successfully.".to_string())); self.terms_dirty = false; }
+                    if self.battler_animations_dirty { self.battler_animations_save_message = Some(Ok("Battle characters saved successfully.".to_string())); self.battler_animations_dirty = false; }
+                }
+                Err(e) => {
+                    errors.push(format!("Database batch save failed: {e}"));
+                }
+            }
         }
 
-        save_if_dirty!(DbCategory::Actors, actors_dirty, "Actors");
-        save_if_dirty!(DbCategory::Classes, classes_dirty, "Classes");
-        save_if_dirty!(DbCategory::Items, items_dirty, "Items");
-        save_if_dirty!(DbCategory::Skills, skills_dirty, "Skills");
-        save_if_dirty!(DbCategory::Attributes, attributes_dirty, "Attributes");
-        save_if_dirty!(DbCategory::Enemies, enemies_dirty, "Enemies");
-        save_if_dirty!(DbCategory::Troops, troops_dirty, "Troops");
-        save_if_dirty!(DbCategory::CommonEvents, common_events_dirty, "Common Events");
-        save_if_dirty!(DbCategory::Switches, switches_dirty, "Switches");
-        save_if_dirty!(DbCategory::Variables, variables_dirty, "Variables");
-        save_if_dirty!(DbCategory::Chipsets, chipsets_dirty, "Chipsets");
-        save_if_dirty!(DbCategory::States, states_dirty, "States");
-        save_if_dirty!(DbCategory::Terrains, terrains_dirty, "Terrains");
-        save_if_dirty!(DbCategory::Animations, animations_dirty, "Animations");
-        save_if_dirty!(DbCategory::System, system_dirty, "System");
-        save_if_dirty!(DbCategory::Terms, terms_dirty, "Terms");
+        let engine = if self.is_2003 {
+            lcf_bridge::EngineVersion::Engine2003
+        } else {
+            lcf_bridge::EngineVersion::Engine2000
+        };
 
         for slot in &mut self.saves {
             if slot.dirty {
-                match lcf_bridge::save_save_slot(&path, &slot.info.file_name, &slot.info) {
+                match lcf_bridge::save_save_slot_with_engine(&path, &slot.info.file_name, &slot.info, engine) {
                     Ok(()) => {
                         slot.save_message = Some(Ok("Saved successfully.".to_string()));
                         slot.dirty = false;
@@ -784,6 +843,15 @@ impl EditorAppState {
                     Err(e) => self.maniac_string_variables_save_message = Some(Err(e)),
                 }
             }
+            DbCategory::BattlerAnimations => {
+                match lcf_bridge::save_battler_animations(path, &self.battler_animations) {
+                    Ok(()) => {
+                        self.battler_animations_save_message = Some(Ok("Battle characters saved successfully.".to_string()));
+                        self.battler_animations_dirty = false;
+                    }
+                    Err(e) => self.battler_animations_save_message = Some(Err(e)),
+                }
+            }
         }
     }
 
@@ -878,6 +946,11 @@ impl EditorAppState {
                 self.maniac_string_variables = lcf_bridge::get_maniac_string_variables(path);
                 self.maniac_string_variables_dirty = false;
                 self.maniac_string_variables_save_message = None;
+            }
+            DbCategory::BattlerAnimations => {
+                self.battler_animations = lcf_bridge::get_battler_animations(path);
+                self.battler_animations_dirty = false;
+                self.battler_animations_save_message = None;
             }
         }
     }

@@ -1,26 +1,44 @@
-# Walkthrough - 100% Full API-Level Parity `liblcf` Port
+# `lcf-core` and `lcf-codegen`
 
-We have achieved complete 100% API-level feature parity with C++ `liblcf`, delivering a pure-Rust library (`lcf-core`) and schema generator (`lcf-codegen`) without any external C/C++ or toolchain dependencies.
+A pure-Rust implementation of the LCF binary formats (`lcf-core`) and the schema generator
+that produces it (`lcf-codegen`), with no C/C++ dependency and no external toolchain
+required to build.
 
----
+## Status: alpha
 
-## Complete Feature Matrix
+This is alpha software and should be treated as such.
 
-| Subsystem | Components & Capabilities |
+An earlier version of this document opened by claiming "complete 100% API-level feature
+parity with C++ `liblcf`." **That claim was wrong and has been removed.** Nobody enumerated
+liblcf's API surface and verified it item by item; what actually exists is the subsystem
+coverage listed below and the round-trip tests at the end of this page. Those are a real but
+narrow result, and they are not a parity measurement.
+
+Concretely, what is *not* established:
+
+- Parity with liblcf's public API has not been measured.
+- The round-trip corpus is a handful of real and synthetic projects, not the range of real
+  RPG Maker games in the wild.
+- Write paths can corrupt project data. Keep backups of anything you open.
+
+## Implemented subsystems
+
+"Implemented" here means present and exercised by the tests below where those tests cover it
+— not that every behaviour has been verified against liblcf.
+
+| Subsystem | Components & capabilities |
 |---|---|
-| **Binary File Formats** | **`.ldb` (Database)**, **`.lmt` (MapTree)**, **`.lmu` (Map)**, **`.lsd` (SaveData)** |
-| **All 70 Data Structs** | 38 Database structs + 5 MapTree structs + 5 MapUnit structs + 20 SaveData structs + EasyRPG extensions |
-| **Typed Enums** | 73 strongly typed Rust enums with `repr(i32)` and keyword sanitation |
-| **Text Encoding Engine** | Multi-codepage translation via `encoding_rs` (Shift-JIS, Windows-1250..1258, GBK, EUC-KR, Big5, UTF-8) |
-| **`ReaderUtil` Subsystem** | Automatic encoding detection heuristic (`detect_encoding`), `codepage_to_encoding`, `encoding_to_codepage`, `get_engine_version`, Delphi OLE `to_t_date_time` & `to_unix_timestamp`, `generate_timestamp` |
-| **`Setup` Subsystem** | Project & actor template setup (`actor`, `parameters`) for level cap migrations and stats initialization |
-| **`IniReader` Subsystem** | Section-aware, case-insensitive INI configuration parser reading `RPG_RT.ini` and EasyRPG config |
-| **XML Subsystem** | Complete XML serialization (`save_xml` / `save_xml_to_writer`) matching official tags |
-| **Editor Integration** | Native Rust bridge in `easy-rpg REditor` replacing all FFI and MSVC static linking |
+| **Binary file formats** | **`.ldb` (Database)**, **`.lmt` (MapTree)**, **`.lmu` (Map)**, **`.lsd` (SaveData)** |
+| **Data structs** | 70 total: 38 Database + 5 MapTree + 5 MapUnit + 20 SaveData, EasyRPG extensions included |
+| **Typed enums** | 73 Rust enums with `repr(i32)` and keyword sanitation |
+| **Text encoding** | Multi-codepage translation via `encoding_rs` (Shift-JIS, Windows-1250..1258, GBK, EUC-KR, Big5, UTF-8) |
+| **`ReaderUtil`** | Encoding detection heuristic (`detect_encoding`), `codepage_to_encoding`, `encoding_to_codepage`, `get_engine_version`, Delphi OLE `to_t_date_time` & `to_unix_timestamp`, `generate_timestamp` |
+| **`Setup`** | Project & actor template setup (`actor`, `parameters`) for level-cap migrations and stats initialisation |
+| **`IniReader`** | Section-aware, case-insensitive INI parser for `RPG_RT.ini` and EasyRPG config |
+| **XML** | Serialisation (`save_xml` / `save_xml_to_writer`) using the official tag names |
+| **Editor integration** | Native Rust bridge in `easy-rpg REditor`, replacing the FFI and MSVC static linking |
 
----
-
-## Test Results
+## Test results
 
 ```text
 running 8 tests
@@ -35,3 +53,10 @@ test test_lmu_roundtrip_all_maps_2000 ... ok (80 maps)
 
 test result: ok. 8 passed; 0 failed; 0 ignored; finished in 1.24s
 ```
+
+What this shows: for the project files in the test corpus, reading a file and writing it
+back produces a byte-identical result, so the chunk machinery, default-value rules and
+string encoding survive a full round trip on those inputs.
+
+What it does not show: correctness on files outside the corpus, or completeness relative to
+liblcf.
